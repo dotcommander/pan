@@ -1,0 +1,310 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{.Title}} — Pipeline Flow</title>
+<style>
+{{.CSS}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>{{.Title}} — Pipeline Flow</h1>
+  {{if .Breadcrumb}}<div class="breadcrumb">{{.Breadcrumb}}</div>{{end}}
+  {{with .Coverage}}
+  <div class="coverage-wrap">
+    <span class="coverage{{if .IsLow}} coverage-amber{{else}} coverage-green{{end}}">{{.Represented}} / {{.Total}} files</span>
+    {{if .Missing}}
+    <details class="coverage-missing">
+      <summary>{{len .Missing}} unreferenced</summary>
+      <ul>
+        {{range .Missing}}<li>{{.}}</li>{{end}}
+      </ul>
+    </details>
+    {{end}}
+  </div>
+  {{end}}
+</header>
+
+{{if .HasLoop}}
+  {{range $p := .PrePhases}}
+  {{$num := $.PhaseOrdinal $p.Name}}
+  {{if gt $num 1}}<div class="phase-gap"></div>{{end}}
+  <section class="phase">
+    <div class="phase-index" data-num="{{$num}}">
+      <div class="num">{{$num}}</div>
+      <div class="kind">{{$p.Kind}}</div>
+    </div>
+    <div class="phase-body">
+      <div class="label">{{$p.Name}}{{if $p.Description}} — {{$p.Description}}{{end}}{{if $p.Scope}}<span class="scope-pill scope-{{$p.Scope}}">{{$p.Scope}}</span>{{end}}</div>
+      <div class="chips">
+        {{range $j, $st := $p.Stages}}
+          {{if $j}}<span class="arrow">→</span>{{end}}
+          {{if $st.IsChip}}{{template "chip" $st.Chip}}
+          {{else if $st.IsFork}}{{template "fork" $st.Fork}}
+          {{else if $st.IsFanout}}{{template "fanoutGate" $st.Fanout}}
+          {{else if $st.IsExternal}}{{template "external" $st.External}}
+          {{end}}
+        {{end}}
+      </div>
+      {{range $p.Stages}}
+        {{if .IsFanout}}{{template "fanoutGrid" .Fanout}}{{end}}
+      {{end}}
+      {{if $p.Sources}}
+      <div class="sources">
+        {{range $p.Sources}}<span class="src-pill">{{.}}</span>{{end}}
+      </div>
+      {{end}}
+      {{if $p.TruncatedCount}}
+      <div class="phase-truncated">+{{$p.TruncatedCount}} more</div>
+      {{end}}
+      {{if $p.Files}}
+      <div class="caption">{{joinFiles $p.Files}}</div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+  {{if .PrePhases}}<div class="phase-gap"></div>{{end}}
+
+  <div class="loop-container">
+    <div class="loop-header">
+      <span class="loop-badge">⟳ Loop{{with .Loop.Max}} · max {{.}}{{end}}</span>
+      {{with .Loop.ExitConditions}}
+      <span class="loop-exit-summary">
+        <span class="loop-exit-label">exit:</span> {{joinFiles .}}
+      </span>
+      {{end}}
+    </div>
+    <div class="loop-phases">
+      {{range $k, $p := .BodyPhases}}
+      {{if $k}}<div class="phase-gap"></div>{{end}}
+      {{$num := $.PhaseOrdinal $p.Name}}
+      <section class="phase">
+        <div class="phase-index" data-num="{{$num}}">
+          <div class="num">{{$num}}</div>
+          <div class="kind">{{$p.Kind}}</div>
+        </div>
+        <div class="phase-body">
+          <div class="label">{{$p.Name}}{{if $p.Description}} — {{$p.Description}}{{end}}{{if $p.Scope}}<span class="scope-pill scope-{{$p.Scope}}">{{$p.Scope}}</span>{{end}}</div>
+          <div class="chips">
+            {{range $j, $st := $p.Stages}}
+              {{if $j}}<span class="arrow">→</span>{{end}}
+              {{if $st.IsChip}}{{template "chip" $st.Chip}}
+              {{else if $st.IsFork}}{{template "fork" $st.Fork}}
+              {{else if $st.IsFanout}}{{template "fanoutGate" $st.Fanout}}
+              {{else if $st.IsExternal}}{{template "external" $st.External}}
+              {{end}}
+            {{end}}
+          </div>
+          {{range $p.Stages}}
+            {{if .IsFanout}}{{template "fanoutGrid" .Fanout}}{{end}}
+          {{end}}
+          {{if $p.Sources}}
+          <div class="sources">
+            {{range $p.Sources}}<span class="src-pill">{{.}}</span>{{end}}
+          </div>
+          {{end}}
+          {{if $p.TruncatedCount}}
+          <div class="phase-truncated">+{{$p.TruncatedCount}} more</div>
+          {{end}}
+          {{if $p.Files}}
+          <div class="caption">{{joinFiles $p.Files}}</div>
+          {{end}}
+        </div>
+      </section>
+      {{end}}
+    </div>
+  </div>
+
+  {{if .PostPhases}}
+  <div class="phase-gap"></div>
+  {{range $p := .PostPhases}}
+  {{$num := $.PhaseOrdinal $p.Name}}
+  <section class="phase">
+    <div class="phase-index" data-num="{{$num}}">
+      <div class="num">{{$num}}</div>
+      <div class="kind">{{$p.Kind}}</div>
+    </div>
+    <div class="phase-body">
+      <div class="label">{{$p.Name}}{{if $p.Description}} — {{$p.Description}}{{end}}{{if $p.Scope}}<span class="scope-pill scope-{{$p.Scope}}">{{$p.Scope}}</span>{{end}}</div>
+      <div class="chips">
+        {{range $j, $st := $p.Stages}}
+          {{if $j}}<span class="arrow">→</span>{{end}}
+          {{if $st.IsChip}}{{template "chip" $st.Chip}}
+          {{else if $st.IsFork}}{{template "fork" $st.Fork}}
+          {{else if $st.IsFanout}}{{template "fanoutGate" $st.Fanout}}
+          {{else if $st.IsExternal}}{{template "external" $st.External}}
+          {{end}}
+        {{end}}
+      </div>
+      {{range $p.Stages}}
+        {{if .IsFanout}}{{template "fanoutGrid" .Fanout}}{{end}}
+      {{end}}
+      {{if $p.Sources}}
+      <div class="sources">
+        {{range $p.Sources}}<span class="src-pill">{{.}}</span>{{end}}
+      </div>
+      {{end}}
+      {{if $p.TruncatedCount}}
+      <div class="phase-truncated">+{{$p.TruncatedCount}} more</div>
+      {{end}}
+      {{if $p.Files}}
+      <div class="caption">{{joinFiles $p.Files}}</div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+  {{end}}
+{{else}}
+  {{range $i, $p := .Phases}}
+  {{if $i}}<div class="phase-gap"></div>{{end}}
+  <section class="phase">
+    <div class="phase-index" data-num="{{inc $i}}">
+      <div class="num">{{inc $i}}</div>
+      <div class="kind">{{$p.Kind}}</div>
+    </div>
+    <div class="phase-body">
+      <div class="label">{{$p.Name}}{{if $p.Description}} — {{$p.Description}}{{end}}{{if $p.Scope}}<span class="scope-pill scope-{{$p.Scope}}">{{$p.Scope}}</span>{{end}}</div>
+      <div class="chips">
+        {{range $j, $st := $p.Stages}}
+          {{if $j}}<span class="arrow">→</span>{{end}}
+          {{if $st.IsChip}}{{template "chip" $st.Chip}}
+          {{else if $st.IsFork}}{{template "fork" $st.Fork}}
+          {{else if $st.IsFanout}}{{template "fanoutGate" $st.Fanout}}
+          {{else if $st.IsExternal}}{{template "external" $st.External}}
+          {{end}}
+        {{end}}
+      </div>
+      {{range $p.Stages}}
+        {{if .IsFanout}}{{template "fanoutGrid" .Fanout}}{{end}}
+      {{end}}
+      {{if $p.Sources}}
+      <div class="sources">
+        {{range $p.Sources}}<span class="src-pill">{{.}}</span>{{end}}
+      </div>
+      {{end}}
+      {{if $p.TruncatedCount}}
+      <div class="phase-truncated">+{{$p.TruncatedCount}} more</div>
+      {{end}}
+      {{if $p.Files}}
+      <div class="caption">{{joinFiles $p.Files}}</div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+{{end}}
+
+{{if .Commands}}
+<div class="commands">
+  {{range .Commands}}
+  <section class="command-lane">
+    <h2 class="command-name">{{.Name}}{{if .Description}}<small>{{.Description}}</small>{{end}}</h2>
+    <div class="phases">
+      {{range $i, $p := .Phases}}
+      {{if $i}}<div class="phase-gap"></div>{{end}}
+      <section class="phase">
+        <div class="phase-index" data-num="{{inc $i}}">
+          <div class="num">{{inc $i}}</div>
+          <div class="kind">{{$p.Kind}}</div>
+        </div>
+        <div class="phase-body">
+          <div class="label">{{$p.Name}}{{if $p.Description}} — {{$p.Description}}{{end}}{{if $p.Scope}}<span class="scope-pill scope-{{$p.Scope}}">{{$p.Scope}}</span>{{end}}</div>
+          <div class="chips">
+            {{range $j, $st := $p.Stages}}
+              {{if $j}}<span class="arrow">→</span>{{end}}
+              {{if $st.IsChip}}{{template "chip" $st.Chip}}
+              {{else if $st.IsFork}}{{template "fork" $st.Fork}}
+              {{else if $st.IsFanout}}{{template "fanoutGate" $st.Fanout}}
+              {{else if $st.IsExternal}}{{template "external" $st.External}}
+              {{end}}
+            {{end}}
+          </div>
+          {{range $p.Stages}}
+            {{if .IsFanout}}{{template "fanoutGrid" .Fanout}}{{end}}
+          {{end}}
+          {{if $p.Sources}}
+          <div class="sources">
+            {{range $p.Sources}}<span class="src-pill">{{.}}</span>{{end}}
+          </div>
+          {{end}}
+          {{if $p.TruncatedCount}}
+          <div class="phase-truncated">+{{$p.TruncatedCount}} more</div>
+          {{end}}
+          {{if $p.Files}}
+          <div class="caption">{{joinFiles $p.Files}}</div>
+          {{end}}
+        </div>
+      </section>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Stores}}
+<div class="persistence">
+  <div class="label">Side effects — persistent stores (off the spine)</div>
+  {{range .Stores}}
+  <div class="store-row">
+    <div class="store">{{.Name}}</div>
+    <div class="writers">{{writerVerb .Writers}} {{range .Writers}}<code>{{.Stage}}</code> {{end}}{{with writerNote .Writers}}({{.}}){{end}}</div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+<div class="legend">
+  <span class="stage">stage</span>
+  <span class="gate">conditional gate</span>
+  <span class="io">I/O boundary</span>
+  <span class="external">external component</span>
+  <span class="store">persistent store</span>
+</div>
+
+</body>
+</html>
+{{end}}
+
+{{define "chip"}}
+{{- $abs := absPath .SourceFile -}}
+{{if $abs}}<a class="chip-link chip{{with .Style}} {{.}}{{end}}{{if .Wide}} wide{{end}}" href="vscode://file/{{$abs}}{{if .SourceLine}}:{{.SourceLine}}{{end}}">{{.Label}}{{with .Subtitle}}<span class="sub">{{.}}</span>{{end}}</a>
+{{else}}<div class="chip{{with .Style}} {{.}}{{end}}{{if .Wide}} wide{{end}}">{{.Label}}{{with .Subtitle}}<span class="sub">{{.}}</span>{{end}}</div>
+{{end -}}
+{{end}}
+
+{{define "fork"}}
+<div class="fork">
+  <div class="chip gate">{{.Gate}}</div>
+  <div class="fork-branches">
+    {{range .Branches}}
+    {{- $abs := absPath .SourceFile -}}
+    <div class="branch"><span class="cond">{{.Condition}} →</span>{{if $abs}}<a class="chip-link chip{{if .Wide}} wide{{end}}" href="vscode://file/{{$abs}}{{if .SourceLine}}:{{.SourceLine}}{{end}}">{{.Label}}{{with .Subtitle}}<span class="sub">{{.}}</span>{{end}}</a>{{else}}<div class="chip{{if .Wide}} wide{{end}}">{{.Label}}{{with .Subtitle}}<span class="sub">{{.}}</span>{{end}}</div>{{end}}</div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "fanoutGate"}}
+<div class="chip gate">{{.Gate}}</div>
+{{end}}
+
+{{define "fanoutGrid"}}
+<div class="fanout">
+  {{range .Targets}}
+  <div class="target"><span class="flag">{{.Flag}}</span>{{.Label}}{{with .Sublabel}}<span class="sub">{{.}}</span>{{end}}</div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "external"}}
+{{- $abs := absPath .SourceFile -}}
+{{if $abs}}<a class="chip-link chip chip--external" href="vscode://file/{{$abs}}{{if .SourceLine}}:{{.SourceLine}}{{end}}">
+  <span class="ext-kind">{{.Kind}}</span>
+  {{.Label}}{{with .Note}}<span class="sub">{{.}}</span>{{end}}
+</a>{{else}}<div class="chip chip--external">
+  <span class="ext-kind">{{.Kind}}</span>
+  {{.Label}}{{with .Note}}<span class="sub">{{.}}</span>{{end}}
+</div>{{end}}
+{{end}}

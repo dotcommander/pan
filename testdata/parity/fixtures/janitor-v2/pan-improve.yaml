@@ -1,0 +1,2 @@
+test_timeout: 30s
+state_dir: /private/tmp/pan-parity-janitor-state

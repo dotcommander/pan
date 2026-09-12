@@ -1,0 +1,2074 @@
+{
+  "schema": "pan.input-coverage/v1",
+  "seed": "commands.json",
+  "status": "complete source CLI input inventory with bounded behavioral evidence",
+  "commands": [
+    {
+      "source": "repomap map",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--tokens",
+          "required_cases": [
+            "default 2048",
+            "negative rejected",
+            "positive 64",
+            "zero rejected"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--map-format",
+          "required_cases": [
+            "compact",
+            "default enriched",
+            "detail",
+            "lines",
+            "verbose",
+            "xml"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--json-structured",
+          "required_cases": [
+            "enabled JSON structured envelope",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls",
+          "required_cases": [
+            "enabled",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls-threshold",
+          "required_cases": [
+            "default 2",
+            "positive 1"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls-limit",
+          "required_cases": [
+            "default 10",
+            "positive 1"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls-include-tests",
+          "required_cases": [
+            "enabled",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--intent",
+          "required_cases": [
+            "health",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--consumed",
+          "required_cases": [
+            "main.go",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--symbol-refs",
+          "required_cases": [
+            "enabled",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--explain",
+          "required_cases": [
+            "enabled",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--include-tests",
+          "required_cases": [
+            "enabled",
+            "omitted"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--artifact",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context map",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap brief",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context brief",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap find",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--kind",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--file",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--format",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context find",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap task",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--consumed",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context task",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap context",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--kind",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--file",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-source-lines",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-output-lines",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-output-bytes",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls-include-tests",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--calls-limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context symbol",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap explain",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context explain",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap audit hygiene",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "scan hygiene",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap audit brief",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--top-files",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--language",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--history-window",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--refactor-signatures",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "review brief",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap audit risks",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--top-files",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--language",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "review risks",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap audit surface",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--top-files",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--language",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "scan surface",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap audit effects",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--limit",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--top-files",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--language",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--kind",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--paths-only",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "scan effects",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap impact",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context impact",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap inventory",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--boundary",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "scan inventory",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap endpoint",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-output-lines",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context endpoint",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap orphans",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "scan orphans",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap cache status",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--cache-dir",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "cache status",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap cache warm",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--cache-dir",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "cache warm",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap init",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--force",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--no-hook",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--no-config",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context init",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap lsp status",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context lsp status",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap lsp refs",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context lsp refs",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap lsp def",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context lsp def",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap lsp hover",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context lsp hover",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap lsp symbols",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "context lsp symbols",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repomap serve",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "bounded behavioral invocation"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repomap-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "agent serve",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow scan",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--update",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--force",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-phases",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-stages",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow scan",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow init",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--force",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow init",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow config",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--setup",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--force",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow config",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow render",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--open",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow render",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow validate",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow validate",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow review",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--strict",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow review",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow version",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "version",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow impact",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--spec",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--text",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--markdown",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow blast",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow serve",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--port",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--bind",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--open",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow serve",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoflow storyboard",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--document-format",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--view",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--review",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--compare",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--command-help",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--audit-json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--audit-markdown",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--refresh-spec",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--refresh-after",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-phases",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        },
+        {
+          "name": "--max-stages",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoflow-retirement-verification-2026-09-12.json"
+        }
+      ],
+      "pan": "flow storyboard",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither version",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-version-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-version-2026-09-12.json"
+        }
+      ],
+      "pan": "version",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither doctor",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "scan doctor",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither outputs",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "review outputs",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither report",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--out",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--top",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-bytes",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--days",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--patterns",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--focus",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--include",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--exclude",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--why-top",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--inventory",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--model",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--base-url",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--api-key-env",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--local",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--summary",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--cull",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--no-cache",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "review report",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither agent",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--outcomes",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "agent stdio",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "slither eval",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--outcomes",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--report",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--json",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--markdown",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--output",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/slither-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "review eval",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoclean report",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default or omitted",
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-depth",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--stale-days",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "clean plan",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoclean findings",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default or omitted",
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-depth",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--stale-days",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "clean findings",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoclean exec",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default or omitted",
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-depth",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--stale-days",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "clean commands",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoclean apply",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--confirm",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "clean apply",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "repoclean missing",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default or omitted",
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-depth",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--stale-days",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/repoclean-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "clean missing",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor refactor",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default guarded path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--dry-run",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--deadcode",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--trace-mode",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "improve refactor",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor prep",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "default guarded path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--dry-run",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--floor",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--request-timeout",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--request-interval",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--corrective-timeout",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--time-budget",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--to-floor",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        },
+        {
+          "name": "--max-files",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-runtime-2026-09-12.json"
+        }
+      ],
+      "pan": "improve prep",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor next",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        }
+      ],
+      "pan": "improve recommend",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor stats",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        }
+      ],
+      "pan": "improve stats",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor census",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        },
+        {
+          "name": "--coverprofile",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        },
+        {
+          "name": "--timeout",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-readonly-2026-09-12.json"
+        }
+      ],
+      "pan": "improve census",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    },
+    {
+      "source": "janitor probe",
+      "inputs": [
+        {
+          "name": "default invocation",
+          "required_cases": [
+            "successful default path"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-probe-2026-09-12.json"
+        },
+        {
+          "name": "--config",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-probe-2026-09-12.json"
+        },
+        {
+          "name": "--trace",
+          "required_cases": [
+            "default or omitted",
+            "each supported mode after source inventory",
+            "enabled or explicit value"
+          ],
+          "status": "verified_bounded",
+          "evidence": "receipts/janitor-retirement-probe-2026-09-12.json"
+        }
+      ],
+      "pan": "improve probe",
+      "inventory": "complete source CLI inventory; bounded cases are declared per input and tied to behavioral receipts"
+    }
+  ]
+}

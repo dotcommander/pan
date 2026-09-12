@@ -1,0 +1,65 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "repoclean/read-only-defaults-v2",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/repoclean",
+    "testdata/parity/fixtures/repoclean-v2"
+  ],
+  "cases": [
+    {
+      "id": "report-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["--path", ".", "--report"],
+      "pan_args": ["--repo", ".", "clean", "plan"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repoclean report", "pan": "clean plan", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "findings-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["--path", ".", "--findings"],
+      "pan_args": ["--repo", ".", "clean", "findings"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repoclean findings", "pan": "clean findings", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "commands-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["--path", ".", "--exec"],
+      "pan_args": ["--repo", ".", "clean", "commands"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repoclean exec", "pan": "clean commands", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "apply-dry-run-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["--path", ".", "--apply"],
+      "pan_args": ["--repo", ".", "clean", "apply"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repoclean apply", "pan": "clean apply", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "missing-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["--path", ".", "--missing"],
+      "pan_args": ["--repo", ".", "clean", "missing"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repoclean missing", "pan": "clean missing", "input": "default invocation", "required_case": "successful default path"}]
+    }
+  ]
+}

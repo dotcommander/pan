@@ -1,0 +1,447 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "janitor guarded disposable runtime: source rejects unavailable local analysis while Pan completes isolated dry-run",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/janitor/cmd",
+    ".work/janitor/internal",
+    ".work/janitor/pkg",
+    ".work/janitor/go.mod",
+    ".work/janitor/go.sum",
+    "testdata/parity/fixtures/janitor-v2"
+  ],
+  "cases": [
+    {
+      "id": "refactor-guarded-explicit",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "refactor",
+        ".",
+        "--dry-run",
+        "--deadcode",
+        "--trace-mode",
+        "off",
+        "--config",
+        "janitor.yaml"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "refactor",
+        "--dry-run",
+        "--deadcode",
+        "--trace-mode",
+        "off",
+        "--config",
+        "pan-improve.yaml"
+      ],
+      "source_exit": 1,
+      "pan_exit": 0,
+      "assertion": "source-failure-pan-success",
+      "claims": [
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "prep-guarded-explicit",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "prep",
+        ".",
+        "--dry-run",
+        "--floor",
+        "0.9",
+        "--request-timeout",
+        "1ms",
+        "--request-interval",
+        "0s",
+        "--corrective-timeout",
+        "1ms",
+        "--time-budget",
+        "1ms",
+        "--to-floor",
+        "--max-files",
+        "1",
+        "--config",
+        "janitor.yaml"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "prep",
+        "--dry-run",
+        "--floor",
+        "0.9",
+        "--request-timeout",
+        "1ms",
+        "--request-interval",
+        "0s",
+        "--corrective-timeout",
+        "1ms",
+        "--time-budget",
+        "1ms",
+        "--to-floor",
+        "--max-files",
+        "1",
+        "--config",
+        "pan-improve.yaml"
+      ],
+      "source_exit": 1,
+      "pan_exit": 0,
+      "assertion": "source-failure-pan-success",
+      "claims": [
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "refactor-default",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "refactor",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "refactor"
+      ],
+      "source_exit": 1,
+      "pan_exit": 0,
+      "assertion": "source-failure-pan-success",
+      "claims": [
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "prep-default",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "prep",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "prep"
+      ],
+      "source_exit": 1,
+      "pan_exit": 0,
+      "assertion": "source-failure-pan-success",
+      "claims": [
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "refactor-trace-invalid-mode",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "refactor",
+        ".",
+        "--dry-run",
+        "--deadcode",
+        "--trace-mode",
+        "normal"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "refactor",
+        "--dry-run",
+        "--deadcode",
+        "--trace-mode",
+        "normal"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "prep-explicit-mode",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "prep",
+        ".",
+        "--dry-run",
+        "--floor",
+        "0.9",
+        "--request-timeout",
+        "1ms",
+        "--request-interval",
+        "0s",
+        "--corrective-timeout",
+        "1ms",
+        "--time-budget",
+        "1ms",
+        "--to-floor",
+        "--max-files",
+        "1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "improve",
+        "prep",
+        "--dry-run",
+        "--floor",
+        "0.9",
+        "--request-timeout",
+        "1ms",
+        "--request-interval",
+        "0s",
+        "--corrective-timeout",
+        "1ms",
+        "--time-budget",
+        "1ms",
+        "--to-floor",
+        "--max-files",
+        "1"
+      ],
+      "source_exit": 1,
+      "pan_exit": 0,
+      "assertion": "source-failure-pan-success",
+      "claims": [
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    }
+  ]
+}

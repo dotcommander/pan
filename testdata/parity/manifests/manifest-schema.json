@@ -1,0 +1,7 @@
+{
+  "schema": "pan.parity-manifest-schema/v1",
+  "required": ["schema", "contract", "snapshot_roots", "cases"],
+  "case_required": ["id", "source_args", "pan_args", "source_exit", "pan_exit", "assertion", "claims"],
+  "claim_required": ["source", "pan", "input", "required_case"],
+  "notes": "This is a dependency-free schema reference. check.go enforces a completed manifest when validating a v2 receipt; record.go enforces it before executing a matrix."
+}

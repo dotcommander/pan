@@ -1,0 +1,7 @@
+title: Minimal
+phases:
+  - name: Only
+    kind: Pass
+    stages:
+      - { label: "in" }
+      - { label: "out" }

@@ -1,0 +1,49 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "janitor/local-configured-readonly-v2",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/janitor/cmd",
+    ".work/janitor/internal",
+    ".work/janitor/pkg",
+    ".work/janitor/go.mod",
+    ".work/janitor/go.sum",
+    "testdata/parity/fixtures/janitor-v2"
+  ],
+  "cases": [
+    {
+      "id": "next-config",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": ["next", "--config", "janitor.yaml"],
+      "pan_args": ["--repo", ".", "improve", "recommend", "--config", "pan-improve.yaml"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "janitor next", "pan": "improve recommend", "input": "--config", "required_case": "enabled or explicit value"}]
+    },
+    {
+      "id": "stats-config",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": ["stats", "--config", "janitor.yaml"],
+      "pan_args": ["--repo", ".", "improve", "stats", "--config", "pan-improve.yaml"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "janitor stats", "pan": "improve stats", "input": "--config", "required_case": "enabled or explicit value"}]
+    },
+    {
+      "id": "census-config",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": ["census", "--config", "janitor.yaml"],
+      "pan_args": ["--repo", ".", "improve", "census", "--config", "pan-improve.yaml"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "janitor census", "pan": "improve census", "input": "--config", "required_case": "enabled or explicit value"}]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"schema":"slither.outcome/v1","timestamp":"2024-01-02T03:04:05Z","report_id":"sha256:b43d0d35f37cdaec550ee3f568893f98dd45268e35fdc5eebf7b4a16860c76fa","evidence_id":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","lane":"kept_for_premium","rank":1,"score":4,"verdict":"confirmed","files_opened":1,"tool_calls":2,"review_ms":3}

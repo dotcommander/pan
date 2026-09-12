@@ -1,0 +1,109 @@
+title: Vybe Loop
+breadcrumb: "cmd/vybe/main.go → internal/commands/loop.go → runLoop → spawnAgent → resolve → persist"
+
+loop:
+  max: "opts.maxTasks"
+  exit_conditions:
+    - "no focus task (rule5)"
+    - "circuit breaker tripped"
+    - "SIGINT / SIGTERM"
+  pre_phases: [Boot]
+  body_phases: [Claim, Dispatch, Resolve]
+  post_phases: [Record]
+
+phases:
+  - name: Boot
+    kind: Setup
+    description: "initialize signal handling, parse flags, open DB connection"
+    stages:
+      - { label: "vybe loop", style: boot }
+      - { label: "runLoop", style: boot }
+      - { label: "signal.NotifyContext", subtitle: "SIGINT · SIGTERM", style: boot }
+      - { label: "withDB open", subtitle: "SQLite · flock", style: io }
+    files:
+      - cmd/vybe/main.go
+      - internal/commands/loop.go
+      - internal/commands/dbutil.go
+
+  - name: Claim
+    kind: Focus
+    description: "resume agent state, apply focus rules, select the next task"
+    stages:
+      - { label: "ResumeWithOptionsIdempotent", subtitle: "request_id per iteration", style: io, wide: true }
+      - { label: "LoadAgentState", subtitle: "cursor · focus_task_id" }
+      - { label: "FetchEventsSince", subtitle: "deltas since cursor", style: io }
+      - { label: "DetermineFocusTask", subtitle: "rules 1–5", style: gate, wide: true }
+      - fork:
+          gate: "Focus task found?"
+          branches:
+            - { condition: "none", label: "exit — no work", subtitle: "rule5 fired" }
+            - { condition: "found", label: "BuildBrief", subtitle: "task + memory + events + artifacts" }
+    files:
+      - internal/actions/resume.go
+      - internal/actions/resume_packet.go
+      - internal/store/focus.go
+      - internal/store/brief.go
+
+  - name: Dispatch
+    kind: Spawn
+    description: "build agent prompt, write to tempfile, exec external agent subprocess"
+    stages:
+      - fork:
+          gate: "dry-run?"
+          branches:
+            - { condition: "yes", label: "record dry_run result", subtitle: "skip spawn" }
+            - { condition: "no",  label: "buildAgentPrompt", subtitle: "resume prompt + auto-memory + autonomous rules", wide: true }
+      - { label: "os.CreateTemp", subtitle: "vybe-prompt-*.txt", style: io }
+      - { label: "spawnAgent", subtitle: "exec.CommandContext · --task-timeout", style: io, wide: true }
+    files:
+      - internal/commands/loop.go
+
+  - name: Resolve
+    kind: Settle
+    description: "read final task status from DB, classify exit as completed / blocked / timeout"
+    stages:
+      - { label: "store.GetTask", subtitle: "read final status", style: io }
+      - { label: "os.Remove tempfile", subtitle: "best-effort cleanup", style: boot }
+      - fanout:
+          gate: "exit outcome"
+          targets:
+            - { flag: "completed", label: "reset consecutiveFails" }
+            - { flag: "blocked", label: "markTaskBlocked" }
+            - { flag: "timeout", label: "markTaskBlocked + kill" }
+            - { flag: "unknown", label: "log + continue" }
+      - { label: "circuit breaker", subtitle: "consecutiveFails ≥ maxFails → break", style: gate }
+      - { label: "cooldown sleep", subtitle: "interruptible by ctx.Done()", style: boot }
+    files:
+      - internal/commands/loop.go
+      - internal/store/ops.go
+
+  - name: Record
+    kind: Emit
+    description: "persist run summary event, fire post-run hook, print JSON result"
+    stages:
+      - { label: "PersistRunResultIdempotent", subtitle: "run_completed event · metadata", style: io }
+      - fork:
+          gate: "--post-hook set?"
+          branches:
+            - { condition: "yes", label: "execPostRunHook", subtitle: "sh -c · stdin JSON · 30s timeout", style: io, wide: true }
+            - { condition: "no",  label: "skip hook" }
+      - { label: "output.PrintSuccess", subtitle: "JSON to stdout" }
+    files:
+      - internal/actions/run.go
+      - internal/commands/loop.go
+
+stores:
+  - name: "~/.local/share/vybe/vybe.db (SQLite)"
+    writers:
+      - { stage: "ResumeWithOptionsIdempotent", access: "r/w", note: "advances agent cursor, persists resume event" }
+      - { stage: "markTaskBlocked", access: "r/w", note: "appends block event, updates task status" }
+      - { stage: "PersistRunResultIdempotent", access: "append", note: "run_completed event with metrics" }
+  - name: "agent_state (focus_task_id · last_seen_event_id)"
+    writers:
+      - { stage: "ResumeWithOptionsIdempotent", access: "r/w", note: "cursor advance + focus task update per iteration" }
+  - name: "memory (ACT-R scored key/value)"
+    writers:
+      - { stage: "BuildBrief", access: "r/w", note: "bumps access_count + last_accessed_at on read" }
+  - name: "vybe-prompt-*.txt (temp file)"
+    writers:
+      - { stage: "os.CreateTemp", access: "r/w", note: "written by loop, read by spawned agent, deleted after spawn" }

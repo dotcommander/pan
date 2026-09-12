@@ -1,0 +1,20 @@
+title: Example Dispatcher
+phases:
+  - name: Boot
+    kind: Boot
+    stages:
+      - label: main
+    files: [cmd/app/main.go]
+commands:
+  - name: foo
+    phases:
+      - name: Run
+        kind: Emit
+        stages: [{label: run}]
+        files: [internal/commands/foo.go]
+  - name: bar
+    phases:
+      - name: Run
+        kind: Emit
+        stages: [{label: run}]
+        files: [internal/commands/bar.go]

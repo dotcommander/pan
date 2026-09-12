@@ -1,0 +1,117 @@
+title: Pan
+breadcrumb: "cmd/Pan → cobra dispatch → spec.Load → render → emit (file | HTTP serve)"
+
+phases:
+  - name: Boot
+    kind: Boot
+    description: "thin main, cobra wires the root command and persistent flags"
+    stages:
+      - { label: "Pan CLI", style: boot }
+      - { label: "main()", subtitle: "<20 lines, delegates", style: boot }
+      - { label: "newRootCmd", subtitle: "register subcommands + --open", style: boot }
+    files:
+      - cmd/Pan/main.go
+      - internal/commands/root.go
+      - internal/commands/browser.go
+
+  - name: Dispatch
+    kind: Route
+    description: "cobra picks one subcommand path"
+    stages:
+      - fanout:
+          gate: "subcommand"
+          targets:
+            - { flag: "init",     label: "newInitCmd",     sublabel: "scaffold Pan.yaml" }
+            - { flag: "render",   label: "newRenderCmd",   sublabel: "one-shot HTML → out/" }
+            - { flag: "serve",    label: "newServeCmd",    sublabel: "live HTTP + watch" }
+            - { flag: "validate", label: "newValidateCmd", sublabel: "lint a spec" }
+    files:
+      - internal/commands/init.go
+      - internal/commands/render.go
+      - internal/commands/serve.go
+      - internal/commands/validate.go
+
+  - name: Load
+    kind: Parse
+    description: "read YAML, decode tagged-union stages, apply defaults"
+    stages:
+      - { label: "os.ReadFile", subtitle: "spec path", style: io }
+      - { label: "yaml.Unmarshal", subtitle: "→ Spec" }
+      - { label: "Stage.UnmarshalYAML", subtitle: "chip | fork | fanout", wide: true }
+      - { label: "applyDefaults", subtitle: "kinds, ordering, IDs" }
+    files:
+      - internal/spec/spec.go
+      - internal/spec/load.go
+
+  - name: Validate
+    kind: Check
+    description: "structural + referential checks before render"
+    stages:
+      - { label: "phases ≥ 1", subtitle: "non-empty model" }
+      - { label: "stage shape", subtitle: "exactly one of label/fork/fanout" }
+      - { label: "fork branches", subtitle: "≥1 branch, has gate" }
+      - { label: "store writers", subtitle: "warn on label mismatch" }
+    files:
+      - internal/spec/validate.go
+
+  - name: Render
+    kind: Template
+    description: "merge spec + frozen v1 templates into a self-contained HTML page"
+    stages:
+      - { label: "loadTemplate", subtitle: "embed.FS + inline CSS", wide: true }
+      - { label: "execute", subtitle: "layout / index / collection" }
+      - { label: "→ []byte", subtitle: "single-file, no CDN" }
+    files:
+      - internal/render/render.go
+      - internal/render/templates.go
+      - internal/render/templates/layout.html
+      - internal/render/templates/index.html
+      - internal/render/templates/collection.html
+      - internal/render/templates/style.css
+
+  - name: Emit
+    kind: Emit
+    description: "deliver the rendered diagram"
+    stages:
+      - fork:
+          gate: "command"
+          branches:
+            - condition: "render"
+              label: "write file"
+              subtitle: "out/<basename>.html"
+            - condition: "serve"
+              label: "HTTP server"
+              subtitle: "router + fsnotify, :7777"
+              wide: true
+      - fanout:
+          gate: "serve routes"
+          targets:
+            - { flag: "/",                       label: "indexHTML",      sublabel: "all collections" }
+            - { flag: "/<coll>",                 label: "serveCollection", sublabel: "single → spec, multi → sub-index" }
+            - { flag: "/<coll>/<spec>",          label: "serveSpec",       sublabel: "rendered diagram" }
+            - { flag: "watch",                   label: "serveWatchLoop",  sublabel: "debounce 200ms → re-render" }
+            - { flag: "--open",                  label: "openBrowser",     sublabel: "macOS open / xdg-open" }
+    files:
+      - internal/commands/render.go
+      - internal/commands/serve.go
+      - internal/commands/browser.go
+
+stores:
+  - name: "<spec>.yaml"
+    writers:
+      - { stage: "os.ReadFile", access: "r" }
+      - { stage: "serveWatchLoop", access: "r", note: "watched, hot-reload on Write/Create/Rename" }
+  - name: "embed.FS templates/"
+    writers:
+      - { stage: "loadTemplate", access: "r", note: "compiled into binary" }
+      - { stage: "serveWatchLoop", access: "r", note: "watched only when running from source tree" }
+  - name: "out/"
+    writers:
+      - { stage: "write file", access: "w", note: "render subcommand only; basename = spec stem" }
+  - name: "collectionSet (in-mem)"
+    writers:
+      - { stage: "loadCollections", access: "w" }
+      - { stage: "serveWatchLoop", access: "r/w", note: "re-renders on spec or template change" }
+      - { stage: "indexHTML", access: "r" }
+      - { stage: "serveCollection", access: "r" }
+      - { stage: "serveSpec", access: "r" }

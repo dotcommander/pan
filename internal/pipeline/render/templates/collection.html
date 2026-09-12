@@ -1,0 +1,6 @@
+{{define "collection"}}<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>pan — {{.Collection.Name}}</title><style>{{.CSS}}
+.spec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 2rem; }
+.spec-card { border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; color: inherit; text-decoration: none; background: var(--bg-phase); }
+.spec-card:hover { border-color: var(--blue-edge); } .muted { color: var(--text-muted); font-family: var(--font-mono); font-size: .8rem; }
+</style></head><body><header><h1>{{.Collection.Name}}</h1><div class="breadcrumb"><a href="/">← all collections</a> · {{.Collection.SourcePath}} · {{len .Collection.Specs}} page{{if ne (len .Collection.Specs) 1}}s{{end}}</div></header><div class="spec-grid">{{range .Collection.Specs}}<a class="spec-card" href="{{.URL}}"><strong>{{.Title}}</strong><div>{{.PhaseCount}} phase{{if ne .PhaseCount 1}}s{{end}}{{if .StoreCount}} · {{.StoreCount}} store{{if ne .StoreCount 1}}s{{end}}{{end}}</div>{{if .Breadcrumb}}<div class="muted">{{.Breadcrumb}}</div>{{end}}</a>{{end}}</div></body></html>{{end}}

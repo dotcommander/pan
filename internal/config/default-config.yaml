@@ -1,0 +1,95 @@
+max_files: 100000
+max_file_bytes: 1048576
+max_total_bytes: 262144000
+max_nodes: 200
+max_instructions: 1000
+command_timeout: 30s
+output_budget: 65536
+exclude:
+  - .git
+  - vendor
+  - node_modules
+  - .pan-cache
+improve:
+  coverage_floor: 0.70
+  test_timeout: 5m
+  branch_prefix: "pan/improve"
+  max_worklist_targets: 20
+  recent_window: 10
+  state_dir: ""
+lsp:
+  status_max_depth: 3
+  timeout: 20s
+  languages:
+    - language: go
+      file_types: [".go"]
+      root_markers: ["go.mod", "go.work"]
+      servers: ["gopls"]
+    - language: typescript
+      file_types: [".ts", ".tsx"]
+      root_markers: ["tsconfig.json", "package.json"]
+      servers: ["typescript-language-server", "tsserver"]
+    - language: javascript
+      file_types: [".js", ".jsx"]
+      root_markers: ["package.json"]
+      servers: ["typescript-language-server", "tsserver"]
+    - language: python
+      file_types: [".py"]
+      root_markers: ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt"]
+      servers: ["pylsp", "pyright-langserver"]
+    - language: rust
+      file_types: [".rs"]
+      root_markers: ["Cargo.toml"]
+      servers: ["rust-analyzer"]
+    - language: c
+      file_types: [".c", ".h"]
+      root_markers: ["compile_commands.json", "CMakeLists.txt", "Makefile"]
+      servers: ["clangd"]
+    - language: cpp
+      file_types: [".cpp", ".cc", ".cxx", ".hpp"]
+      root_markers: ["compile_commands.json", "CMakeLists.txt", "Makefile"]
+      servers: ["clangd"]
+clean:
+  max_depth: 5
+  stale_days: 90
+  large_file_bytes: 10485760
+  max_history_commits: 500
+  archive_dir: ".work/archive"
+  ignore_file: ".pancleanignore"
+  delete_names: [".DS_Store", "Thumbs.db", "desktop.ini"]
+  delete_extensions: [".tmp", ".log", ".swp"]
+  delete_directories: ["node_modules", "__pycache__", ".pytest_cache", ".mypy_cache"]
+  archive_extensions: [".zip", ".tar", ".gz", ".tgz", ".rar", ".7z", ".bz2", ".xz"]
+  data_extensions: [".db", ".sqlite", ".sqlite3", ".bak", ".sql", ".csv"]
+  image_extensions: [".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp", ".bmp"]
+  untrack_extensions: [".exe", ".dll", ".so", ".dylib", ".o", ".a", ".obj", ".lib", ".zip", ".tar", ".gz", ".tgz", ".rar", ".7z", ".wasm"]
+  untrack_directories: ["dist/", "build/", "out/", "target/"]
+  allowed_root_md: ["README.md", "CHANGELOG.md", "LICENSE.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", "AGENTS.md"]
+  dev_artifact_prefixes: []
+  dev_artifact_suffixes: ["_SUMMARY.md", "-spec.md", "_spec.md", "-state.json"]
+  safe_directories: ["data/", "bin/", "cache/", ".work/"]
+  ignored_dev_doc_suffixes: ["_GUIDE.md", "_REPORT.md", "_IMPLEMENTATION.md", "_ANALYSIS.md", "_PLAN.md", "_SUMMARY.md", "_PROGRESS.md", "_RESULTS.md"]
+  ignored_delete_prefixes: ["verify-"]
+  dotfile_allowlist: [".DS_Store", ".env", ".pytest_cache", ".mypy_cache"]
+  scaffold_files: ["public/vite.svg", "public/favicon.ico", "src/logo.svg", "src/App.css"]
+  completeness_expected:
+    - names: ["LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "LICENCE.md"]
+      severity: error
+      why: "no license file — repo has no legal clarity for contributors or users"
+    - names: [".gitignore"]
+      severity: error
+      why: "no .gitignore — build artifacts, IDE files, and secrets may be committed"
+    - names: ["README.md", "README", "README.txt", "readme.md"]
+      severity: error
+      why: "no README — repo has no entry point for new contributors"
+    - names: ["CHANGELOG.md", "CHANGELOG", "CHANGES.md", "HISTORY.md"]
+      severity: warning
+      why: "no changelog — release history is undocumented"
+    - names: ["CONTRIBUTING.md", "CONTRIBUTING"]
+      severity: info
+      why: "no contributing guide — contribution process is undocumented"
+    - names: ["SECURITY.md", "SECURITY"]
+      severity: info
+      why: "no security policy — vulnerability reporting process is undefined"
+  ci_patterns: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".gitlab-ci.yml", "Jenkinsfile", ".circleci/config.yml", ".travis.yml", "bitbucket-pipelines.yml"]
+  build_patterns: ["Makefile", "Taskfile.yml", "Taskfile.yaml", "justfile", "build.gradle", "build.gradle.kts", "pom.xml", "CMakeLists.txt", "meson.build"]

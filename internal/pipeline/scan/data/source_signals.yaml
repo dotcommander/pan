@@ -1,0 +1,21 @@
+# source_signals.yaml — import path prefix → human-readable source label.
+# detectSources matches imports against these prefixes (longest match wins
+# is NOT done; the original behavior used map iteration order which is
+# Go-random; preserved here as a flat lookup keyed by exact import prefix).
+#
+# Users may override or extend this by creating
+# ~/.config/Pan/source_signals.yaml — entries in that file overlay
+# the embedded defaults (user wins on key collision).
+#
+# Persistent datastores (SQL/pgx/sqlite/redis/mongo) are detected separately
+# as STORES via store_signals.yaml, not as sources.
+signals:
+  "net/http": "HTTP"
+  "net/url": "HTTP"
+  "encoding/json": "JSON"
+  "encoding/xml": "XML"
+  "os/exec": "subprocess"
+  "crypto": "crypto"
+  "github.com/nats-io/nats.go": "NATS"
+  "github.com/segmentio/kafka-go": "Kafka"
+  "google.golang.org/grpc": "gRPC"

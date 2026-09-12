@@ -1,0 +1,106 @@
+title: Paper
+breadcrumb: "cmd/ → internal/commands/paper.go → applyFiltersAndRank → render → dispatch"
+
+phases:
+  - name: Ingest
+    kind: Boot & Fetch
+    description: "load config and fetch raw items"
+    stages:
+      - { label: "paper CLI", style: boot }
+      - { label: "runPaper", style: boot }
+      - { label: "load config", subtitle: "yaml + env", style: boot }
+      - { label: "Collect", subtitle: "8 sources · errgroup", style: io, wide: true }
+      - { label: "normalize", subtitle: "→ models.Item" }
+    sources:
+      - "Hacker News"
+      - "Reddit"
+      - "Exa / Synthetic"
+      - "YouTube"
+      - "RSS feeds"
+      - "Trakt"
+      - "GitHub events"
+      - "Zai CLI"
+    files:
+      - internal/commands/paper.go
+      - internal/collect/
+      - internal/normalize/
+
+  - name: Filter
+    kind: Narrow
+    description: "drop items that don't belong"
+    stages:
+      - { label: "Tag", subtitle: "topic + section" }
+      - { label: "Age filter", subtitle: "per-topic window" }
+      - { label: "Content filter", subtitle: "words + domains" }
+      - { label: "Score/Lang filter", subtitle: "min score, comments" }
+    files:
+      - internal/tag/
+      - internal/filter/
+
+  - name: Dedupe
+    kind: Match
+    description: "three progressively smarter passes"
+    stages:
+      - { label: "ByURL", subtitle: "canonicalize" }
+      - { label: "BySimilarity", subtitle: "Jaccard titles" }
+      - { label: "BySemantic", subtitle: "LLM union-find + section burst", wide: true }
+    files:
+      - internal/dedupe/dedupe.go
+      - internal/dedupe/similarity.go
+      - internal/dedupe/semantic.go
+
+  - name: Rank & Select
+    kind: Score
+    description: "order the survivors, pick top-N"
+    stages:
+      - { label: "History annotate", subtitle: "TimesSeen, FirstSeen" }
+      - { label: "Rank", subtitle: "weighted signals" }
+      - fork:
+          gate: "Rerank enabled?"
+          branches:
+            - { condition: "yes", label: "LLM rerank", subtitle: "editorial + briefing", wide: true }
+            - { condition: "no",  label: "selectWithQuotas", subtitle: "per-section reservation" }
+    files:
+      - internal/rank/
+      - internal/rerank/
+
+  - name: Polish
+    kind: Trim
+    description: "cross-run filters using history"
+    stages:
+      - { label: "Staleness filter", subtitle: "drop repeatedly-seen" }
+      - { label: "Overexposure filter", subtitle: "cap per-domain/per-topic" }
+    files:
+      - internal/commands/paper.go
+
+  - name: Emit
+    kind: Emit
+    description: "Render & Dispatch"
+    stages:
+      - { label: "Render", subtitle: "ToHTML + ToJSON (embed templates)", wide: true }
+      - fanout:
+          gate: "Dispatch"
+          targets:
+            - { flag: "--open", label: "open browser" }
+            - { flag: "--publish", label: "GitHub Gist" }
+            - { flag: "--email", label: "Resend email" }
+            - { flag: "default", label: "out/pulse.html + .json" }
+    files:
+      - internal/render/
+      - internal/publish/
+      - internal/email/
+
+stores:
+  - name: "~/.cache/paper"
+    writers:
+      - { stage: "collect (HTTP)", access: "r/w" }
+      - { stage: "BySemantic (LLM judge)" }
+      - { stage: "rerank (LLM)" }
+  - name: history.json
+    writers:
+      - { stage: "History annotate", access: "r/w" }
+      - { stage: "Staleness" }
+      - { stage: "Overexposure" }
+  - name: events.jsonl
+    writers:
+      - { stage: "runPaper", access: "append", note: "telemetry, best-effort" }

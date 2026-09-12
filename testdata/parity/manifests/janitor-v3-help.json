@@ -1,0 +1,523 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "source-and-pan-command-help are bounded local CLI inventory evidence",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/janitor/cmd",
+    ".work/janitor/internal",
+    ".work/janitor/pkg",
+    ".work/janitor/go.mod",
+    ".work/janitor/go.sum",
+    "testdata/parity/fixtures/janitor-v2"
+  ],
+  "cases": [
+    {
+      "id": "janitor-refactor",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "refactor",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "refactor",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--dry-run",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--deadcode",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor refactor",
+          "pan": "improve refactor",
+          "input": "--trace-mode",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "janitor-prep",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "prep",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "prep",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--dry-run",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--floor",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-timeout",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--request-interval",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--corrective-timeout",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--time-budget",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--to-floor",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor prep",
+          "pan": "improve prep",
+          "input": "--max-files",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "janitor-next",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "next",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "recommend",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor next",
+          "pan": "improve recommend",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor next",
+          "pan": "improve recommend",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor next",
+          "pan": "improve recommend",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor next",
+          "pan": "improve recommend",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "janitor-stats",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "stats",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "stats",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor stats",
+          "pan": "improve stats",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor stats",
+          "pan": "improve stats",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor stats",
+          "pan": "improve stats",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor stats",
+          "pan": "improve stats",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "janitor-census",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "census",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "census",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--coverprofile",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--coverprofile",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--coverprofile",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--timeout",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--timeout",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor census",
+          "pan": "improve census",
+          "input": "--timeout",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "janitor-probe",
+      "cwd": "testdata/parity/fixtures/janitor-v2",
+      "source_args": [
+        "probe",
+        "--help"
+      ],
+      "pan_args": [
+        "improve",
+        "probe",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--config",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--config",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--config",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--trace",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--trace",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "janitor probe",
+          "pan": "improve probe",
+          "input": "--trace",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    }
+  ]
+}

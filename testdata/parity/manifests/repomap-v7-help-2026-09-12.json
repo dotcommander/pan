@@ -1,0 +1,783 @@
+{
+  "cases": [
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--json",
+          "pan": "context map",
+          "required_case": "documented in paired help",
+          "source": "repomap map"
+        },
+        {
+          "input": "--artifact",
+          "pan": "context map",
+          "required_case": "documented in paired help",
+          "source": "repomap map"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "map-help",
+      "pan_args": [
+        "context",
+        "map",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "map",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--kind",
+          "pan": "context find",
+          "required_case": "documented in paired help",
+          "source": "repomap find"
+        },
+        {
+          "input": "--file",
+          "pan": "context find",
+          "required_case": "documented in paired help",
+          "source": "repomap find"
+        },
+        {
+          "input": "--limit",
+          "pan": "context find",
+          "required_case": "documented in paired help",
+          "source": "repomap find"
+        },
+        {
+          "input": "--format",
+          "pan": "context find",
+          "required_case": "documented in paired help",
+          "source": "repomap find"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "find-help",
+      "pan_args": [
+        "context",
+        "find",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "find",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--consumed",
+          "pan": "context task",
+          "required_case": "documented in paired help",
+          "source": "repomap task"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "task-help",
+      "pan_args": [
+        "context",
+        "task",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "task",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--kind",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--file",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--max-source-lines",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--max-output-lines",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--max-output-bytes",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--calls",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--calls-include-tests",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        },
+        {
+          "input": "--calls-limit",
+          "pan": "context symbol",
+          "required_case": "documented in paired help",
+          "source": "repomap context"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "context-help",
+      "pan_args": [
+        "context",
+        "symbol",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "context",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--limit",
+          "pan": "review brief",
+          "required_case": "documented in paired help",
+          "source": "repomap audit brief"
+        },
+        {
+          "input": "--top-files",
+          "pan": "review brief",
+          "required_case": "documented in paired help",
+          "source": "repomap audit brief"
+        },
+        {
+          "input": "--language",
+          "pan": "review brief",
+          "required_case": "documented in paired help",
+          "source": "repomap audit brief"
+        },
+        {
+          "input": "--history-window",
+          "pan": "review brief",
+          "required_case": "documented in paired help",
+          "source": "repomap audit brief"
+        },
+        {
+          "input": "--refactor-signatures",
+          "pan": "review brief",
+          "required_case": "documented in paired help",
+          "source": "repomap audit brief"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "audit-brief-help",
+      "pan_args": [
+        "review",
+        "brief",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "audit",
+        "brief",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--limit",
+          "pan": "review risks",
+          "required_case": "documented in paired help",
+          "source": "repomap audit risks"
+        },
+        {
+          "input": "--top-files",
+          "pan": "review risks",
+          "required_case": "documented in paired help",
+          "source": "repomap audit risks"
+        },
+        {
+          "input": "--language",
+          "pan": "review risks",
+          "required_case": "documented in paired help",
+          "source": "repomap audit risks"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "audit-risks-help",
+      "pan_args": [
+        "review",
+        "risks",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "audit",
+        "risks",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--limit",
+          "pan": "scan surface",
+          "required_case": "documented in paired help",
+          "source": "repomap audit surface"
+        },
+        {
+          "input": "--top-files",
+          "pan": "scan surface",
+          "required_case": "documented in paired help",
+          "source": "repomap audit surface"
+        },
+        {
+          "input": "--language",
+          "pan": "scan surface",
+          "required_case": "documented in paired help",
+          "source": "repomap audit surface"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "audit-surface-help",
+      "pan_args": [
+        "scan",
+        "surface",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "audit",
+        "surface",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--limit",
+          "pan": "scan effects",
+          "required_case": "documented in paired help",
+          "source": "repomap audit effects"
+        },
+        {
+          "input": "--top-files",
+          "pan": "scan effects",
+          "required_case": "documented in paired help",
+          "source": "repomap audit effects"
+        },
+        {
+          "input": "--language",
+          "pan": "scan effects",
+          "required_case": "documented in paired help",
+          "source": "repomap audit effects"
+        },
+        {
+          "input": "--kind",
+          "pan": "scan effects",
+          "required_case": "documented in paired help",
+          "source": "repomap audit effects"
+        },
+        {
+          "input": "--paths-only",
+          "pan": "scan effects",
+          "required_case": "documented in paired help",
+          "source": "repomap audit effects"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "audit-effects-help",
+      "pan_args": [
+        "scan",
+        "effects",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "audit",
+        "effects",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--boundary",
+          "pan": "scan inventory",
+          "required_case": "documented in paired help",
+          "source": "repomap inventory"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "inventory-help",
+      "pan_args": [
+        "scan",
+        "inventory",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "inventory",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--cache-dir",
+          "pan": "cache status",
+          "required_case": "documented in paired help",
+          "source": "repomap cache status"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "cache-status-help",
+      "pan_args": [
+        "cache",
+        "status",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "cache",
+        "status",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--cache-dir",
+          "pan": "cache warm",
+          "required_case": "documented in paired help",
+          "source": "repomap cache warm"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "cache-warm-help",
+      "pan_args": [
+        "cache",
+        "warm",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "cache",
+        "warm",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--force",
+          "pan": "context init",
+          "required_case": "documented in paired help",
+          "source": "repomap init"
+        },
+        {
+          "input": "--no-hook",
+          "pan": "context init",
+          "required_case": "documented in paired help",
+          "source": "repomap init"
+        },
+        {
+          "input": "--no-config",
+          "pan": "context init",
+          "required_case": "documented in paired help",
+          "source": "repomap init"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "init-help",
+      "pan_args": [
+        "context",
+        "init",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "init",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context explain",
+          "required_case": "documented in paired help",
+          "source": "repomap explain"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "explain-help",
+      "pan_args": [
+        "context",
+        "explain",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "explain",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context impact",
+          "required_case": "documented in paired help",
+          "source": "repomap impact"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "impact-help",
+      "pan_args": [
+        "context",
+        "impact",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "impact",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "scan inventory",
+          "required_case": "documented in paired help",
+          "source": "repomap inventory"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "inventory-default-help",
+      "pan_args": [
+        "scan",
+        "inventory",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "inventory",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "cache status",
+          "required_case": "documented in paired help",
+          "source": "repomap cache status"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "cache-status-default-help",
+      "pan_args": [
+        "cache",
+        "status",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "cache",
+        "status",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "cache warm",
+          "required_case": "documented in paired help",
+          "source": "repomap cache warm"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "cache-warm-default-help",
+      "pan_args": [
+        "cache",
+        "warm",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "cache",
+        "warm",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context init",
+          "required_case": "documented in paired help",
+          "source": "repomap init"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "init-default-help",
+      "pan_args": [
+        "context",
+        "init",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "init",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context lsp status",
+          "required_case": "documented in paired help",
+          "source": "repomap lsp status"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "lsp-status-help",
+      "pan_args": [
+        "context",
+        "lsp",
+        "status",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "lsp",
+        "status",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context lsp refs",
+          "required_case": "documented in paired help",
+          "source": "repomap lsp refs"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "lsp-refs-help",
+      "pan_args": [
+        "context",
+        "lsp",
+        "refs",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "lsp",
+        "refs",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context lsp def",
+          "required_case": "documented in paired help",
+          "source": "repomap lsp def"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "lsp-def-help",
+      "pan_args": [
+        "context",
+        "lsp",
+        "def",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "lsp",
+        "def",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context lsp hover",
+          "required_case": "documented in paired help",
+          "source": "repomap lsp hover"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "lsp-hover-help",
+      "pan_args": [
+        "context",
+        "lsp",
+        "hover",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "lsp",
+        "hover",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "context lsp symbols",
+          "required_case": "documented in paired help",
+          "source": "repomap lsp symbols"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "lsp-symbols-help",
+      "pan_args": [
+        "context",
+        "lsp",
+        "symbols",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "lsp",
+        "symbols",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "default invocation",
+          "pan": "agent serve",
+          "required_case": "documented in paired help",
+          "source": "repomap serve"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "serve-help",
+      "pan_args": [
+        "agent",
+        "serve",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "serve",
+        "--help"
+      ],
+      "source_exit": 0
+    },
+    {
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "input": "--max-output-lines",
+          "pan": "context endpoint",
+          "required_case": "documented in paired help",
+          "source": "repomap endpoint"
+        }
+      ],
+      "cwd": "testdata/http-go",
+      "id": "endpoint-help",
+      "pan_args": [
+        "context",
+        "endpoint",
+        "--help"
+      ],
+      "pan_exit": 0,
+      "source_args": [
+        "endpoint",
+        "--help"
+      ],
+      "source_exit": 0
+    }
+  ],
+  "contract": "repomap-v7-help-2026-09-12",
+  "schema": "pan.parity-manifest/v1",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    "testdata/http-go",
+    ".work/repomap"
+  ]
+}

@@ -1,0 +1,279 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "repomap-v2-2026-09-12",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    "testdata/http-go",
+    ".work/repomap"
+  ],
+  "cases": [
+    {
+      "id": "map-defaults",
+      "cwd": "testdata/http-go",
+      "source_args": ["map"],
+      "pan_args": ["context", "map"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {"source": "repomap map", "pan": "context map", "input": "default invocation", "required_case": "successful default path"},
+        {"source": "repomap map", "pan": "context map", "input": "--tokens", "required_case": "default 2048"},
+        {"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "default enriched"},
+        {"source": "repomap map", "pan": "context map", "input": "--json-structured", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-threshold", "required_case": "default 2"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-limit", "required_case": "default 10"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-include-tests", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--intent", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--consumed", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--symbol-refs", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--explain", "required_case": "omitted"},
+        {"source": "repomap map", "pan": "context map", "input": "--include-tests", "required_case": "omitted"}
+      ]
+    },
+    {
+      "id": "map-enabled-selection-evidence",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--calls", "--calls-threshold", "1", "--calls-limit", "1", "--calls-include-tests", "--intent", "health", "--consumed", "main.go", "--symbol-refs", "--explain", "--include-tests"],
+      "pan_args": ["context", "map", "--calls", "--calls-threshold", "1", "--calls-limit", "1", "--calls-include-tests", "--intent", "health", "--consumed", "main.go", "--symbol-refs", "--explain", "--include-tests"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {"source": "repomap map", "pan": "context map", "input": "--calls", "required_case": "enabled"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-threshold", "required_case": "positive 1"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-limit", "required_case": "positive 1"},
+        {"source": "repomap map", "pan": "context map", "input": "--calls-include-tests", "required_case": "enabled"},
+        {"source": "repomap map", "pan": "context map", "input": "--intent", "required_case": "health"},
+        {"source": "repomap map", "pan": "context map", "input": "--consumed", "required_case": "main.go"},
+        {"source": "repomap map", "pan": "context map", "input": "--symbol-refs", "required_case": "enabled"},
+        {"source": "repomap map", "pan": "context map", "input": "--explain", "required_case": "enabled"},
+        {"source": "repomap map", "pan": "context map", "input": "--include-tests", "required_case": "enabled"}
+      ]
+    },
+    {
+      "id": "map-json-structured",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--json-structured"],
+      "pan_args": ["context", "map", "--json-structured"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--json-structured", "required_case": "enabled JSON structured envelope"}]
+    },
+    {
+      "id": "map-tokens-positive",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--tokens", "64"],
+      "pan_args": ["context", "map", "--tokens", "64"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--tokens", "required_case": "positive 64"}]
+    },
+    {
+      "id": "map-tokens-zero-rejected",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--tokens", "0"],
+      "pan_args": ["context", "map", "--tokens", "0"],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--tokens", "required_case": "zero rejected"}]
+    },
+    {
+      "id": "map-tokens-negative-rejected",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--tokens", "-1"],
+      "pan_args": ["context", "map", "--tokens", "-1"],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--tokens", "required_case": "negative rejected"}]
+    },
+    {
+      "id": "map-format-compact",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--format", "compact"],
+      "pan_args": ["context", "map", "--map-format", "compact"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "compact"}]
+    },
+    {
+      "id": "map-format-verbose",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--format", "verbose"],
+      "pan_args": ["context", "map", "--map-format", "verbose"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "verbose"}]
+    },
+    {
+      "id": "map-format-detail",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--format", "detail"],
+      "pan_args": ["context", "map", "--map-format", "detail"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "detail"}]
+    },
+    {
+      "id": "map-format-lines",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--format", "lines"],
+      "pan_args": ["context", "map", "--map-format", "lines"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "lines"}]
+    },
+    {
+      "id": "map-format-xml",
+      "cwd": "testdata/http-go",
+      "source_args": ["map", "--format", "xml"],
+      "pan_args": ["context", "map", "--map-format", "xml"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-contains:<repomap",
+      "claims": [{"source": "repomap map", "pan": "context map", "input": "--map-format", "required_case": "xml"}]
+    },
+    {
+      "id": "brief-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["brief"],
+      "pan_args": ["context", "brief"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap brief", "pan": "context brief", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "find-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["find", "main"],
+      "pan_args": ["context", "find", "main"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap find", "pan": "context find", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "task-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["task", "improve-health"],
+      "pan_args": ["context", "task", "improve-health"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap task", "pan": "context task", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "context-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["context", "main"],
+      "pan_args": ["context", "symbol", "main"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap context", "pan": "context symbol", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "audit-hygiene-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["audit", "hygiene"],
+      "pan_args": ["scan", "hygiene"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap audit hygiene", "pan": "scan hygiene", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "audit-brief-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["audit", "brief"],
+      "pan_args": ["review", "brief"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap audit brief", "pan": "review brief", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "audit-risks-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["audit", "risks"],
+      "pan_args": ["review", "risks"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap audit risks", "pan": "review risks", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "audit-surface-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["audit", "surface"],
+      "pan_args": ["scan", "surface"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap audit surface", "pan": "scan surface", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "audit-effects-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["audit", "effects"],
+      "pan_args": ["scan", "effects"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap audit effects", "pan": "scan effects", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "inventory-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["inventory", "--boundary", "HTTP"],
+      "pan_args": ["scan", "inventory", "--boundary", "HTTP"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap inventory", "pan": "scan inventory", "input": "--boundary", "required_case": "HTTP"}]
+    },
+    {
+      "id": "endpoint-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["endpoint"],
+      "pan_args": ["context", "endpoint"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-contains:/health",
+      "claims": [{"source": "repomap endpoint", "pan": "context endpoint", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "orphans-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["orphans"],
+      "pan_args": ["scan", "orphans"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap orphans", "pan": "scan orphans", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "cache-status-default",
+      "cwd": "testdata/http-go",
+      "source_args": ["cache", "status", "--cache-dir", "/tmp/pan-repomap-v2/cache-status"],
+      "pan_args": ["cache", "status", "--cache-dir", "/tmp/pan-repomap-v2/cache-status"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "repomap cache status", "pan": "cache status", "input": "--cache-dir", "required_case": "explicit disposable cache directory"}]
+    }
+  ]
+}

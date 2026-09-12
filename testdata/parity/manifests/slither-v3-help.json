@@ -1,0 +1,611 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "source-and-pan-command-help are bounded local CLI inventory evidence",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/slither/cmd",
+    ".work/slither/internal",
+    ".work/slither/go.mod",
+    ".work/slither/go.sum",
+    "testdata/parity/fixtures/repoclean-v2"
+  ],
+  "cases": [
+    {
+      "id": "slither-doctor",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "doctor",
+        "--help"
+      ],
+      "pan_args": [
+        "scan",
+        "doctor",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither doctor",
+          "pan": "scan doctor",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "slither doctor",
+          "pan": "scan doctor",
+          "input": "--json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither doctor",
+          "pan": "scan doctor",
+          "input": "--json",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither doctor",
+          "pan": "scan doctor",
+          "input": "--json",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "slither-outputs",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "outputs",
+        "--help"
+      ],
+      "pan_args": [
+        "review",
+        "outputs",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither outputs",
+          "pan": "review outputs",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        }
+      ]
+    },
+    {
+      "id": "slither-completion",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "completion",
+        "--help"
+      ],
+      "pan_args": [
+        "completion",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither completion",
+          "pan": "completion",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        }
+      ]
+    },
+    {
+      "id": "slither-report",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "report",
+        "--help"
+      ],
+      "pan_args": [
+        "review",
+        "report",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--out",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--out",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--out",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--top",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--top",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--top",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--max-bytes",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--max-bytes",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--max-bytes",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--days",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--days",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--days",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--patterns",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--patterns",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--patterns",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--focus",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--focus",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--focus",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--include",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--include",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--include",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--exclude",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--exclude",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--exclude",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--why-top",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--why-top",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--why-top",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--inventory",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--inventory",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--inventory",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--model",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--model",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--model",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--base-url",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--base-url",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--base-url",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--api-key-env",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--api-key-env",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--api-key-env",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--local",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--local",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--local",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--json",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--json",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--summary",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--summary",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--summary",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--cull",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--cull",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--cull",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--no-cache",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--no-cache",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither report",
+          "pan": "review report",
+          "input": "--no-cache",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "slither-agent",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "agent",
+        "--help"
+      ],
+      "pan_args": [
+        "agent",
+        "stdio",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither agent",
+          "pan": "agent stdio",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "slither agent",
+          "pan": "agent stdio",
+          "input": "--outcomes",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither agent",
+          "pan": "agent stdio",
+          "input": "--outcomes",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither agent",
+          "pan": "agent stdio",
+          "input": "--outcomes",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "slither-eval",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "eval",
+        "--help"
+      ],
+      "pan_args": [
+        "review",
+        "eval",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--outcomes",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--outcomes",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--outcomes",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--report",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--report",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--report",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--json",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--json",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--markdown",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--markdown",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--markdown",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--output",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "slither eval",
+          "pan": "review eval",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    }
+  ]
+}

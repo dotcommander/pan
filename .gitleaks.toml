@@ -1,0 +1,7 @@
+title = "Pan secret scan configuration"
+
+[[allowlists]]
+description = "Historical parity receipts record already-redacted fixture hashes."
+regexes = [
+  '''(?i)(intent_tokenize\.go|pan-map-tokens|repomap-map-tokens|scan_secret_redaction_test\.go)":\s*"REDACTED"''',
+]

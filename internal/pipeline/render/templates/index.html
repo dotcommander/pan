@@ -1,0 +1,9 @@
+{{define "index"}}<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>pan — Collections</title><style>{{.CSS}}
+.collection { margin: 2rem 0; } .collection-head { border-bottom: 1px solid var(--border-subtle); padding-bottom: .5rem; }
+.spec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.spec-card { border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; color: inherit; text-decoration: none; background: var(--bg-phase); }
+.spec-card:hover { border-color: var(--blue-edge); } .muted { color: var(--text-muted); font-family: var(--font-mono); font-size: .8rem; }
+</style></head><body><header><h1>pan flow</h1><div class="breadcrumb">{{len .Collections}} collection{{if ne (len .Collections) 1}}s{{end}} · {{.SpecCount}} spec{{if ne .SpecCount 1}}s{{end}}</div></header>
+{{if .Collections}}{{range .Collections}}<section class="collection"><div class="collection-head"><a href="{{.URL}}">{{.Name}}</a> <span class="muted">{{.SourcePath}} · {{len .Specs}} page{{if ne (len .Specs) 1}}s{{end}}</span></div><div class="spec-grid">{{range .Specs}}<a class="spec-card" href="{{.URL}}"><strong>{{.Title}}</strong><div>{{.PhaseCount}} phase{{if ne .PhaseCount 1}}s{{end}}{{if .StoreCount}} · {{.StoreCount}} store{{if ne .StoreCount 1}}s{{end}}{{end}}</div>{{if .Breadcrumb}}<div class="muted">{{.Breadcrumb}}</div>{{end}}</a>{{end}}</div></section>{{end}}{{else}}<p>No collections loaded.</p>{{end}}
+</body></html>{{end}}

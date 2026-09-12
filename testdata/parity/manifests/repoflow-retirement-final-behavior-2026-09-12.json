@@ -1,0 +1,1684 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "repoflow retirement final behavioral matrix; every claim owns a non-help invocation",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/repoflow/cmd",
+    ".work/repoflow/internal",
+    ".work/repoflow/go.mod",
+    ".work/repoflow/go.sum",
+    "testdata/http-go",
+    "testdata/minimal.yaml"
+  ],
+  "retired_source_roots": [
+    ".work/repoflow/cmd",
+    ".work/repoflow/internal",
+    ".work/repoflow/go.mod",
+    ".work/repoflow/go.sum"
+  ],
+  "cases": [
+    {
+      "id": "scan-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--force",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-stages",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "scan-output",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--output",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--force",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-stages",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "scan-update",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--update",
+        "../minimal.yaml"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--update",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--force",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "scan-force",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--force"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--force"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-phases",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "scan-max-phases",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-phases",
+        "1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-phases",
+        "1"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--update",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-phases",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "scan-max-stages",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-stages",
+        "1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-stages",
+        "1"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--update",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-phases",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "scan-negative",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-phases=-1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "scan",
+        ".",
+        "--output",
+        "-",
+        "--max-phases=-1"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--update",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow scan",
+          "pan": "flow scan",
+          "input": "--max-stages",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "init-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "init",
+        "unexpected"
+      ],
+      "pan_args": [
+        "flow",
+        "init",
+        "unexpected"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow init",
+          "pan": "flow init",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow init",
+          "pan": "flow init",
+          "input": "--force",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "init-force",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "init",
+        "--force",
+        "unexpected"
+      ],
+      "pan_args": [
+        "flow",
+        "init",
+        "--force",
+        "unexpected"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow init",
+          "pan": "flow init",
+          "input": "--force",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow init",
+          "pan": "flow init",
+          "input": "--force",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "config-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "config"
+      ],
+      "pan_args": [
+        "flow",
+        "config"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--setup",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--force",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "config-setup",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "config",
+        "--setup"
+      ],
+      "pan_args": [
+        "flow",
+        "config",
+        "--setup"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--setup",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--force",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "config-force",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "config",
+        "--setup",
+        "--force"
+      ],
+      "pan_args": [
+        "flow",
+        "config",
+        "--setup",
+        "--force"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--setup",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow config",
+          "pan": "flow config",
+          "input": "--force",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "render-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "render",
+        "missing.yaml"
+      ],
+      "pan_args": [
+        "flow",
+        "render",
+        "missing.yaml"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--open",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "render-output",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "render",
+        "missing.yaml",
+        "--output",
+        "missing.html"
+      ],
+      "pan_args": [
+        "flow",
+        "render",
+        "missing.yaml",
+        "--output",
+        "missing.html"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--output",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--open",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "render-open",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "-O",
+        "render",
+        "missing.yaml"
+      ],
+      "pan_args": [
+        "flow",
+        "render",
+        "missing.yaml",
+        "-O"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow render",
+          "pan": "flow render",
+          "input": "--open",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "validate-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "validate",
+        "../minimal.yaml",
+        "--repo",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "validate",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow validate",
+          "pan": "flow validate",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        }
+      ]
+    },
+    {
+      "id": "review-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "review",
+        "../minimal.yaml",
+        "--repo",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "review",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--strict",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "review-strict",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "review",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--strict"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "review",
+        "../minimal.yaml",
+        "--strict"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--strict",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--output",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "review-output",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "review",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--output",
+        "-"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "review",
+        "../minimal.yaml",
+        "--output",
+        "-"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--strict",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow review",
+          "pan": "flow review",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "version-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "version"
+      ],
+      "pan_args": [
+        "version"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow version",
+          "pan": "version",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow version",
+          "pan": "version",
+          "input": "--json",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "version-json",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "version",
+        "--json"
+      ],
+      "pan_args": [
+        "version",
+        "--json"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [
+        {
+          "source": "repoflow version",
+          "pan": "version",
+          "input": "--json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow version",
+          "pan": "version",
+          "input": "--json",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "impact-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--text",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--markdown",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "impact-spec",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--spec",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--output",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "impact-text",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--format",
+        "text"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--text"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--spec",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--json",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "impact-json",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--format",
+        "json"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--json"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--spec",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--json",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "impact-markdown",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--format",
+        "md"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--markdown"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--text",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--markdown",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "impact-output",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "impact",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--repo",
+        ".",
+        "--output",
+        "/nope/out"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "blast",
+        "main.go",
+        "--spec",
+        "../minimal.yaml",
+        "--output",
+        "/nope/out"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--text",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow impact",
+          "pan": "flow blast",
+          "input": "--markdown",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "serve-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "serve",
+        "--bind",
+        "300.300.300.300"
+      ],
+      "pan_args": [
+        "flow",
+        "serve",
+        "--bind",
+        "300.300.300.300"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--port",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--bind",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--open",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "serve-port",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "serve",
+        "--bind",
+        "300.300.300.300",
+        "--port",
+        "0"
+      ],
+      "pan_args": [
+        "flow",
+        "serve",
+        "--bind",
+        "300.300.300.300",
+        "--port",
+        "0"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--port",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--bind",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--open",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "serve-open",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "-O",
+        "serve",
+        "--bind",
+        "300.300.300.300"
+      ],
+      "pan_args": [
+        "flow",
+        "serve",
+        "--bind",
+        "300.300.300.300",
+        "--open"
+      ],
+      "source_exit": 1,
+      "pan_exit": 1,
+      "assertion": "paired-failure",
+      "claims": [
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--port",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--bind",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow serve",
+          "pan": "flow serve",
+          "input": "--open",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-default",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        "."
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        "."
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--compare",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-spec",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-output",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--output",
+        "-"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--output",
+        "-"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--output",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--compare",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-spec",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-json",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--format",
+        "json"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--output",
+        "-",
+        "--document-format",
+        "json"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--output",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--compare",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-after",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-view",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--view",
+        "full"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--output",
+        "-",
+        "--view",
+        "full"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--output",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--command-help",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-after",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-review",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--review",
+        "../minimal.yaml"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--review",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--document-format",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--command-help",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-after",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-compare",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--compare",
+        "../minimal.yaml"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--compare",
+        "../minimal.yaml"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--document-format",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--command-help",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-phases",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-help",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--command-help",
+        "off"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--command-help",
+        "off"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--document-format",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-json",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-phases",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-audit-json",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--audit-json"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "--format",
+        "json",
+        "flow",
+        "storyboard",
+        ".",
+        "--audit-json"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--view",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-json",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-phases",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-audit-md",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--audit-md"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--audit-markdown"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--view",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-json",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-stages",
+          "required_case": "default or omitted"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-refresh",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--refresh-spec"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--refresh-spec"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--view",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-markdown",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-stages",
+          "required_case": "enabled or explicit value"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-after",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--refresh-after",
+        "1h"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--refresh-after",
+        "1h"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--review",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-markdown",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--max-stages",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-max-phases",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--max-phases",
+        "1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--max-phases",
+        "1"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--review",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--audit-markdown",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "storyboard-max-stages",
+      "cwd": "testdata/http-go",
+      "source_args": [
+        "storyboard",
+        ".",
+        "--max-stages",
+        "1"
+      ],
+      "pan_args": [
+        "--repo",
+        ".",
+        "flow",
+        "storyboard",
+        ".",
+        "--max-stages",
+        "1"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--review",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoflow storyboard",
+          "pan": "flow storyboard",
+          "input": "--refresh-spec",
+          "required_case": "default or omitted"
+        }
+      ]
+    }
+  ]
+}

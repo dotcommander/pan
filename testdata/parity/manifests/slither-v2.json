@@ -1,0 +1,42 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "slither/version-local-v2",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/slither/cmd",
+    ".work/slither/internal",
+    ".work/slither/go.mod",
+    ".work/slither/go.sum",
+    "testdata/parity/fixtures/repoclean-v2"
+  ],
+  "cases": [
+    {
+      "id": "version-default",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["version"],
+      "pan_args": ["version"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [{"source": "slither version", "pan": "version", "input": "default invocation", "required_case": "successful default path"}]
+    },
+    {
+      "id": "version-json",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": ["version", "--json"],
+      "pan_args": ["version", "--json"],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-json",
+      "claims": [
+        {"source": "slither version", "pan": "version", "input": "--json", "required_case": "default or omitted"},
+        {"source": "slither version", "pan": "version", "input": "--json", "required_case": "enabled or explicit value"},
+        {"source": "slither version", "pan": "version", "input": "--json", "required_case": "each supported mode after source inventory"}
+      ]
+    }
+  ]
+}

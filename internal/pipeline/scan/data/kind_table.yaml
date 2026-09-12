@@ -1,0 +1,49 @@
+# kind_table.yaml — ordered package-name fragment → phase Kind matcher.
+#
+# Order matters: inferKind walks entries top-to-bottom and returns the FIRST
+# match where base == match or strings.HasPrefix(base, match). Duplicate
+# matches (e.g. "route" → Route AND Route) are intentional — the earlier
+# entry wins. Do not reorder without auditing inferKind callers.
+#
+# Users may extend or override this list by creating
+# ~/.config/Pan/kind_table.yaml — user entries are PREPENDED so they
+# match before the embedded defaults.
+kinds:
+  - { match: "main",       kind: "Boot" }
+  - { match: "cmd",        kind: "Boot" }
+  - { match: "cli",        kind: "Boot" }
+  - { match: "boot",       kind: "Boot" }
+  - { match: "commands",   kind: "Route" }
+  - { match: "command",    kind: "Route" }
+  - { match: "dispatch",   kind: "Route" }
+  - { match: "route",      kind: "Route" }
+  - { match: "spec",       kind: "Parse" }
+  - { match: "schema",     kind: "Parse" }
+  - { match: "model",      kind: "Parse" }
+  - { match: "parse",      kind: "Parse" }
+  - { match: "load",       kind: "Parse" }
+  - { match: "validate",   kind: "Check" }
+  - { match: "valid",      kind: "Check" }
+  - { match: "check",      kind: "Check" }
+  - { match: "lint",       kind: "Check" }
+  - { match: "render",     kind: "Render" }
+  - { match: "template",   kind: "Render" }
+  - { match: "templates",  kind: "Render" }
+  - { match: "view",       kind: "Render" }
+  - { match: "html",       kind: "Render" }
+  - { match: "watch",      kind: "Watch" }
+  - { match: "watcher",    kind: "Watch" }
+  - { match: "fsnotify",   kind: "Watch" }
+  - { match: "notify",     kind: "Watch" }
+  - { match: "serve",      kind: "Serve" }
+  - { match: "server",     kind: "Serve" }
+  - { match: "http",       kind: "Serve" }
+  - { match: "handler",    kind: "Serve" }
+  - { match: "route",      kind: "Serve" }
+  - { match: "routes",     kind: "Serve" }
+  - { match: "emit",       kind: "Emit" }
+  - { match: "output",     kind: "Emit" }
+  - { match: "review",     kind: "Analyze" }
+  - { match: "scan",       kind: "Analyze" }
+  - { match: "analyze",    kind: "Analyze" }
+  - { match: "inspect",    kind: "Analyze" }

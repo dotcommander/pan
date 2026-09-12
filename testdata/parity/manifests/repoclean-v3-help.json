@@ -1,0 +1,292 @@
+{
+  "schema": "pan.parity-manifest/v1",
+  "contract": "source-and-pan-command-help are bounded local CLI inventory evidence",
+  "snapshot_roots": [
+    "cmd",
+    "internal",
+    "go.mod",
+    "go.sum",
+    "testdata/parity/commands.json",
+    ".work/repoclean",
+    "testdata/parity/fixtures/repoclean-v2"
+  ],
+  "cases": [
+    {
+      "id": "repoclean-report",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "--help"
+      ],
+      "pan_args": [
+        "clean",
+        "plan",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--max-depth",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--max-depth",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--max-depth",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--stale-days",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--stale-days",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean report",
+          "pan": "clean plan",
+          "input": "--stale-days",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "repoclean-findings",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "--help"
+      ],
+      "pan_args": [
+        "clean",
+        "findings",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--max-depth",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--max-depth",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--max-depth",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--stale-days",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--stale-days",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean findings",
+          "pan": "clean findings",
+          "input": "--stale-days",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "repoclean-exec",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "--help"
+      ],
+      "pan_args": [
+        "clean",
+        "commands",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--max-depth",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--max-depth",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--max-depth",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--stale-days",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--stale-days",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean exec",
+          "pan": "clean commands",
+          "input": "--stale-days",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "repoclean-apply",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "--help"
+      ],
+      "pan_args": [
+        "clean",
+        "apply",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoclean apply",
+          "pan": "clean apply",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoclean apply",
+          "pan": "clean apply",
+          "input": "--confirm",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean apply",
+          "pan": "clean apply",
+          "input": "--confirm",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean apply",
+          "pan": "clean apply",
+          "input": "--confirm",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    },
+    {
+      "id": "repoclean-missing",
+      "cwd": "testdata/parity/fixtures/repoclean-v2",
+      "source_args": [
+        "--help"
+      ],
+      "pan_args": [
+        "clean",
+        "missing",
+        "--help"
+      ],
+      "source_exit": 0,
+      "pan_exit": 0,
+      "assertion": "paired-success",
+      "claims": [
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "default invocation",
+          "required_case": "successful default path"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--max-depth",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--max-depth",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--max-depth",
+          "required_case": "each supported mode after source inventory"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--stale-days",
+          "required_case": "default or omitted"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--stale-days",
+          "required_case": "enabled or explicit value"
+        },
+        {
+          "source": "repoclean missing",
+          "pan": "clean missing",
+          "input": "--stale-days",
+          "required_case": "each supported mode after source inventory"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+provider: openai
+model: fixture-model
+base_url: http://127.0.0.1:18991
+api_key_env: JANITOR_PARITY_FAKE_KEY
+provider_max_retries: 0
+refactor_mode: oneshot
+proposal_format: wholefile

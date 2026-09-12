@@ -1,0 +1,16 @@
+# Repository-local build artifacts.
+/pan
+/bin/
+
+# Required Go package; override the global cache/ ignore rule.
+!/internal/cache/
+!/internal/cache/**
+
+# Go test and profiling artifacts.
+*.test
+*.prof
+coverage.out
+go.work.sum
+
+# Local agent contract
+AGENTS.md

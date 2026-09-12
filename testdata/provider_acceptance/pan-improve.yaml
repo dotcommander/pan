@@ -1,0 +1,7 @@
+request_timeout: 2m
+agent_max_tool_iterations: 4
+agent_oneshot_max_iterations: 4
+agent_trace_mode: full
+agent_trace_max_result_bytes: 65536
+agent_trace_full_result_bytes: 65536
+agent_conversation_max_bytes: 262144

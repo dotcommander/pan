@@ -1,0 +1,24 @@
+# store_signals.yaml — import path prefix → datastore name.
+# A phase importing one of these touches PERSISTENT state, so Pan surfaces
+# it in the STORES/STATE section (vs source_signals.yaml, which marks read-only
+# external inputs like HTTP, encodings, message queues).
+#
+# Users may override or extend by creating
+# ~/.config/Pan/store_signals.yaml — entries overlay the embedded defaults
+# (user wins on key collision).
+signals:
+  "database/sql": "SQL database"
+  "github.com/jmoiron/sqlx": "SQL database"
+  "github.com/jackc/pgx": "PostgreSQL"
+  "github.com/lib/pq": "PostgreSQL"
+  "modernc.org/sqlite": "SQLite"
+  "github.com/mattn/go-sqlite3": "SQLite"
+  "gorm.io/gorm": "SQL database"
+  "github.com/uptrace/bun": "SQL database"
+  "entgo.io/ent": "SQL database"
+  "github.com/stephenafamo/bob": "SQL database"
+  "go.mongodb.org/mongo-driver": "MongoDB"
+  "github.com/redis/go-redis": "Redis"
+  "github.com/go-redis/redis": "Redis"
+  "go.etcd.io/bbolt": "BoltDB"
+  "github.com/dgraph-io/badger": "Badger"
