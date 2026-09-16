@@ -40,7 +40,7 @@ func TestBinaryVersionFromContent(t *testing.T) {
 	content := []byte(`
 package cli
 
-var binaryVersion = "v0.1.0"
+const binaryVersion = "v0.1.0"
 `)
 	v, err := binaryVersionFromContent(content)
 	if err != nil {

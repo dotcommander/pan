@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-var binaryVersionPattern = regexp.MustCompile(`(?m)^var binaryVersion = "v([0-9]+\.[0-9]+\.[0-9]+)"$`)
+var binaryVersionPattern = regexp.MustCompile(`(?m)^(?:var|const) binaryVersion = "v([0-9]+\.[0-9]+\.[0-9]+)"$`)
 
 type semanticVersion struct {
 	major int
@@ -83,7 +83,7 @@ func replaceBinaryVersion(content []byte, previous, target string) ([]byte, erro
 	if current != previous {
 		return nil, fmt.Errorf("binaryVersion is %s, expected %s", current, previous)
 	}
-	replacement := []byte(`var binaryVersion = "v` + target + `"`)
+	replacement := []byte(`const binaryVersion = "v` + target + `"`)
 	return binaryVersionPattern.ReplaceAll(content, replacement), nil
 }
 
