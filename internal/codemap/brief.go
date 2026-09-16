@@ -29,9 +29,5 @@ func SortedSymbolFamilies(symbols []analyze.Symbol) []string {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	out := make([]string, 0, len(keys))
-	for _, key := range keys {
-		out = append(out, key)
-	}
-	return out
+	return keys
 }

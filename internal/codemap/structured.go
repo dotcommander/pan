@@ -24,11 +24,15 @@ type StructuredOutput struct {
 	Files         []StructuredFile `json:"files"`
 }
 
+// StructuredTotals counts files and symbols in one structured codemap
+// document.
 type StructuredTotals struct {
 	Files   int `json:"files"`
 	Symbols int `json:"symbols"`
 }
 
+// StructuredConfig records the budget and intent inputs that shaped one
+// structured codemap.
 type StructuredConfig struct {
 	MaxTokens      int      `json:"max_tokens"`
 	MaxTokensNoCtx int      `json:"max_tokens_no_ctx"`
@@ -53,6 +57,8 @@ type ParseCoverage struct {
 	GoAnalysisFailed  int            `json:"go_analysis_failed,omitempty"`
 }
 
+// OutputSelection reports the selection accounting between all and
+// emitted files and symbols.
 type OutputSelection struct {
 	TotalFiles      int    `json:"total_files"`
 	TotalSymbols    int    `json:"total_symbols"`
@@ -63,6 +69,8 @@ type OutputSelection struct {
 	OmittedReason   string `json:"omitted_reason,omitempty"`
 }
 
+// StructuredFile is one file's structured codemap entry with score,
+// relations, and symbols.
 type StructuredFile struct {
 	Path             string               `json:"path"`
 	Handle           string               `json:"handle,omitempty"`
@@ -87,6 +95,8 @@ type StructuredFile struct {
 	OmittedReason    string               `json:"omitted_reason,omitempty"`
 }
 
+// StructuredEvidence is one relation-evidence line attached to a file
+// entry.
 type StructuredEvidence struct {
 	Kind          string `json:"kind"`
 	EvidenceClass string `json:"evidence_class"`
@@ -95,6 +105,7 @@ type StructuredEvidence struct {
 	Caveat        string `json:"caveat,omitempty"`
 }
 
+// StructuredSymbol is one symbol entry inside a structured file.
 type StructuredSymbol struct {
 	Name        string   `json:"name"`
 	Handle      string   `json:"handle,omitempty"`
@@ -113,6 +124,7 @@ type StructuredSymbol struct {
 	Hash        string   `json:"hash,omitempty"`
 }
 
+// StructuredCallSite is one call-site line inside a structured file.
 type StructuredCallSite struct {
 	Name string `json:"name"`
 	Line int    `json:"line,omitempty"`

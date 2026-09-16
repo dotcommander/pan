@@ -37,8 +37,8 @@ func TestReferenceGraphPolicyIsOptionalAndDeterministic(t *testing.T) {
 		Files:   []analyze.File{{Path: "a.ts", Language: "typescript"}, {Path: "b.ts", Language: "typescript"}, {Path: "c.ts", Language: "typescript"}},
 		Symbols: []analyze.Symbol{{Name: "Hub", Location: analyze.Location{Path: "a.ts", Line: 1}}},
 		Edges: []analyze.Edge{
-			{From: "b.ts", To: "a.ts", Kind: "references", Symbol: "Hub", Confidence: analyze.ConfidenceSyntactic},
-			{From: "c.ts", To: "a.ts", Kind: "references", Symbol: "Hub", Confidence: analyze.ConfidenceSyntactic},
+			{From: "b.ts", To: "a.ts", Kind: edgeKindReferences, Symbol: "Hub", Confidence: analyze.ConfidenceSyntactic},
+			{From: "c.ts", To: "a.ts", Kind: edgeKindReferences, Symbol: "Hub", Confidence: analyze.ConfidenceSyntactic},
 		},
 	}
 	baseline := Rank(snapshot, "", Options{})

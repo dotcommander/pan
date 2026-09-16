@@ -159,6 +159,9 @@ func renderHeader(mode string, files, symbols, usedTokens, budget int) string {
 	return b.String()
 }
 
+// tagEntry marks a detected entry-point file in formatTags and the tests.
+const tagEntry = "entry"
+
 // formatHeader renders one level-0 file line: path plus ranking annotations.
 func formatHeader(f ranking.RankedFile) string {
 	return f.Path + formatTags(f) + "\n"
@@ -169,8 +172,8 @@ func formatHeader(f ranking.RankedFile) string {
 // internal import counts, and untested packages.
 func formatTags(f ranking.RankedFile) string {
 	var tags []string
-	if f.Tag == "entry" {
-		tags = append(tags, "entry")
+	if f.Tag == tagEntry {
+		tags = append(tags, tagEntry)
 	}
 	if f.ImportedBy >= 2 {
 		tags = append(tags, fmt.Sprintf("imported by %d", f.ImportedBy))

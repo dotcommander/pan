@@ -35,6 +35,26 @@ func TestBuildStructuredPreservesSchemaTotalsAndSelection(t *testing.T) {
 	if len(out.Files) != out.Selection.SelectedFiles || len(out.Files) == 0 {
 		t.Fatalf("selected files = %d, selection = %#v", len(out.Files), out.Selection)
 	}
+}
+
+// TestBuildStructuredPreservesFileSymbolAndCoverage pins the per-file
+// entry shape, symbol handles, and parse coverage of the same baseline
+// document.
+func TestBuildStructuredPreservesFileSymbolAndCoverage(t *testing.T) {
+	t.Parallel()
+	snap := analyze.Snapshot{
+		Root:  "/repo",
+		Files: []analyze.File{{Path: "cmd/main.go", Language: "go"}, {Path: "internal/auth/token.go", Language: "go"}},
+		Symbols: []analyze.Symbol{
+			{Name: "Main", Kind: "function", Exported: true, Location: analyze.Location{Path: "cmd/main.go", Line: 3}},
+			{Name: "Refresh", Kind: "function", Exported: true, Signature: "() error", Location: analyze.Location{Path: "internal/auth/token.go", Line: 12}},
+		},
+	}
+	ranked := []ranking.RankedFile{
+		{Path: "cmd/main.go", Language: "go", Score: 40, Components: map[string]int{"entry": 40}, Symbols: snap.Symbols[:1]},
+		{Path: "internal/auth/token.go", Language: "go", Score: 20, Components: map[string]int{"symbols": 20}, Symbols: snap.Symbols[1:]},
+	}
+	out := BuildStructured(snap, ranked, Options{Tokens: 100, Intent: "refresh", Consumed: []string{"cmd/main.go"}, SymbolRefs: true})
 	file := out.Files[0]
 	if file.Handle != "file:"+file.Path || file.ParseMethod != "go_ast" || file.CapabilityTier != "syntax" {
 		t.Fatalf("file = %#v", file)

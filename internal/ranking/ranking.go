@@ -180,38 +180,66 @@ const (
 	referenceGraphTolerance     = 1e-9
 	referenceGraphMaxIterations = 40
 	referenceGraphMaxBonus      = 30
+	edgeKindReferences          = "references"
 )
+
+// referenceGraphPair identifies one directed ranked-file pair.
+type referenceGraphPair struct{ from, to int }
 
 func applyReferenceGraphScores(ranked []RankedFile, snap analyze.Snapshot) GraphStats {
 	index := make(map[string]int, len(ranked))
 	for i := range ranked {
 		index[ranked[i].Path] = i
 	}
-	type pair struct{ from, to int }
-	counts := make(map[pair]int)
-	ambiguity := make(map[pair]int)
+	counts, ambiguity := referenceGraphCounts(index, snap)
+	if len(counts) == 0 || len(ranked) == 0 {
+		return GraphStats{}
+	}
+	weights, pairs, outgoing := referenceGraphWeights(counts, ambiguity, len(ranked))
+	scores, iterations := iterateReferenceGraph(pairs, weights, outgoing, len(ranked))
+	maxScore := 0.0
+	for _, score := range scores {
+		maxScore = max(maxScore, score)
+	}
+	for i, score := range scores {
+		bonus := int(math.Round(referenceGraphMaxBonus * score / maxScore))
+		if bonus > 0 {
+			addComponent(&ranked[i], ComponentReferenceGraph, bonus)
+		}
+	}
+	return GraphStats{Nodes: len(ranked), Edges: len(counts), Iterations: iterations}
+}
+
+// referenceGraphCounts tallies reference edges between ranked files and
+// tracks each edge's symbol-definition ambiguity.
+func referenceGraphCounts(index map[string]int, snap analyze.Snapshot) (counts map[referenceGraphPair]int, ambiguity map[referenceGraphPair]int) {
 	definitions := make(map[string]int)
 	for _, symbol := range snap.Symbols {
 		definitions[symbol.Name]++
 	}
+	counts = make(map[referenceGraphPair]int)
+	ambiguity = make(map[referenceGraphPair]int)
 	for _, edge := range snap.Edges {
-		if edge.Kind != "references" {
+		if edge.Kind != edgeKindReferences {
 			continue
 		}
 		from, fromOK := index[edge.From]
 		to, toOK := index[edge.To]
 		if fromOK && toOK && from != to {
-			p := pair{from, to}
+			p := referenceGraphPair{from, to}
 			counts[p]++
 			ambiguity[p] = max(ambiguity[p], definitions[edge.Symbol])
 		}
 	}
-	if len(counts) == 0 || len(ranked) == 0 {
-		return GraphStats{}
-	}
-	weights := make(map[pair]float64, len(counts))
-	pairs := make([]pair, 0, len(counts))
-	outgoing := make([]float64, len(ranked))
+	return counts, ambiguity
+}
+
+// referenceGraphWeights derives edge weights from counts and ambiguity,
+// orders the pair list, and accumulates each file's outgoing weight.
+func referenceGraphWeights(counts, ambiguity map[referenceGraphPair]int, n int) (map[referenceGraphPair]float64, []referenceGraphPair, []float64) {
+	weights := make(map[referenceGraphPair]float64, len(counts))
+	pairs := make([]referenceGraphPair, 0, len(counts))
+	outgoing := make([]float64, n)
 	for p, count := range counts {
 		pairs = append(pairs, p)
 		definitionCount := ambiguity[p]
@@ -222,13 +250,18 @@ func applyReferenceGraphScores(ranked []RankedFile, snap analyze.Snapshot) Graph
 		weights[p] = weight
 		outgoing[p.from] += weight
 	}
-	slices.SortFunc(pairs, func(a, b pair) int {
+	slices.SortFunc(pairs, func(a, b referenceGraphPair) int {
 		if a.from != b.from {
 			return a.from - b.from
 		}
 		return a.to - b.to
 	})
-	n := len(ranked)
+	return weights, pairs, outgoing
+}
+
+// iterateReferenceGraph runs the damped reference-graph score propagation
+// until the tolerance or iteration bound is reached.
+func iterateReferenceGraph(pairs []referenceGraphPair, weights map[referenceGraphPair]float64, outgoing []float64, n int) ([]float64, int) {
 	scores := make([]float64, n)
 	for i := range scores {
 		scores[i] = 1 / float64(n)
@@ -260,17 +293,7 @@ func applyReferenceGraphScores(ranked []RankedFile, snap analyze.Snapshot) Graph
 			break
 		}
 	}
-	maxScore := 0.0
-	for _, score := range scores {
-		maxScore = max(maxScore, score)
-	}
-	for i, score := range scores {
-		bonus := int(math.Round(referenceGraphMaxBonus * score / maxScore))
-		if bonus > 0 {
-			addComponent(&ranked[i], ComponentReferenceGraph, bonus)
-		}
-	}
-	return GraphStats{Nodes: n, Edges: len(counts), Iterations: iterations}
+	return scores, iterations
 }
 
 // fileGroup collects snapshot evidence for one file path.
