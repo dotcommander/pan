@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -63,8 +64,8 @@ func Build(ctx context.Context, root string, cfg config.Config) (Snapshot, error
 	}
 	b := &builder{ctx: ctx, cfg: cfg.Normalized(), complete: true}
 	b.snap = Snapshot{Root: root, Captured: make(map[string][]byte)}
-	if err := filepath.WalkDir(root, b.visit); err != nil {
-		return Snapshot{}, fmt.Errorf("walk repository: %w", err)
+	if walkErr := filepath.WalkDir(root, b.visit); walkErr != nil {
+		return Snapshot{}, fmt.Errorf("walk repository: %w", walkErr)
 	}
 	out := b.finalize()
 	after, err := Stamps(ctx, root, cfg)
@@ -72,7 +73,7 @@ func Build(ctx context.Context, root string, cfg config.Config) (Snapshot, error
 		return Snapshot{}, err
 	}
 	if changedStamps(before, after) {
-		return Snapshot{}, fmt.Errorf("repository_changed_during_capture")
+		return Snapshot{}, errors.New("repository_changed_during_capture")
 	}
 	out.CapturedStamps = after
 	return out, nil
@@ -126,40 +127,14 @@ func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
 		return nil
 	}
 	if excluded(slashRel, b.cfg.Exclude) {
-		b.skip(slashRel, reasonExcluded)
-		if d.IsDir() {
-			return filepath.SkipDir
-		}
+		return b.visitExcluded(slashRel, d)
+	}
+	info, admitted, walkAction := b.admitEntry(slashRel, d)
+	if walkAction != nil {
+		return walkAction
+	}
+	if !admitted {
 		return nil
-	}
-	if d.IsDir() {
-		return nil
-	}
-	if d.Type()&fs.ModeSymlink != 0 {
-		b.skip(slashRel, reasonSymlink)
-		return nil
-	}
-	if !d.Type().IsRegular() {
-		b.skip(slashRel, reasonIrregular)
-		return nil
-	}
-	if len(b.snap.Files) >= b.cfg.MaxFiles {
-		b.limit(limitMaxFiles)
-		return fs.SkipAll
-	}
-	info, ok := entryInfo(d)
-	if !ok {
-		b.skip(slashRel, reasonStatError)
-		return nil
-	}
-	if info.Size() > b.cfg.MaxFileBytes {
-		b.skip(slashRel, reasonOversized)
-		b.limit(limitMaxFileBytes)
-		return nil
-	}
-	if b.total+info.Size() > b.cfg.MaxTotalBytes {
-		b.limit(limitMaxTotalBytes)
-		return fs.SkipAll
 	}
 	b.total += info.Size()
 	file := File{Path: slashRel, Language: language(rel), Size: info.Size(), Generated: generated(path)}
@@ -169,11 +144,59 @@ func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
 		return fmt.Errorf("read %s: %w", slashRel, readErr)
 	}
 	b.snap.Captured[file.Path] = append([]byte(nil), contents...)
-	b.parseSource(path, file, contents)
+	b.parseSource(file, contents)
 	return nil
 }
 
-func (b *builder) parseSource(absPath string, file File, contents []byte) {
+// visitExcluded records one excluded entry and stops the walk below
+// excluded directories.
+func (b *builder) visitExcluded(slashRel string, d fs.DirEntry) error {
+	b.skip(slashRel, reasonExcluded)
+	if d.IsDir() {
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+// admitEntry applies the per-entry eligibility checks in walk order: plain
+// directories descend without admission, symlinks and irregular entries are
+// skipped, and the file-count and size bounds truncate discovery. It reports
+// whether the entry is admitted for capture plus the walk continuation error
+// (nil or fs.SkipAll) when the entry was skipped or truncated the walk.
+func (b *builder) admitEntry(slashRel string, d fs.DirEntry) (fs.FileInfo, bool, error) {
+	if d.IsDir() {
+		return nil, false, nil
+	}
+	if d.Type()&fs.ModeSymlink != 0 {
+		b.skip(slashRel, reasonSymlink)
+		return nil, false, nil
+	}
+	if !d.Type().IsRegular() {
+		b.skip(slashRel, reasonIrregular)
+		return nil, false, nil
+	}
+	if len(b.snap.Files) >= b.cfg.MaxFiles {
+		b.limit(limitMaxFiles)
+		return nil, false, fs.SkipAll
+	}
+	info, ok := entryInfo(d)
+	if !ok {
+		b.skip(slashRel, reasonStatError)
+		return nil, false, nil
+	}
+	if info.Size() > b.cfg.MaxFileBytes {
+		b.skip(slashRel, reasonOversized)
+		b.limit(limitMaxFileBytes)
+		return nil, false, nil
+	}
+	if b.total+info.Size() > b.cfg.MaxTotalBytes {
+		b.limit(limitMaxTotalBytes)
+		return nil, false, fs.SkipAll
+	}
+	return info, true, nil
+}
+
+func (b *builder) parseSource(file File, contents []byte) {
 	if file.Language == languageGo {
 		b.parseGoBytes(contents, file.Path)
 		return
@@ -647,27 +670,27 @@ func language(path string) string {
 	case ".go":
 		return languageGo
 	case ".c", ".h":
-		return "c"
+		return languageC
 	case ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx":
-		return "cpp"
+		return languageCpp
 	case ".java":
-		return "java"
+		return languageJava
 	case ".php":
-		return "php"
+		return languagePhp
 	case ".py":
-		return "python"
+		return languagePython
 	case ".rb":
-		return "ruby"
+		return languageRuby
 	case ".rs":
-		return "rust"
+		return languageRust
 	case ".ts":
-		return "typescript"
+		return languageTypescript
 	case ".tsx":
-		return "tsx"
+		return languageTsx
 	case ".js", ".mjs", ".cjs":
-		return "javascript"
+		return languageJavascript
 	case ".jsx":
-		return "jsx"
+		return languageJsx
 	default:
 		return "unknown"
 	}

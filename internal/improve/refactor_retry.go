@@ -83,6 +83,27 @@ type preparedRefactorAttempt struct {
 	stop     bool
 }
 
+// noCandidateReason derives the stop reason for an empty proposal, preferring
+// the proposer's rationale when present.
+func noCandidateReason(proposal *Proposal) string {
+	if proposal != nil && strings.TrimSpace(proposal.Rationale) != "" {
+		return proposal.Rationale
+	}
+	return "proposal has no changes"
+}
+
+// stampNoCandidate normalizes an empty proposal for reporting: the changes
+// list is always present and the disposition records the no-candidate outcome.
+func stampNoCandidate(proposal *Proposal) {
+	if proposal == nil {
+		return
+	}
+	if proposal.Changes == nil {
+		proposal.Changes = []FileChange{}
+	}
+	proposal.Disposition = string(OutcomeNoCandidate)
+}
+
 func prepareRefactorAttempt(ctx context.Context, in refactorPrepareInput) (preparedRefactorAttempt, error) {
 	proposal, err := proposeRefactorAttempt(ctx, in.copyDir, in.run.opts, in.feedback, in.attempt)
 	if err != nil {
@@ -90,17 +111,8 @@ func prepareRefactorAttempt(ctx context.Context, in refactorPrepareInput) (prepa
 	}
 	in.run.beginAttempt(proposal, in.attempt+1)
 	if proposal == nil || len(proposal.Changes) == 0 {
-		reason := "proposal has no changes"
-		if proposal != nil && strings.TrimSpace(proposal.Rationale) != "" {
-			reason = proposal.Rationale
-		}
-		if proposal != nil {
-			if proposal.Changes == nil {
-				proposal.Changes = []FileChange{}
-			}
-			proposal.Disposition = string(OutcomeNoCandidate)
-		}
-		report, stopErr := in.run.stop(OutcomeNoCandidate, reason, in.baselineTests, in.baselineTests)
+		stampNoCandidate(proposal)
+		report, stopErr := in.run.stop(OutcomeNoCandidate, noCandidateReason(proposal), in.baselineTests, in.baselineTests)
 		return preparedRefactorAttempt{report: report, stop: true}, stopErr
 	}
 	if validErr := ValidateProposal(in.copyDir, proposal.Changes); validErr != nil {

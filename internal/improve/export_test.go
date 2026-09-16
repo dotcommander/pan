@@ -9,10 +9,12 @@ import (
 )
 
 func TestExportObservationsPreservesRecordedOutcomeWithoutRelabeling(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	history := HistoryPath(dir)
 	when := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	record := Record{Schema: HistorySchema, Timestamp: when, RunType: "refactor", RepoPath: "/repo", RepoHead: "abc", Success: true, Outcome: "success", Reason: "checks passed", DryRun: true, ChangedFiles: []string{"a.go"}, Provider: "external", Model: "model"}
+	record := Record{Schema: HistorySchema, Timestamp: when, RunType: "refactor", RepoPath: "/repo", RepoHead: "abc", Success: true, Outcome: "success", Reason: "checks passed", DryRun: true, ChangedFiles: []string{"a.go"}, Provider: "external", Model: modelField}
 	data, _ := json.Marshal(record)
 	if err := os.WriteFile(history, append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
@@ -25,8 +27,8 @@ func TestExportObservationsPreservesRecordedOutcomeWithoutRelabeling(t *testing.
 		t.Fatalf("observations=%+v", observations)
 	}
 	output := filepath.Join(dir, "export.jsonl")
-	if err := WriteObservations(output, observations); err != nil {
-		t.Fatal(err)
+	if writeErr := WriteObservations(output, observations); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 	written, err := os.ReadFile(output)
 	if err != nil {

@@ -39,7 +39,7 @@ func Analyze(ctx context.Context, opts Options) (Analysis, error) {
 		return Analysis{}, err
 	}
 
-	info := loadGitInfo(ctx, opts.Root, opts)
+	info := loadGitInfo(ctx, opts.Root)
 	info.loadHistory(ctx, opts.Root, opts, files)
 	info.mark(files, opts)
 

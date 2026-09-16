@@ -90,16 +90,26 @@ func (p ProviderProposer) ScopeRepository(root string, exclude []string, trace s
 	return p
 }
 
-func scopeRepositoryProposer(ctx context.Context, proposer Proposer, root string, exclude []string, trace string) (RepositoryProposer, CandidatePacket, bool, error) {
+// scopedProposer is the repository-aware proposal lane: the scoped proposer
+// plus its source-backed candidate packet.
+type scopedProposer struct {
+	repository RepositoryProposer
+	packet     CandidatePacket
+}
+
+// scopeRepositoryProposer resolves the repository-aware lane when proposer
+// implements RepositoryProposer. The bool reports whether that lane applies;
+// when it does, packet failures surface through err.
+func scopeRepositoryProposer(ctx context.Context, proposer Proposer, root string, exclude []string, trace string) (scopedProposer, bool, error) {
 	repository, ok := proposer.(RepositoryProposer)
 	if !ok {
-		return nil, CandidatePacket{}, false, nil
+		return scopedProposer{}, false, nil
 	}
 	packet, err := BuildCandidatePacket(ctx, root, exclude)
 	if err != nil {
-		return nil, CandidatePacket{}, true, err
+		return scopedProposer{}, true, err
 	}
-	return repository.ScopeRepository(root, exclude, trace), packet, true, nil
+	return scopedProposer{repository: repository.ScopeRepository(root, exclude, trace), packet: packet}, true, nil
 }
 
 // Propose preserves the legacy summary-only seam. When a repository has been

@@ -108,7 +108,7 @@ func (b *actionBuilder) remove(c Candidate, recursive bool) {
 	}
 	argv := []string{cmdRemove, flag, argSeparator, c.File}
 	b.actions = append(b.actions, Action{
-		Category: "delete", Kind: KindRemove, Argv: argv,
+		Category: StatusDelete, Kind: KindRemove, Argv: argv,
 		Display: shellJoin(argv), Target: c.File,
 	})
 }

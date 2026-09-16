@@ -31,6 +31,10 @@ const defaultTestTimeout = 5 * time.Minute
 // through a shell.
 const cmdGo = "go"
 
+// cmdStaticcheck is the constant staticcheck binary name; like the go
+// toolchain, it is looked up on PATH and invoked as one direct argv process.
+const cmdStaticcheck = "staticcheck"
+
 const goTestSubcommand = "test"
 
 // Toolchain runs the local Go toolchain against a repository directory.
@@ -54,7 +58,7 @@ func LookGo() error {
 // LookStaticcheck verifies the optional Pan improvement-compatible static analysis
 // executable before a guarded run reaches proposal generation.
 func LookStaticcheck() error {
-	if _, err := exec.LookPath("staticcheck"); err != nil {
+	if _, err := exec.LookPath(cmdStaticcheck); err != nil {
 		return fmt.Errorf("staticcheck not found on PATH (install: go install honnef.co/go/tools/cmd/staticcheck@latest): %w", err)
 	}
 	return nil
@@ -163,8 +167,15 @@ func (t Toolchain) Staticcheck(ctx context.Context, dir string, packages, files 
 	if len(packages) == 0 {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, "staticcheck", packages...)
+	if err := validateStaticcheckPackages(packages); err != nil {
+		return err
+	}
+	// The command name is a constant and every argument arrives through
+	// cmd.Args: staticcheck runs as one direct argv process in dir, never
+	// through a shell.
+	cmd := exec.CommandContext(ctx, cmdStaticcheck)
 	cmd.Dir = dir
+	cmd.Args = append(cmd.Args, packages...)
 	output, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
 		return ctx.Err()
@@ -173,6 +184,33 @@ func (t Toolchain) Staticcheck(ctx context.Context, dir string, packages, files 
 		return nil
 	}
 	return fmt.Errorf("staticcheck: %w\n%s", err, strings.TrimSpace(string(output)))
+}
+
+// validateStaticcheckPackages enforces the argument contract for the
+// external checker: every package pattern is a relative path of shell-safe
+// segments with no traversal outside dir. Patterns originate from
+// ChangedPackages, which always satisfies this contract; validation keeps a
+// future caller from injecting arbitrary argv into the checker.
+func validateStaticcheckPackages(packages []string) error {
+	for _, pattern := range packages {
+		if pattern == "" || filepath.IsAbs(pattern) {
+			return fmt.Errorf("staticcheck: invalid package pattern %q", pattern)
+		}
+		for _, segment := range strings.Split(pattern, "/") {
+			if segment == ".." {
+				return fmt.Errorf("staticcheck: package pattern %q escapes the target directory", pattern)
+			}
+			if strings.ContainsFunc(segment, func(r rune) bool { return !safePatternRune(r) }) {
+				return fmt.Errorf("staticcheck: package pattern %q contains an unsupported character", pattern)
+			}
+		}
+	}
+	return nil
+}
+
+// safePatternRune reports whether r may appear in a checker package segment.
+func safePatternRune(r rune) bool {
+	return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '-' || r == '_'
 }
 
 func staticcheckTouchesChangedFile(output string, files []string) bool {

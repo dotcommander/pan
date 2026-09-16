@@ -52,23 +52,23 @@ func parseTreeSitterBytes(source []byte, relative, language string) (parsedSourc
 
 func treeSitterLanguage(language string) *tree_sitter.Language {
 	switch language {
-	case "c":
+	case languageC:
 		return tree_sitter.NewLanguage(tree_sitter_c.Language())
-	case "cpp":
+	case languageCpp:
 		return tree_sitter.NewLanguage(tree_sitter_cpp.Language())
-	case "java":
+	case languageJava:
 		return tree_sitter.NewLanguage(tree_sitter_java.Language())
-	case "php":
+	case languagePhp:
 		return tree_sitter.NewLanguage(tree_sitter_php.LanguagePHP())
-	case "python":
+	case languagePython:
 		return tree_sitter.NewLanguage(tree_sitter_python.Language())
-	case "ruby":
+	case languageRuby:
 		return tree_sitter.NewLanguage(tree_sitter_ruby.Language())
-	case "rust":
+	case languageRust:
 		return tree_sitter.NewLanguage(tree_sitter_rust.Language())
-	case "typescript", "javascript":
+	case languageTypescript, languageJavascript:
 		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
-	case "tsx", "jsx":
+	case languageTsx, languageJsx:
 		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX())
 	default:
 		return nil

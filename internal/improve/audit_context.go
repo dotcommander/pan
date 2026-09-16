@@ -104,7 +104,7 @@ func auditVerifyCommands(root string) []string {
 func sortedUnique(values []string) []string {
 	set := make(map[string]struct{}, len(values))
 	for _, value := range values {
-		if value != "" && value != "(unknown)" {
+		if value != "" && value != unknownVerification {
 			set[value] = struct{}{}
 		}
 	}

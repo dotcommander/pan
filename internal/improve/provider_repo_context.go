@@ -19,6 +19,10 @@ import (
 
 const providerReviewChangeDays = 30
 
+// unknownVerification marks a verification command that could not be derived
+// from a recognized project layout.
+const unknownVerification = "(unknown)"
+
 // repoContextBrief is the source-oriented projection used by repo_context
 // brief. It keeps command, Git, instruction, map, and ownership evidence
 // separate so callers do not mistake it for the audit read queue.
@@ -152,7 +156,7 @@ func providerContextVerifyCommands(root string) repoContextVerification {
 	if providerContextFileExists(root, "package.json") {
 		return repoContextVerification{Build: "npm run build", Test: "npm test"}
 	}
-	return repoContextVerification{Build: "(unknown)", Test: "(unknown)"}
+	return repoContextVerification{Build: unknownVerification, Test: unknownVerification}
 }
 
 func providerContextGitStateFor(ctx context.Context, root string) repoContextGitState {

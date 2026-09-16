@@ -21,6 +21,10 @@ const (
 	sqliteProvider    = "provider"
 )
 
+// modelField names the model identifier field shared by the legacy SQLite
+// column list and the wire representation.
+const modelField = "model"
+
 // Record is one append-only local history entry for a guarded improve run.
 // Only refactor and prep workflows append records; read-only commands never
 // write history.
@@ -349,7 +353,7 @@ func loadLegacySQLiteRecords(ctx context.Context, db *sql.DB) ([]Record, error) 
 		fallback string
 	}{
 		{"timestamp", sqliteEmptyString}, {"strategy_id", sqliteEmptyString}, {"run_type", sqliteEmptyString}, {"repo_path", sqliteEmptyString},
-		{"branch", sqliteEmptyString}, {sqliteProvider, sqliteEmptyString}, {"model", sqliteEmptyString}, {string(OutcomeSuccess), "0"},
+		{"branch", sqliteEmptyString}, {sqliteProvider, sqliteEmptyString}, {modelField, sqliteEmptyString}, {string(OutcomeSuccess), "0"},
 		{"reason", sqliteEmptyString}, {"outcome", sqliteEmptyString}, {"fee_earned", "0"}, {"lines_deleted", "0"},
 		{"lines_added", "0"}, {"net_line_reduction", "0"}, {"dry_run", "0"}, {"symbols_deleted", "0"},
 		{"symbols_added", "0"}, {"symbols_modified", "0"}, {"net_symbol_reduction", "0"},

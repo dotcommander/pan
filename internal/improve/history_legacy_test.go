@@ -106,7 +106,7 @@ func legacyHistoryWire(record Record) map[string]any {
 		"repo_path":            record.RepoPath,
 		"branch":               record.Branch,
 		"provider":             record.Provider,
-		"model":                record.Model,
+		modelField:             record.Model,
 		"success":              record.Success,
 		"reason":               record.Reason,
 		"outcome":              record.Outcome,

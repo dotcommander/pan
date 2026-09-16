@@ -76,7 +76,7 @@ func TestProviderRepositoryAcceptsFirstResponseNoCandidate(t *testing.T) {
 	fake := &scriptedCompletion{responses: []provider.Response{toolResponse(provider.ToolCall{
 		ID: "done", Type: "function", Function: provider.FunctionCall{Name: providerNoCandidate, Arguments: `{"rationale":"the supplied owner has no justified cleanup","checked":["demo.go:Keep","demo.go:Keep"],"limitations":["runtime behavior not checked"]}`},
 	})}}
-	packet := CandidatePacket{SkippedSignals: []string{"git_history_not_checked"}}
+	packet := CandidatePacket{SkippedSignals: []string{signalGitHistoryNotChecked}}
 	proposal, err := (ProviderProposer{Client: fake, Model: "test", Settings: ProviderSettings{RepoPath: root, MaxCodebaseBytes: 4096, TraceMode: "summary"}}).ProposeRepository(context.Background(), "find a cleanup", packet)
 	if err != nil {
 		t.Fatal(err)

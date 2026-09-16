@@ -20,6 +20,23 @@ const (
 	diagnosticWarning = "warning"
 )
 
+// Language identifiers name the selected parse grammar and double as public
+// JSON labels carried by snapshots, scan packets, and codemap output; their
+// values are evidence contracts and must not be renamed.
+const (
+	languageC          = "c"
+	languageCpp        = "cpp"
+	languageJava       = "java"
+	languagePhp        = "php"
+	languagePython     = "python"
+	languageRuby       = "ruby"
+	languageRust       = "rust"
+	languageTypescript = "typescript"
+	languageTsx        = "tsx"
+	languageJavascript = "javascript"
+	languageJsx        = "jsx"
+)
+
 // Location names one repository-relative path and line.
 type Location struct {
 	Path string `json:"path"`

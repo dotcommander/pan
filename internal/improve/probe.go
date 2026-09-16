@@ -101,14 +101,14 @@ func proposeForProbe(ctx context.Context, opts ProbeOptions) (*Proposal, *Provid
 		return proposal, nil, nil
 	}
 	summary := fmt.Sprintf("Repository root: %s. Return a minimal whole-file refactor proposal. Do not modify tests, configuration, or files outside the repository.", opts.RepoPath)
-	repository, packet, repositoryAware, err := scopeRepositoryProposer(ctx, opts.Proposer, opts.RepoPath, opts.Exclude, opts.Trace)
+	scoped, repositoryAware, err := scopeRepositoryProposer(ctx, opts.Proposer, opts.RepoPath, opts.Exclude, opts.Trace)
 	if repositoryAware {
 		if err != nil {
 			return nil, nil, err
 		}
-		proposal, err := repository.ProposeRepository(ctx, summary, packet)
-		if err != nil {
-			return nil, nil, err
+		proposal, proposeErr := scoped.repository.ProposeRepository(ctx, summary, scoped.packet)
+		if proposeErr != nil {
+			return nil, nil, proposeErr
 		}
 		if proposal == nil {
 			return nil, nil, errors.New("repository proposer returned nil proposal")
@@ -120,8 +120,8 @@ func proposeForProbe(ctx context.Context, opts ProbeOptions) (*Proposal, *Provid
 		if tracer, ok := opts.Proposer.(interface {
 			ProposeWithTrace(context.Context, string) (*Proposal, ProviderTrace, error)
 		}); ok {
-			proposal, trace, err := tracer.ProposeWithTrace(ctx, summary)
-			return proposal, &trace, err
+			traced, trace, traceErr := tracer.ProposeWithTrace(ctx, summary)
+			return traced, &trace, traceErr
 		}
 	}
 	proposal, err = opts.Proposer.Propose(ctx, summary)

@@ -169,43 +169,21 @@ func baselineCoverageFloorReason(result TestResult, floor float64) string {
 
 func proposeRefactorAttempt(ctx context.Context, copyDir string, opts RefactorOptions, feedback string, attempt int) (*Proposal, error) {
 	audit := BuildAuditContext(ctx, copyDir, opts.Exclude)
-	if opts.Proposer == nil || (opts.DeadSymbolsFirst && attempt == 0) {
-		proposal, err := ProposeDeadCode(copyDir, opts.Exclude)
-		if err != nil {
-			return nil, fmt.Errorf("deterministic proposal: %w", err)
-		}
-		if opts.Proposer == nil || len(proposal.Changes) > 0 {
-			return proposal, nil
-		}
+	if proposal, settled, err := deterministicProposal(copyDir, opts, attempt); err != nil {
+		return nil, err
+	} else if settled {
+		return proposal, nil
 	}
-	summary := fmt.Sprintf("Repository copy: %s. Return a minimal whole-file refactor proposal. Do not modify tests, configuration, or files outside the repository.", copyDir)
-	if feedback != "" {
-		summary += "\n\n=== CORRECTION REQUIRED ===\n" + feedback
-	}
-	proposer := opts.Proposer
-	if attempt > 0 {
-		switch provider := proposer.(type) {
-		case ProviderProposer:
-			if provider.Settings.EscalationModel != "" {
-				provider.Model = provider.Settings.EscalationModel
-				proposer = provider
-			}
-		case *ProviderProposer:
-			if provider != nil && provider.Settings.EscalationModel != "" {
-				copy := *provider
-				copy.Model = copy.Settings.EscalationModel
-				proposer = copy
-			}
-		}
-	}
-	repository, packet, repositoryAware, err := scopeRepositoryProposer(ctx, proposer, copyDir, opts.Exclude, "")
+	summary := refactorProposalSummary(copyDir, feedback)
+	proposer := escalatedProposer(opts.Proposer, attempt)
+	scoped, repositoryAware, err := scopeRepositoryProposer(ctx, proposer, copyDir, opts.Exclude, "")
 	if repositoryAware {
 		if err != nil {
 			return nil, fmt.Errorf("build candidate packet: %w", err)
 		}
-		proposal, err := repository.ProposeRepository(ctx, summary, packet)
-		if err != nil {
-			return nil, fmt.Errorf("provider proposal: %w", err)
+		proposal, proposeErr := scoped.repository.ProposeRepository(ctx, summary, scoped.packet)
+		if proposeErr != nil {
+			return nil, fmt.Errorf("provider proposal: %w", proposeErr)
 		}
 		if proposal == nil {
 			return nil, errors.New("provider proposal: repository proposer returned nil proposal")
@@ -219,6 +197,53 @@ func proposeRefactorAttempt(ctx context.Context, copyDir string, opts RefactorOp
 	}
 	proposal.Audit = audit
 	return proposal, nil
+}
+
+// deterministicProposal runs the deterministic dead-code lane. The bool
+// reports whether its proposal settles this attempt without the provider:
+// always when no proposer is configured, and on DeadSymbolsFirst's first
+// attempt when the deterministic pass found changes.
+func deterministicProposal(copyDir string, opts RefactorOptions, attempt int) (*Proposal, bool, error) {
+	if opts.Proposer != nil && (!opts.DeadSymbolsFirst || attempt != 0) {
+		return nil, false, nil
+	}
+	proposal, err := ProposeDeadCode(copyDir, opts.Exclude)
+	if err != nil {
+		return nil, false, fmt.Errorf("deterministic proposal: %w", err)
+	}
+	return proposal, opts.Proposer == nil || len(proposal.Changes) > 0, nil
+}
+
+// refactorProposalSummary builds the provider prompt summary, appending the
+// corrective feedback of a retried attempt when present.
+func refactorProposalSummary(copyDir, feedback string) string {
+	summary := fmt.Sprintf("Repository copy: %s. Return a minimal whole-file refactor proposal. Do not modify tests, configuration, or files outside the repository.", copyDir)
+	if feedback != "" {
+		summary += "\n\n=== CORRECTION REQUIRED ===\n" + feedback
+	}
+	return summary
+}
+
+// escalatedProposer returns the provider's escalation model for a retried
+// attempt, preserving the original proposer when escalation is not available.
+func escalatedProposer(proposer Proposer, attempt int) Proposer {
+	if attempt <= 0 {
+		return proposer
+	}
+	switch provider := proposer.(type) {
+	case ProviderProposer:
+		if provider.Settings.EscalationModel != "" {
+			provider.Model = provider.Settings.EscalationModel
+			return provider
+		}
+	case *ProviderProposer:
+		if provider != nil && provider.Settings.EscalationModel != "" {
+			copy := *provider
+			copy.Model = copy.Settings.EscalationModel
+			return copy
+		}
+	}
+	return proposer
 }
 
 // runMutationGates applies one proposal on the current disposable attempt

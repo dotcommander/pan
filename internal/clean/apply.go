@@ -104,8 +104,8 @@ func Apply(ctx context.Context, opts Options, actions []Action, confirm bool) (A
 		return result, nil
 	}
 
-	if err := ctx.Err(); err != nil {
-		return result, err
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return result, ctxErr
 	}
 
 	now := opts.now()

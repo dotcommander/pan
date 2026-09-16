@@ -3,6 +3,7 @@ package improve
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -10,10 +11,14 @@ import (
 	"github.com/dotcommander/pan/internal/pipeline/atomicfile"
 )
 
+// RefactorObservationSchema stamps every exported observation record.
 const RefactorObservationSchema = "pan.refactor-observation/v1"
 
+// MaxObservationExport bounds the observations one export may return.
 const MaxObservationExport = 10000
 
+// RefactorObservation pairs the export schema stamp with one immutable
+// history record.
 type RefactorObservation struct {
 	Schema string `json:"schema"`
 	Record Record `json:"record"`
@@ -26,13 +31,13 @@ func ExportObservations(path string, limit int, since *time.Time) ([]RefactorObs
 		limit = 100
 	}
 	if limit > MaxObservationExport {
-		return nil, fmt.Errorf("limit exceeds hard bound")
+		return nil, errors.New("limit exceeds hard bound")
 	}
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	var out []RefactorObservation
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
@@ -60,9 +65,11 @@ func ExportObservations(path string, limit int, since *time.Time) ([]RefactorObs
 	return out, nil
 }
 
+// WriteObservations encodes observations as JSONL and writes them atomically
+// to output with owner-only permissions.
 func WriteObservations(output string, observations []RefactorObservation) error {
 	if output == "" {
-		return fmt.Errorf("output path is required")
+		return errors.New("output path is required")
 	}
 	var data []byte
 	for _, observation := range observations {

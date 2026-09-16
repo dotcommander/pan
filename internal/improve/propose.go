@@ -28,31 +28,52 @@ func ProposeDeadCode(root string, exclude []string) (*Proposal, error) {
 		return nil, err
 	}
 	if len(dead) == 0 {
-		files, listErr := listGoFiles(root, exclude)
-		if listErr != nil {
-			return nil, listErr
-		}
-		checked := make([]string, 0, min(len(files), 50))
-		for _, file := range files {
-			checked = append(checked, relSlash(root, file))
-			if len(checked) == 50 {
-				break
-			}
-		}
-		limitations := []string{"lexical references only; semantic and runtime reachability not checked"}
-		if len(files) > len(checked) {
-			limitations = append(limitations, fmt.Sprintf("checked list truncated: %d of %d Go files shown", len(checked), len(files)))
-		}
-		return &Proposal{
-			Rationale:   "no unexported declarations with zero references found; nothing to remove",
-			Changes:     []FileChange{},
-			Disposition: string(OutcomeNoCandidate),
-			Checked:     checked,
-			Limitations: limitations,
-			Source:      ProposalSource,
-		}, nil
+		return noDeadCodeProposal(root, exclude)
 	}
+	files, byFile := groupDeadSymbolsByFile(dead)
+	changes, removed, err := removeDeadSymbols(root, files, byFile)
+	if err != nil {
+		return nil, err
+	}
+	return &Proposal{
+		Rationale:  fmt.Sprintf("remove %d unexported declaration(s) with zero module-wide references (deterministic lexical evidence)", len(removed)),
+		Changes:    changes,
+		Candidates: removed,
+		Source:     ProposalSource,
+	}, nil
+}
 
+// noDeadCodeProposal reports the empty result when detection finds no dead
+// symbols, listing the checked files under deterministic bounds.
+func noDeadCodeProposal(root string, exclude []string) (*Proposal, error) {
+	files, listErr := listGoFiles(root, exclude)
+	if listErr != nil {
+		return nil, listErr
+	}
+	checked := make([]string, 0, min(len(files), 50))
+	for _, file := range files {
+		checked = append(checked, relSlash(root, file))
+		if len(checked) == 50 {
+			break
+		}
+	}
+	limitations := []string{"lexical references only; semantic and runtime reachability not checked"}
+	if len(files) > len(checked) {
+		limitations = append(limitations, fmt.Sprintf("checked list truncated: %d of %d Go files shown", len(checked), len(files)))
+	}
+	return &Proposal{
+		Rationale:   "no unexported declarations with zero references found; nothing to remove",
+		Changes:     []FileChange{},
+		Disposition: string(OutcomeNoCandidate),
+		Checked:     checked,
+		Limitations: limitations,
+		Source:      ProposalSource,
+	}, nil
+}
+
+// groupDeadSymbolsByFile clusters dead symbols per file, returning the files
+// in declaration order followed by deterministic (sorted) order.
+func groupDeadSymbolsByFile(dead []DeadSymbol) ([]string, map[string][]DeadSymbol) {
 	byFile := make(map[string][]DeadSymbol)
 	var files []string
 	for _, symbol := range dead {
@@ -62,13 +83,18 @@ func ProposeDeadCode(root string, exclude []string) (*Proposal, error) {
 		byFile[symbol.File] = append(byFile[symbol.File], symbol)
 	}
 	sort.Strings(files)
+	return files, byFile
+}
 
+// removeDeadSymbols applies removal surgery to every affected file and
+// returns the resulting whole-file changes plus the symbols actually removed.
+func removeDeadSymbols(root string, files []string, byFile map[string][]DeadSymbol) ([]FileChange, []DeadSymbol, error) {
 	var changes []FileChange
 	var removed []DeadSymbol
 	for _, rel := range files {
 		src, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", rel, err)
+			return nil, nil, fmt.Errorf("read %s: %w", rel, err)
 		}
 		names := make(map[string]bool, len(byFile[rel]))
 		for _, symbol := range byFile[rel] {
@@ -89,13 +115,7 @@ func ProposeDeadCode(root string, exclude []string) (*Proposal, error) {
 			}
 		}
 	}
-
-	return &Proposal{
-		Rationale:  fmt.Sprintf("remove %d unexported declaration(s) with zero module-wide references (deterministic lexical evidence)", len(removed)),
-		Changes:    changes,
-		Candidates: removed,
-		Source:     ProposalSource,
-	}, nil
+	return changes, removed, nil
 }
 
 func slicesContains(values []string, want string) bool {

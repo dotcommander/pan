@@ -34,7 +34,7 @@ type gitInfo struct {
 // loadGitInfo probes the work tree and reads tracked/ignored path sets plus
 // a bounded history window. Every git invocation is a direct argv plumbing
 // command with bounded output; no shell is involved.
-func loadGitInfo(ctx context.Context, root string, opts Options) gitInfo {
+func loadGitInfo(ctx context.Context, root string) gitInfo {
 	info := gitInfo{available: true, tracked: map[string]bool{}, ignored: map[string]bool{}, staleDays: map[string]int{}, deleted: map[string]bool{}}
 
 	inside, err := gitRun(ctx, root, "rev-parse", "--is-inside-work-tree")
@@ -96,8 +96,7 @@ func (g *gitInfo) loadHistory(ctx context.Context, root string, opts Options, fi
 		return
 	}
 	for _, line := range strings.Split(out, "\n") {
-		switch {
-		case strings.Contains(line, "\t"):
+		if strings.Contains(line, "\t") {
 			g.recordDeletion(line)
 		}
 	}

@@ -50,7 +50,7 @@ func Exported() int { return lonely() }
 	if len(got.Verify) != 1 || got.Verify[0] != "go test ./pkg/x" {
 		t.Fatalf("verify = %#v", got.Verify)
 	}
-	if want := []string{"semantic_references_not_checked", "git_history_not_checked"}; strings.Join(packet.SkippedSignals, ",") != strings.Join(want, ",") {
+	if want := []string{signalSemanticReferencesNotChecked, signalGitHistoryNotChecked}; strings.Join(packet.SkippedSignals, ",") != strings.Join(want, ",") {
 		t.Fatalf("skipped signals = %#v", packet.SkippedSignals)
 	}
 }

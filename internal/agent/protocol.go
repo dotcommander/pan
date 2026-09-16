@@ -209,18 +209,18 @@ type executor struct {
 
 func (e executor) execute(ctx context.Context, req request) (Response, error) {
 	if req.Op == OpHello {
-		return helloResponse(req, e.outcomes), nil
+		return helloResponse(req), nil
 	}
 	doc, err := e.build(ctx)
 	if err != nil {
 		return Response{}, err
 	}
-	respond := responseFor(req, doc)
+	respond := responseFor(req)
 	switch req.Op {
 	case OpReport:
 		return respond(doc), nil
 	case OpScan:
-		return respond(scanResult(req, doc)), nil
+		return respond(scanResult(doc)), nil
 	case OpQuery:
 		return e.query(doc, req, respond)
 	case OpContext:
@@ -232,18 +232,18 @@ func (e executor) execute(ctx context.Context, req request) (Response, error) {
 	}
 }
 
-func helloResponse(req request, outcomes OutcomeWriter) Response {
+func helloResponse(req request) Response {
 	return Response{Schema: Schema, ID: req.ID, OK: true, Result: map[string]any{"protocol": Schema, "schema_version": analyze.SchemaVersion, "schemas": []string{review.DocumentSchema, review.CullLedgerSchema, ContextSchema, eval.OutcomeSchema}, "report_schema": review.DocumentSchema, "operations": OperationNames(), "max_request_bytes": MaxRequestBytes, "max_context_bytes": MaxRequestBytes, "scoring": "deterministic"}}
 }
 
-func responseFor(req request, doc review.Document) func(any) Response {
+func responseFor(req request) func(any) Response {
 	return func(result any) Response {
 		response := Response{Schema: responseSchema(req.Schema), ID: req.ID, OK: true, Result: result}
 		return response
 	}
 }
 
-func scanResult(req request, doc review.Document) map[string]any {
+func scanResult(doc review.Document) map[string]any {
 	schema := review.DocumentSchema
 	return map[string]any{"schema": schema, reportIDField: doc.ReportID, "read_queue": doc.ReadQueue, "cull_ledger": review.BuildCullLedger(doc.ReadQueue)}
 }

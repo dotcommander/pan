@@ -453,7 +453,7 @@ func TestApplyCanceledContextPreventsAllMutationsAndArtifacts(t *testing.T) {
 	cancel()
 
 	actions := []Action{{
-		Category: "delete", Kind: KindRemove, Target: "garbage.tmp", Display: "rm -- garbage.tmp",
+		Category: StatusDelete, Kind: KindRemove, Target: "garbage.tmp", Display: "rm -- garbage.tmp",
 	}}
 
 	result, err := Apply(ctx, opts, actions, true)
@@ -482,14 +482,14 @@ func TestApplyManifestDoesNotOverwriteOnRapidConsecutiveRuns(t *testing.T) {
 	opts := testOptions(dir)
 
 	res1, err := Apply(context.Background(), opts, []Action{{
-		Category: "delete", Kind: KindRemove, Target: "file1.tmp", Display: "rm -- file1.tmp",
+		Category: StatusDelete, Kind: KindRemove, Target: "file1.tmp", Display: "rm -- file1.tmp",
 	}}, true)
 	if err != nil {
 		t.Fatalf("first apply failed: %v", err)
 	}
 
 	res2, err := Apply(context.Background(), opts, []Action{{
-		Category: "delete", Kind: KindRemove, Target: "file2.tmp", Display: "rm -- file2.tmp",
+		Category: StatusDelete, Kind: KindRemove, Target: "file2.tmp", Display: "rm -- file2.tmp",
 	}}, true)
 	if err != nil {
 		t.Fatalf("second apply failed: %v", err)
@@ -543,8 +543,8 @@ func TestApplyCancellationMidRunHaltsAndRecordsRemainingNotRun(t *testing.T) {
 	}
 
 	actions := []Action{
-		{Category: "delete", Kind: KindRemove, Target: "first.tmp", Display: "rm -- first.tmp"},
-		{Category: "delete", Kind: KindRemove, Target: "second.tmp", Display: "rm -- second.tmp"},
+		{Category: StatusDelete, Kind: KindRemove, Target: "first.tmp", Display: "rm -- first.tmp"},
+		{Category: StatusDelete, Kind: KindRemove, Target: "second.tmp", Display: "rm -- second.tmp"},
 	}
 
 	result, err := Apply(ctx, opts, actions, true)

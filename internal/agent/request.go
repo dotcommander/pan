@@ -93,7 +93,7 @@ func decodeRequest(line []byte) (request, string) {
 	if err := decodeString(req.Fields, "op", &req.Op, true); err != nil {
 		return req, CodeInvalidRequest
 	}
-	if !knownOp(req.Schema, req.Op) {
+	if !knownOp(req.Op) {
 		return req, CodeUnsupportedOp
 	}
 	for name := range req.Fields {
@@ -159,7 +159,7 @@ func decodeString(fields map[string]json.RawMessage, name string, destination *s
 }
 func knownSchema(schema string) bool { return schema == Schema }
 
-func knownOp(schema, op string) bool {
+func knownOp(op string) bool {
 	return op == OpHello || op == OpReport || op == OpScan || op == OpQuery || op == OpContext || op == OpFeedback
 }
 func validID(id string) bool {

@@ -19,6 +19,11 @@ const (
 	candidateFunction      = "function"
 	candidateMethod        = "method"
 	candidateActionInspect = "inspect"
+
+	// Skipped-evidence signals are public packet labels; their values are
+	// consumed by provider prompts and must not be renamed.
+	signalSemanticReferencesNotChecked = "semantic_references_not_checked"
+	signalGitHistoryNotChecked         = "git_history_not_checked"
 )
 
 // BuildCandidatePacket produces a bounded, deterministic read-only shortlist
@@ -175,7 +180,7 @@ func candidateFromSymbol(symbol analyze.Symbol, contents map[string]string, corp
 }
 
 func candidatePacket(candidates []packetCandidate) CandidatePacket {
-	packet := CandidatePacket{SkippedSignals: []string{"semantic_references_not_checked", "git_history_not_checked"}}
+	packet := CandidatePacket{SkippedSignals: []string{signalSemanticReferencesNotChecked, signalGitHistoryNotChecked}}
 	seen := make(map[string]bool, len(candidates))
 	for _, candidate := range candidates {
 		if candidate.score <= 0 || seen[candidate.path] {
