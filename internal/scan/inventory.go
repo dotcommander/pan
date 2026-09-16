@@ -31,6 +31,9 @@ const (
 // inventoryCaveat is stamped on every inventory report: role classification
 // is heuristic outside Go AST calls, so interface indirection and dynamic
 // dispatch are invisible.
+// termJSON is the serialization search term and its boundary alias.
+const termJSON = "json"
+
 const inventoryCaveat = "Owners and roles are static: pan matches parsed Go calls and bounded source shapes in every parsed language. Interface indirection, ORMs, and dynamic dispatch can hide owners; verify before relying on the inventory."
 
 // InventoryReport is the deterministic owner inventory for one trust
@@ -86,7 +89,7 @@ func inventoryBoundaries() map[string]inventoryBoundary {
 	exit := inventoryBoundary{Canonical: "Exit", Kinds: []string{kindProcessExit}, Terms: []string{"exit"}}
 	secret := inventoryBoundary{Canonical: "Secret", Kinds: []string{kindSecret}, Terms: []string{kindSecret, termCredential, "password", "token"}}
 	crypto := inventoryBoundary{Canonical: "Crypto", Kinds: []string{kindCrypto}, Terms: []string{kindCrypto, "cipher", "hash"}}
-	serial := inventoryBoundary{Canonical: "Serialization", Kinds: []string{kindSerialization}, Terms: []string{"json", "yaml", "encode", "decode"}}
+	serial := inventoryBoundary{Canonical: "Serialization", Kinds: []string{kindSerialization}, Terms: []string{termJSON, "yaml", "encode", "decode"}}
 	timing := inventoryBoundary{Canonical: "Time", Kinds: []string{kindTime}, Terms: []string{"time", "clock", "schedule"}}
 	random := inventoryBoundary{Canonical: "Randomness", Kinds: []string{kindRandomness}, Terms: []string{"random", "rand", "seed"}}
 	conc := inventoryBoundary{Canonical: "Concurrency", Kinds: []string{kindGoroutine, kindContextBackground}, Terms: []string{kindGoroutine, "worker", "async"}}
@@ -99,7 +102,7 @@ func inventoryBoundaries() map[string]inventoryBoundary {
 		"exit":     exit,
 		kindSecret: secret, "secrets": secret, termCredential: secret,
 		kindCrypto: crypto, "cryptography": crypto,
-		"serialization": serial, "json": serial, "yaml": serial,
+		"serialization": serial, termJSON: serial, "yaml": serial,
 		"time": timing, "clock": timing,
 		"random": random, "randomness": random, "rand": random,
 		kindGoroutine: conc, "concurrency": conc,

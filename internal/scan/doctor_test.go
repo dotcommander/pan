@@ -51,15 +51,22 @@ func TestDoctorCountsAndHealthyBaseline(t *testing.T) {
 	if strings.Contains(string(encoded), "diagnostic_details") {
 		t.Fatalf("healthy analysis must omit diagnostic details: %s", encoded)
 	}
+}
+
+// TestDoctorConfigAndGitWarningDefaults pins the configuration provenance
+// and the git-degradation warning of the no-git baseline.
+func TestDoctorConfigAndGitWarningDefaults(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	report := Doctor(context.Background(), root, doctorSnapshot(), "defaults", "")
 	if report.Config.Source != "defaults" || report.Config.Path != "" {
 		t.Fatalf("config = %+v, want defaults with no path", report.Config)
 	}
-	if !report.Git.Available {
-		if !slices.Contains(report.Warnings, "git is unavailable or the root is not a work tree; hygiene and changes packets degrade to snapshot-derived evidence") {
-			t.Fatalf("missing git warning: %v", report.Warnings)
-		}
-	} else if report.Status != "ok" || len(report.Warnings) != 0 {
-		t.Fatalf("with git the report must be ok with no warnings: %q %v", report.Status, report.Warnings)
+	if report.Git.Available {
+		t.Fatal("temp dir unexpectedly detected as a git work tree")
+	}
+	if !slices.Contains(report.Warnings, "git is unavailable or the root is not a work tree; hygiene and changes packets degrade to snapshot-derived evidence") {
+		t.Fatalf("missing git warning: %v", report.Warnings)
 	}
 }
 
@@ -111,8 +118,8 @@ func TestDoctorInfoDiagnosticsDoNotWarnOrDegrade(t *testing.T) {
 	root := t.TempDir()
 	snap := doctorSnapshot()
 	snap.Diagnostics = []analyze.Diagnostic{
-		{Level: "info", Message: "snapshot cache fallback: missing_cache"},
-		{Level: "info", Message: "3 additional diagnostics suppressed"},
+		{Level: diagnosticLevelInfo, Message: "snapshot cache fallback: missing_cache"},
+		{Level: diagnosticLevelInfo, Message: "3 additional diagnostics suppressed"},
 	}
 	report := Doctor(context.Background(), root, snap, "defaults", "")
 	if report.Analysis.Diagnostics != 2 || len(report.Analysis.DiagnosticDetails) != 2 {

@@ -12,6 +12,8 @@ import (
 
 const maxAuditHistoryOutput = 4 * 1024 * 1024
 
+// AuditHistoryReport is the pan.audit-history/v1 document: churn hotspots,
+// reciprocal coupling pairs, and commits omitted from history evidence.
 type AuditHistoryReport struct {
 	SchemaVersion int                    `json:"schema_version"`
 	Root          string                 `json:"root"`
@@ -20,6 +22,8 @@ type AuditHistoryReport struct {
 	Omissions     []AuditHistoryOmission `json:"omissions,omitempty"`
 }
 
+// AuditHistoryHotspot is one tracked file's churn footprint with its
+// strongest co-change partners.
 type AuditHistoryHotspot struct {
 	ID            string                `json:"id"`
 	Path          string                `json:"path"`
@@ -29,6 +33,8 @@ type AuditHistoryHotspot struct {
 	CoChanges     []AuditHistoryPartner `json:"co_changes,omitempty"`
 }
 
+// AuditHistoryCoupling is a reciprocal co-change pair with its commit
+// count and confidence.
 type AuditHistoryCoupling struct {
 	ID         string   `json:"id"`
 	Paths      []string `json:"paths"`
@@ -36,12 +42,15 @@ type AuditHistoryCoupling struct {
 	Confidence float64  `json:"confidence_score"`
 }
 
+// AuditHistoryPartner is one co-changing partner path of a hotspot.
 type AuditHistoryPartner struct {
 	Path       string  `json:"path"`
 	Commits    int     `json:"commits"`
 	Confidence float64 `json:"confidence"`
 }
 
+// AuditHistoryOmission records a commit excluded from history evidence
+// and why.
 type AuditHistoryOmission struct {
 	Commit string `json:"commit"`
 	Reason string `json:"reason"`
@@ -63,13 +72,32 @@ type auditHistoryCommit struct {
 // AuditHistory collects Pan-compatible, commit-count-bounded numstat
 // history for currently tracked non-test Go files.
 func AuditHistory(ctx context.Context, root string, window int) (AuditHistoryReport, error) {
-	empty := AuditHistoryReport{SchemaVersion: 1, Root: root, Hotspots: []AuditHistoryHotspot{}, Couplings: []AuditHistoryCoupling{}}
+	report := AuditHistoryReport{SchemaVersion: 1, Root: root, Hotspots: []AuditHistoryHotspot{}, Couplings: []AuditHistoryCoupling{}}
 	if window <= 0 {
-		return empty, nil
+		return report, nil
 	}
+	tracked, err := auditTrackedGoFiles(ctx, root)
+	if err != nil {
+		return AuditHistoryReport{}, err
+	}
+	out, err := auditGit(ctx, root, "log", "--no-merges", "-n", strconv.Itoa(window), "--numstat", "--format=%x1e%H%x1f%ct%x1f%s")
+	if err != nil {
+		return AuditHistoryReport{}, fmt.Errorf("collect git history: %w", err)
+	}
+	files := map[string]*auditHistoryFile{}
+	for _, commit := range parseAuditHistory(out) {
+		applyAuditCommit(files, &report, commit, tracked)
+	}
+	report.Hotspots, report.Couplings = buildAuditHotspots(files)
+	capAuditHistory(&report)
+	return report, nil
+}
+
+// auditTrackedGoFiles lists currently tracked non-test Go files in root.
+func auditTrackedGoFiles(ctx context.Context, root string) (map[string]struct{}, error) {
 	trackedOut, err := auditGit(ctx, root, "ls-files", "-z", "--", "*.go")
 	if err != nil {
-		return AuditHistoryReport{}, fmt.Errorf("list tracked Go files: %w", err)
+		return nil, fmt.Errorf("list tracked Go files: %w", err)
 	}
 	tracked := map[string]struct{}{}
 	for _, path := range splitNUL(trackedOut) {
@@ -78,45 +106,51 @@ func AuditHistory(ctx context.Context, root string, window int) (AuditHistoryRep
 			tracked[path] = struct{}{}
 		}
 	}
-	out, err := auditGit(ctx, root, "log", "--no-merges", "-n", strconv.Itoa(window), "--numstat", "--format=%x1e%H%x1f%ct%x1f%s")
-	if err != nil {
-		return AuditHistoryReport{}, fmt.Errorf("collect git history: %w", err)
+	return tracked, nil
+}
+
+// applyAuditCommit folds one parsed commit into the per-file history, or
+// records it in the report's omissions when it is out of scope.
+func applyAuditCommit(files map[string]*auditHistoryFile, report *AuditHistoryReport, commit auditHistoryCommit, tracked map[string]struct{}) {
+	if auditDependencyCommit(commit.subject) {
+		report.Omissions = append(report.Omissions, AuditHistoryOmission{Commit: commit.hash, Reason: "dependency-only commit"})
+		return
 	}
-	files := map[string]*auditHistoryFile{}
-	for _, commit := range parseAuditHistory(out) {
-		if auditDependencyCommit(commit.subject) {
-			empty.Omissions = append(empty.Omissions, AuditHistoryOmission{Commit: commit.hash, Reason: "dependency-only commit"})
-			continue
-		}
-		paths := make([]string, 0, len(commit.stats))
-		for path := range commit.stats {
-			if _, ok := tracked[path]; ok {
-				paths = append(paths, path)
-			}
-		}
-		if len(paths) > 20 {
-			empty.Omissions = append(empty.Omissions, AuditHistoryOmission{Commit: commit.hash, Reason: "touches more than 20 scoped files"})
-			continue
-		}
-		slices.Sort(paths)
-		for _, path := range paths {
-			entry := files[path]
-			if entry == nil {
-				entry = &auditHistoryFile{with: map[string]int{}}
-				files[path] = entry
-			}
-			entry.touches++
-			entry.churn += commit.stats[path]
-			if commit.when.After(entry.last) {
-				entry.last = commit.when
-			}
-			for _, partner := range paths {
-				if partner != path {
-					entry.with[partner]++
-				}
-			}
+	paths := make([]string, 0, len(commit.stats))
+	for path := range commit.stats {
+		if _, ok := tracked[path]; ok {
+			paths = append(paths, path)
 		}
 	}
+	if len(paths) > 20 {
+		report.Omissions = append(report.Omissions, AuditHistoryOmission{Commit: commit.hash, Reason: "touches more than 20 scoped files"})
+		return
+	}
+	slices.Sort(paths)
+	for _, path := range paths {
+		entry := files[path]
+		if entry == nil {
+			entry = &auditHistoryFile{with: map[string]int{}}
+			files[path] = entry
+		}
+		entry.touches++
+		entry.churn += commit.stats[path]
+		if commit.when.After(entry.last) {
+			entry.last = commit.when
+		}
+		for _, partner := range paths {
+			if partner != path {
+				entry.with[partner]++
+			}
+		}
+	}
+}
+
+// buildAuditHotspots derives churn hotspots and reciprocal coupling pairs
+// from the folded per-file history.
+func buildAuditHotspots(files map[string]*auditHistoryFile) ([]AuditHistoryHotspot, []AuditHistoryCoupling) {
+	var hotspots []AuditHistoryHotspot
+	var couplings []AuditHistoryCoupling
 	for path, entry := range files {
 		h := AuditHistoryHotspot{ID: "pan:history:hotspot:" + historySlug(path), Path: path, RelativeChurn: entry.churn, Touches: entry.touches}
 		if !entry.last.IsZero() {
@@ -137,14 +171,20 @@ func AuditHistory(ctx context.Context, root string, window int) (AuditHistoryRep
 		if len(h.CoChanges) > 4 {
 			h.CoChanges = h.CoChanges[:4]
 		}
-		empty.Hotspots = append(empty.Hotspots, h)
+		hotspots = append(hotspots, h)
 		for _, partner := range h.CoChanges {
 			if path < partner.Path {
-				empty.Couplings = append(empty.Couplings, AuditHistoryCoupling{ID: "pan:history:coupling:" + historySlug(path+"-"+partner.Path), Paths: []string{path, partner.Path}, Commits: partner.Commits, Confidence: partner.Confidence})
+				couplings = append(couplings, AuditHistoryCoupling{ID: "pan:history:coupling:" + historySlug(path+"-"+partner.Path), Paths: []string{path, partner.Path}, Commits: partner.Commits, Confidence: partner.Confidence})
 			}
 		}
 	}
-	slices.SortFunc(empty.Hotspots, func(a, b AuditHistoryHotspot) int {
+	return hotspots, couplings
+}
+
+// capAuditHistory applies the deterministic hotspot and coupling ordering
+// and their report-size bounds.
+func capAuditHistory(report *AuditHistoryReport) {
+	slices.SortFunc(report.Hotspots, func(a, b AuditHistoryHotspot) int {
 		if a.RelativeChurn != b.RelativeChurn {
 			return b.RelativeChurn - a.RelativeChurn
 		}
@@ -156,19 +196,18 @@ func AuditHistory(ctx context.Context, root string, window int) (AuditHistoryRep
 		}
 		return strings.Compare(a.Path, b.Path)
 	})
-	if len(empty.Hotspots) > 12 {
-		empty.Hotspots = empty.Hotspots[:12]
+	if len(report.Hotspots) > 12 {
+		report.Hotspots = report.Hotspots[:12]
 	}
-	slices.SortFunc(empty.Couplings, func(a, b AuditHistoryCoupling) int {
+	slices.SortFunc(report.Couplings, func(a, b AuditHistoryCoupling) int {
 		if a.Commits != b.Commits {
 			return b.Commits - a.Commits
 		}
 		return strings.Compare(a.ID, b.ID)
 	})
-	if len(empty.Couplings) > 12 {
-		empty.Couplings = empty.Couplings[:12]
+	if len(report.Couplings) > 12 {
+		report.Couplings = report.Couplings[:12]
 	}
-	return empty, nil
 }
 
 func auditGit(ctx context.Context, root string, args ...string) (string, error) {

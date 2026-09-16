@@ -123,7 +123,7 @@ func TestRiskAddsOnlyGenericContentSignalsForParsedNonGoFiles(t *testing.T) {
 	if len(report.Files) != 1 || report.Files[0].Score != 4 || !slices.Contains(report.Files[0].Lanes, laneBestPractices) {
 		t.Fatalf("non-Go content risk = %#v", report.Files)
 	}
-	if len(report.Files[0].ScoreComponents) != 1 || report.Files[0].ScoreComponents[0].Reason != "change marker" {
+	if len(report.Files[0].ScoreComponents) != 1 || report.Files[0].ScoreComponents[0].Reason != reasonChangeMarker {
 		t.Fatalf("non-Go score components = %#v", report.Files[0].ScoreComponents)
 	}
 }
@@ -227,7 +227,7 @@ func TestRiskUnboundedReadExcludesDirectLimitReaderWrap(t *testing.T) {
 		t.Fatalf("components = %#v", risk.ScoreComponents)
 	}
 	component := risk.ScoreComponents[0]
-	if component.Reason != "unbounded read candidate" || component.Points != 6 || component.TotalMatches != 1 {
+	if component.Reason != reasonUnboundedRead || component.Points != 6 || component.TotalMatches != 1 {
 		t.Fatalf("component = %#v, want one full-weight unbounded-read match", component)
 	}
 }
@@ -263,7 +263,7 @@ func TestRiskUnboundedReadStaysFlaggedWhenNotDirectlyLimited(t *testing.T) {
 		t.Fatalf("score = %d, want 9 (reasons: %v)", risk.Score, risk.Reasons)
 	}
 	for _, component := range risk.ScoreComponents {
-		if component.Reason != "unbounded read candidate" {
+		if component.Reason != reasonUnboundedRead {
 			t.Fatalf("unexpected component: %#v", component)
 		}
 		if component.TotalMatches != 2 || component.CountedMatches != 2 || len(component.Locations) != 2 {
@@ -284,7 +284,7 @@ func TestRiskSourceEvidenceCapsMatchesAndText(t *testing.T) {
 		t.Fatalf("report = %#v, err=%v", report, err)
 	}
 	for _, component := range report.Files[0].ScoreComponents {
-		if component.Reason != "change marker" {
+		if component.Reason != reasonChangeMarker {
 			continue
 		}
 		if len(component.Locations) != 3 || len(component.Evidence) != 3 {

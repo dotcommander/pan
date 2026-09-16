@@ -113,6 +113,13 @@ type riskPathTerm struct {
 	Reason string
 }
 
+// Reason strings shared by the pattern table and the score-component
+// assertions in tests.
+const (
+	reasonUnboundedRead = "unbounded read candidate"
+	reasonChangeMarker  = "change marker"
+)
+
 // riskPattern is one bounded content signal. Exclude names the bounded call
 // form that must directly follow every Re occurrence on a line for that
 // line to be skipped; lines with any occurrence lacking the form keep their
@@ -165,8 +172,8 @@ func riskPatternTable() []riskPattern {
 		{ID: "http-client", Re: regexp.MustCompile(`\bhttp\.(?:Get|Post|Head)\(`), Weight: 8, Lane: laneAPIContracts, Reason: "outbound http boundary", MaxMatches: 3},
 		{ID: "database-open", Re: regexp.MustCompile(`\b(?:sql\.Open|pgxpool\.New|pgx\.Connect)\(`), Weight: 10, Lane: laneDataIntegrity, Reason: "database boundary", MaxMatches: 3},
 		{ID: "filesystem-write", Re: regexp.MustCompile(`\bos\.(?:WriteFile|Create(?:Temp)?|Remove(?:All)?|Rename|MkdirAll)\(`), Weight: 8, Lane: laneDataIntegrity, Reason: "filesystem write boundary", MaxMatches: 3},
-		{ID: "unbounded-read", Re: regexp.MustCompile(`\bio\.ReadAll\(`), Exclude: regexp.MustCompile(`^\s*io\.LimitReader\(`), Weight: 6, Lane: lanePerformance, Reason: "unbounded read candidate", MaxMatches: 3},
-		{ID: "change-marker", Re: regexp.MustCompile(`\b(?:TODO|FIXME|HACK|XXX)\b`), Weight: 4, Lane: laneBestPractices, Reason: "change marker", MaxMatches: 3, Generic: true},
+		{ID: "unbounded-read", Re: regexp.MustCompile(`\bio\.ReadAll\(`), Exclude: regexp.MustCompile(`^\s*io\.LimitReader\(`), Weight: 6, Lane: lanePerformance, Reason: reasonUnboundedRead, MaxMatches: 3},
+		{ID: "change-marker", Re: regexp.MustCompile(`\b(?:TODO|FIXME|HACK|XXX)\b`), Weight: 4, Lane: laneBestPractices, Reason: reasonChangeMarker, MaxMatches: 3, Generic: true},
 		{ID: kindGoroutine, Re: regexp.MustCompile(`\bgo\s+func\(`), Weight: 6, Lane: laneLifecycleConcurrency, Reason: "goroutine launch", MaxMatches: 3},
 		{ID: "panic", Re: regexp.MustCompile(`\bpanic\(`), Weight: 4, Lane: laneErrorHandling, Reason: "panic path", MaxMatches: 3},
 		{ID: "detached-context", Re: regexp.MustCompile(`\bcontext\.Background\(\)`), Weight: 6, Lane: laneLifecycleConcurrency, Reason: "detached context", MaxMatches: 3},
@@ -306,7 +313,23 @@ func riskForFile(ctx context.Context, snap analyze.Snapshot, file analyze.File, 
 	if file.Language != languageGo {
 		patterns = genericRiskPatterns(table.patterns)
 	}
-	truncated, err := addContentRisk(ctx, snap.Root, file.Path, patterns, func(points int, lane, reason string, line int, text string, counted bool) {
+	truncated, err := addContentRisk(ctx, snap.Root, file.Path, patterns, riskContentRecorder(&risk, add))
+	if err != nil {
+		return FileRisk{}, err
+	}
+	if truncated {
+		risk.Reasons = append(risk.Reasons, "scan:content_truncated")
+	}
+	risk.Reasons = capReasons(risk.Reasons)
+	risk.ReviewPriority = risk.Score
+	return risk, nil
+}
+
+// riskContentRecorder adapts addContentRisk's per-match stream into score
+// component bookkeeping: capped matches only bump TotalMatches, counted
+// matches also extend the bounded evidence locations.
+func riskContentRecorder(risk *FileRisk, add func(points int, lane, reason string)) func(points int, lane, reason string, line int, text string, counted bool) {
+	return func(points int, lane, reason string, line int, text string, counted bool) {
 		if !counted {
 			for i := range risk.ScoreComponents {
 				if risk.ScoreComponents[i].Reason == reason {
@@ -326,16 +349,7 @@ func riskForFile(ctx context.Context, snap analyze.Snapshot, file analyze.File, 
 				break
 			}
 		}
-	})
-	if err != nil {
-		return FileRisk{}, err
 	}
-	if truncated {
-		risk.Reasons = append(risk.Reasons, "scan:content_truncated")
-	}
-	risk.Reasons = capReasons(risk.Reasons)
-	risk.ReviewPriority = risk.Score
-	return risk, nil
 }
 
 // addEntrypointRisk scores command entrypoints and main packages.

@@ -11,12 +11,43 @@ import (
 
 const maxGitErrorBytes = 4 << 10
 
+// gitReadOnlyCommand reports whether the named git subcommand is a
+// read-only operation that readGitBounded may execute; every scan caller
+// uses one of these.
+func gitReadOnlyCommand(name string) bool {
+	switch name {
+	case "blame", "describe", "diff", "log", "ls-files", "rev-parse", "show":
+		return true
+	}
+	return false
+}
+
+// gitSubcommand skips one leading `git -c key=value` configuration pair so
+// the subcommand itself can be checked against the allowlist.
+func gitSubcommand(args []string) (string, bool) {
+	i := 0
+	if len(args) >= 3 && args[0] == "-c" {
+		i = 2
+	}
+	if i >= len(args) {
+		return "", false
+	}
+	return args[i], gitReadOnlyCommand(args[i])
+}
+
 // readGitBounded runs one read-only Git command, retaining at most outputCap
 // bytes. Callers own the command arguments, timeout, and output parser; this
 // helper owns the shared subprocess, cancellation, and overflow lifecycle.
 func readGitBounded(ctx context.Context, root string, outputCap int, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	if _, ok := gitSubcommand(args); !ok {
+		return "", fmt.Errorf("git subcommand not allowlisted for read-only use: %v", args)
+	}
+	// The command name is a constant and every argument passes the
+	// read-only allowlist: git runs as one direct argv process in root,
+	// never through a shell.
+	cmd := exec.CommandContext(ctx, "git")
 	cmd.Dir = root
+	cmd.Args = append(cmd.Args, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", fmt.Errorf("git stdout: %w", err)

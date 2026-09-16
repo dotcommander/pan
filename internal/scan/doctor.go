@@ -102,13 +102,17 @@ func Doctor(ctx context.Context, root string, snap analyze.Snapshot, configSourc
 
 // countNonInfoDiagnostics counts diagnostics that are not advisory info-level
 // notes (cache fallback, suppressed-diagnostic summaries). Only non-info
+// diagnosticLevelInfo is the advisory diagnostic level; it never gates the
+// parse-failure warning or the degraded status.
+const diagnosticLevelInfo = "info"
+
 // diagnostics indicate parse or semantic failures, so they alone gate the
 // parse-failure warning and the degraded status; the report still retains
 // the raw diagnostic count and details.
 func countNonInfoDiagnostics(diags []analyze.Diagnostic) int {
 	count := 0
 	for _, diag := range diags {
-		if diag.Level != "info" {
+		if diag.Level != diagnosticLevelInfo {
 			count++
 		}
 	}
