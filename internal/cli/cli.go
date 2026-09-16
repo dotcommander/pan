@@ -31,7 +31,7 @@ const (
 )
 
 // binaryVersion is the human-readable pan binary version.
-var binaryVersion = "v0.1.0"
+const binaryVersion = "v0.1.0"
 
 const (
 	formatJSON     = "json"
@@ -42,6 +42,7 @@ const (
 	doctorCommand  = "doctor"
 	versionCommand = "version"
 	scanCommand    = "scan"
+	flowCommand    = "flow"
 )
 
 // Root is the pan application model: global flags plus the command groups.
@@ -146,8 +147,8 @@ func requiresRepositoryBoundary(path []string) bool {
 	if metadataCommand(path) {
 		return false
 	}
-	return !slices.Equal(path, []string{"flow", "render"}) &&
-		!slices.Equal(path, []string{"flow", "validate"})
+	return !slices.Equal(path, []string{flowCommand, "render"}) &&
+		!slices.Equal(path, []string{flowCommand, "validate"})
 }
 
 // HomeCmd renders the human-first repository dashboard when Pan is invoked
@@ -184,7 +185,7 @@ func commandContext(parent context.Context, path []string, timeout time.Duration
 }
 
 func isLongLivedCommand(path []string) bool {
-	return slices.Equal(path, []string{"flow", serveCmd}) ||
+	return slices.Equal(path, []string{flowCommand, serveCmd}) ||
 		slices.Equal(path, []string{"agent", serveCmd}) ||
 		slices.Equal(path, []string{"agent", "stdio"})
 }

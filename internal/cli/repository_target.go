@@ -71,7 +71,7 @@ func explicitRepository(args []string, envRepo string) bool {
 		return true
 	}
 	for i, arg := range args {
-		if arg == "--repo" && i+1 < len(args) || strings.HasPrefix(arg, "--repo=") {
+		if arg == flagRepo && i+1 < len(args) || strings.HasPrefix(arg, flagRepo+"=") {
 			return true
 		}
 	}

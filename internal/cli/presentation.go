@@ -47,7 +47,7 @@ func projectRiskReport(report scan.RiskReport, detail detailLevel) any {
 			Paths              []string          `json:"paths"`
 			Coverage           scan.RiskCoverage `json:"coverage"`
 			FilesOmittedReason string            `json:"files_omitted_reason"`
-		}{detail, sortedStrings([]string{"files", "lanes"}), paths, report.Analysis, report.FilesOmittedReason}
+		}{detail, sortedStrings([]string{riskFilesField, "lanes"}), paths, report.Analysis, report.FilesOmittedReason}
 	}
 	data, err := json.Marshal(report)
 	if err != nil {
@@ -58,12 +58,10 @@ func projectRiskReport(report scan.RiskReport, detail detailLevel) any {
 		return report
 	}
 	omitted := []string{"files[].score_components", "lanes"}
-	if files, ok := result["files"].([]any); ok {
+	if files, ok := result[riskFilesField].([]any); ok {
 		for _, item := range files {
 			if file, ok := item.(map[string]any); ok {
-				if _, exists := file["score_components"]; exists {
-					delete(file, "score_components")
-				}
+				delete(file, "score_components")
 			}
 		}
 	}
@@ -74,6 +72,8 @@ func projectRiskReport(report scan.RiskReport, detail detailLevel) any {
 }
 
 const (
+	riskFilesField = "files"
+
 	ansiReset  = "\x1b[0m"
 	ansiBold   = "\x1b[1m"
 	ansiDim    = "\x1b[2m"
@@ -261,7 +261,7 @@ func writeDoctor(w io.Writer, snap analyze.Snapshot, report scan.DoctorReport) e
 	return err
 }
 
-func riskLevel(score int) (string, string) {
+func riskLevel(score int) (level, color string) {
 	switch {
 	case score >= 30:
 		return "HIGH", ansiRed

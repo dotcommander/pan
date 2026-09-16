@@ -25,6 +25,7 @@ type ImproveCmd struct {
 	Export    ImproveExportCmd    `cmd:"" help:"Export bounded refactor observations as JSONL."`
 }
 
+// ImproveExportCmd is `pan improve export`.
 type ImproveExportCmd struct {
 	Output string `name:"output" type:"path" required:"" help:"Write observation JSONL to this path."`
 	Limit  int    `name:"limit" default:"100" help:"Maximum records to export (hard limit 10000)."`
@@ -32,6 +33,7 @@ type ImproveExportCmd struct {
 	improveConfigFlags
 }
 
+// Run exports bounded refactor observations as JSONL.
 func (c ImproveExportCmd) Run(_ *kong.Context, _ *Root, deps Deps, ctx context.Context) error {
 	cfg, err := c.loadImproveConfig()
 	if err != nil {

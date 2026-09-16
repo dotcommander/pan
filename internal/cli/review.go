@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
+	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/app"
 	"github.com/dotcommander/pan/internal/eval"
 	"github.com/dotcommander/pan/internal/review"
@@ -88,7 +89,7 @@ func (c ReviewReportCmd) previewConflicts() []string {
 		{"--api-key-env", c.APIKeyEnv != ""},
 		{"--no-cache", c.NoCache},
 		{"--cache-dir", c.CacheDir != ""},
-		{"--markdown", c.Markdown},
+		{flagMarkdown, c.Markdown},
 		{"--json", c.JSON},
 		{"--summary", c.Summary},
 		{"--cull", c.Cull},
@@ -103,27 +104,45 @@ func (c ReviewReportCmd) previewConflicts() []string {
 
 // Run executes `pan review report`.
 func (c ReviewReportCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
-	if c.Preview && root.Artifact != "" {
-		return errors.New("--preview cannot be combined with --artifact")
-	}
-	options := app.ReviewOptions{Review: review.Options{Top: c.Top, Focus: c.Focus, Include: c.Include, Exclude: c.Exclude, Inventory: c.Inventory, WhyTop: c.WhyTop}, Days: c.Days, MaxBytes: c.MaxBytes, Patterns: c.Patterns, Model: review.ModelOptions{Model: c.Model, BaseURL: c.BaseURL, APIKeyEnv: c.APIKeyEnv, Local: c.Local, NoCache: c.NoCache, CacheDir: c.CacheDir}}
 	if c.Preview {
-		options.Model = review.ModelOptions{}
-		_, document, err := deps.App.ReviewSelectionDocument(ctx, root.Repo, options)
-		if err != nil {
-			return err
-		}
-		body, err := document.Bytes()
-		if err != nil {
-			return err
-		}
-		_, err = deps.Out.Write(body)
-		return err
+		return c.runPreview(root, deps, ctx)
 	}
-	snap, report, err := deps.App.ReviewReportWithOptions(ctx, root.Repo, options)
+	snap, report, err := deps.App.ReviewReportWithOptions(ctx, root.Repo, c.options())
 	if err != nil {
 		return err
 	}
+	return c.writeReport(kctx, root, deps, snap, report)
+}
+
+func (c ReviewReportCmd) options() app.ReviewOptions {
+	return app.ReviewOptions{
+		Review:   review.Options{Top: c.Top, Focus: c.Focus, Include: c.Include, Exclude: c.Exclude, Inventory: c.Inventory, WhyTop: c.WhyTop},
+		Days:     c.Days,
+		MaxBytes: c.MaxBytes,
+		Patterns: c.Patterns,
+		Model:    review.ModelOptions{Model: c.Model, BaseURL: c.BaseURL, APIKeyEnv: c.APIKeyEnv, Local: c.Local, NoCache: c.NoCache, CacheDir: c.CacheDir},
+	}
+}
+
+func (c ReviewReportCmd) runPreview(root *Root, deps Deps, ctx context.Context) error {
+	if root.Artifact != "" {
+		return errors.New("--preview cannot be combined with --artifact")
+	}
+	options := c.options()
+	options.Model = review.ModelOptions{}
+	_, document, err := deps.App.ReviewSelectionDocument(ctx, root.Repo, options)
+	if err != nil {
+		return err
+	}
+	body, err := document.Bytes()
+	if err != nil {
+		return err
+	}
+	_, err = deps.Out.Write(body)
+	return err
+}
+
+func (c ReviewReportCmd) writeReport(kctx *kong.Context, root *Root, deps Deps, snap analyze.Snapshot, report review.Report) error {
 	if c.Cull {
 		report.CullLedger = review.BuildCullLedger(report.ReadQueue)
 	}
@@ -134,10 +153,6 @@ func (c ReviewReportCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx cont
 	if err != nil {
 		return err
 	}
-	format := "markdown"
-	if c.JSON {
-		format = formatJSON
-	}
 	if c.Output == "-" {
 		_, err = deps.Out.Write(body)
 		return err
@@ -145,7 +160,14 @@ func (c ReviewReportCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx cont
 	if err := writeFileBody(c.Output, body); err != nil {
 		return err
 	}
-	return emitResult(kctx, root, deps, snap.Root, map[string]any{outputKey: c.Output, "format": format})
+	return emitResult(kctx, root, deps, snap.Root, map[string]any{outputKey: c.Output, "format": c.outputFormat()})
+}
+
+func (c ReviewReportCmd) outputFormat() string {
+	if c.JSON {
+		return formatJSON
+	}
+	return "markdown"
 }
 
 func (c ReviewReportCmd) reportBody(root string, report review.Report) ([]byte, error) {

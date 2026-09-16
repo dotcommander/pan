@@ -25,6 +25,7 @@ const (
 	flagRepo          = "--repo"
 	flagFormat        = "--format"
 	flagCull          = "--cull"
+	flagMarkdown      = "--markdown"
 	flagOutput        = "--output"
 	evalPrivacy       = "aggregates only; no paths, identities, or input filenames"
 	evalTopKLimit     = "top_k fixed at 15"
@@ -95,7 +96,7 @@ func reportSurfaces() []OutputSurface {
 			MediaType: "text/markdown", BestFor: "human first read of the composed audit report",
 			Privacy:       "repository paths and deterministic evidence reasons",
 			Limits:        []string{"read queue bounded at 100 rows", "--top caps the queue further"},
-			Flags:         []string{"--top", flagCull, "--markdown", flagOutput},
+			Flags:         []string{"--top", flagCull, flagMarkdown, flagOutput},
 			Compatibility: "opt-in body format; default envelope output remains unchanged",
 		},
 		{
@@ -140,7 +141,7 @@ func evalSurfaces() []OutputSurface {
 			MediaType: "text/markdown", BestFor: "human inspection of evaluation health",
 			Privacy:       evalPrivacy,
 			Limits:        []string{evalTopKLimit},
-			Flags:         []string{flagReport, flagOutcomes, "--markdown", flagOutput},
+			Flags:         []string{flagReport, flagOutcomes, flagMarkdown, flagOutput},
 			Compatibility: "opt-in presentation over the unchanged evaluation calculation",
 		},
 	}

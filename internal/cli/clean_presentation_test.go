@@ -10,8 +10,14 @@ import (
 
 func TestProjectCleanPlanCompactPreservesCandidatesAndReducesSize(t *testing.T) {
 	t.Parallel()
+	original := largeCleanPlan()
+	evidenceBytes := marshalCleanPlan(t, projectCleanPlan(original, detailEvidence))
+	compactBytes := marshalCleanPlan(t, projectCleanPlan(original, detailCompact))
+	assertCleanPlanReduction(t, evidenceBytes, compactBytes)
+	assertCompactCleanPlan(t, original, compactBytes)
+}
 
-	// Construct plan with 1000 clean files and 3 candidate deletions
+func largeCleanPlan() clean.Plan {
 	files := make([]clean.LabeledFile, 0, 1003)
 	for i := 0; i < 1000; i++ {
 		files = append(files, clean.LabeledFile{
@@ -25,16 +31,10 @@ func TestProjectCleanPlanCompactPreservesCandidatesAndReducesSize(t *testing.T) 
 		{File: "tmp/scratch2.tmp", Reason: "temporary file", SizeKB: 2},
 		{File: "tmp/scratch3.tmp", Reason: "temporary file", SizeKB: 3},
 	}
-	for _, c := range candidates {
-		files = append(files, clean.LabeledFile{
-			File:   c.File,
-			Status: "delete",
-			Reason: c.Reason,
-			SizeKB: c.SizeKB,
-		})
+	for _, candidate := range candidates {
+		files = append(files, clean.LabeledFile{File: candidate.File, Status: "delete", Reason: candidate.Reason, SizeKB: candidate.SizeKB})
 	}
-
-	origPlan := clean.Plan{
+	return clean.Plan{
 		Schema:           clean.PlanSchema,
 		Path:             "/repo",
 		HealthScore:      95,
@@ -42,48 +42,51 @@ func TestProjectCleanPlanCompactPreservesCandidatesAndReducesSize(t *testing.T) 
 		Note:             "note survives",
 		DeleteCandidates: candidates,
 		AllFiles:         files,
-		Summary: map[string]int{
-			"total":             3,
-			"delete_candidates": 3,
-		},
+		Summary:          map[string]int{"total": 3, "delete_candidates": 3},
 	}
+}
 
-	// 1. Evidence mode
-	evidenceResult := projectCleanPlan(origPlan, detailEvidence)
-	evidenceBytes, err := json.Marshal(evidenceResult)
+func marshalCleanPlan(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.Marshal(value)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return data
+}
 
-	// 2. Compact mode
-	compactResult := projectCleanPlan(origPlan, detailCompact)
-	compactBytes, err := json.Marshal(compactResult)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Verify size reduction >= 95%
-	reduction := float64(len(evidenceBytes)-len(compactBytes)) / float64(len(evidenceBytes))
+func assertCleanPlanReduction(t *testing.T, evidence, compact []byte) {
+	t.Helper()
+	reduction := float64(len(evidence)-len(compact)) / float64(len(evidence))
 	if reduction < 0.95 {
-		t.Fatalf("size reduction = %.2f%%, want >= 95%% (evidence=%d compact=%d)", reduction*100, len(evidenceBytes), len(compactBytes))
+		t.Fatalf("size reduction = %.2f%%, want >= 95%% (evidence=%d compact=%d)", reduction*100, len(evidence), len(compact))
 	}
+}
 
-	// Verify original plan was not mutated
-	if len(origPlan.AllFiles) != 1003 {
-		t.Fatalf("original plan was mutated: len(AllFiles) = %d, want 1003", len(origPlan.AllFiles))
+func assertCompactCleanPlan(t *testing.T, original clean.Plan, compact []byte) {
+	t.Helper()
+	if len(original.AllFiles) != 1003 {
+		t.Fatalf("original plan was mutated: len(AllFiles) = %d, want 1003", len(original.AllFiles))
 	}
-
-	// Decode compact JSON and verify invariants
 	var decoded struct {
 		clean.Plan
 		Detail        string             `json:"detail"`
 		OmittedFields []string           `json:"omitted_fields"`
 		Inventory     CleanPlanInventory `json:"inventory"`
 	}
-	if err := json.Unmarshal(compactBytes, &decoded); err != nil {
+	if err := json.Unmarshal(compact, &decoded); err != nil {
 		t.Fatal(err)
 	}
+	assertCompactCleanPlanFields(t, decoded)
+}
 
+func assertCompactCleanPlanFields(t *testing.T, decoded struct {
+	clean.Plan
+	Detail        string             `json:"detail"`
+	OmittedFields []string           `json:"omitted_fields"`
+	Inventory     CleanPlanInventory `json:"inventory"`
+}) {
+	t.Helper()
 	if decoded.Detail != "compact" {
 		t.Fatalf("detail = %q, want compact", decoded.Detail)
 	}

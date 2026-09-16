@@ -77,45 +77,64 @@ func TestRiskDetailProjectionParity(t *testing.T) {
 	repo := t.TempDir()
 	writeAuditFixture(t, repo, "main.go", "package main\nfunc main() { panic(\"x\") }\n")
 	for _, detail := range []string{"compact", "evidence", "paths"} {
-		results := make([]any, 0, 2)
-		for _, command := range [][]string{{"scan", "risks"}, {"review", "risks"}} {
-			var out bytes.Buffer
-			args := append([]string{"--repo", repo, "--format", "json"}, command...)
-			args = append(args, "--detail", detail)
-			if err := cli.Run(context.Background(), args, newTestDeps(&out)); err != nil {
-				t.Fatalf("%s %v: %v", detail, command, err)
-			}
-			var envelope struct {
-				Result any `json:"result"`
-			}
-			if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
-				t.Fatalf("decode %s %v: %v", detail, command, err)
-			}
-			results = append(results, envelope.Result)
+		t.Run(detail, func(t *testing.T) {
+			t.Parallel()
+			assertRiskDetailProjectionParity(t, repo, detail)
+		})
+	}
+}
+
+func assertRiskDetailProjectionParity(t *testing.T, repo, detail string) {
+	t.Helper()
+	results := riskDetailProjectionResults(t, repo, detail)
+	if !reflect.DeepEqual(results[0], results[1]) {
+		t.Fatalf("%s scan/review results differ:\nscan=%#v\nreview=%#v", detail, results[0], results[1])
+	}
+	result := results[0].(map[string]any)
+	assertRiskDetailResult(t, detail, result)
+}
+
+func riskDetailProjectionResults(t *testing.T, repo, detail string) []any {
+	t.Helper()
+	results := make([]any, 0, 2)
+	for _, command := range [][]string{{"scan", "risks"}, {"review", "risks"}} {
+		var out bytes.Buffer
+		args := append([]string{"--repo", repo, "--format", "json"}, command...)
+		args = append(args, "--detail", detail)
+		if err := cli.Run(context.Background(), args, newTestDeps(&out)); err != nil {
+			t.Fatalf("%s %v: %v", detail, command, err)
 		}
-		if !reflect.DeepEqual(results[0], results[1]) {
-			t.Fatalf("%s scan/review results differ:\nscan=%#v\nreview=%#v", detail, results[0], results[1])
+		var envelope struct {
+			Result any `json:"result"`
 		}
-		result := results[0].(map[string]any)
-		omitted := result["omitted_fields"].([]any)
-		switch detail {
-		case "compact":
-			want := []any{"files[].score_components", "lanes"}
-			if !reflect.DeepEqual(omitted, want) {
-				t.Fatalf("compact omitted_fields = %v, want %v", omitted, want)
-			}
-			if _, ok := result["lanes"]; ok {
-				t.Fatal("compact risk result retained duplicated top-level lanes")
-			}
-		case "evidence":
-			if len(omitted) != 0 {
-				t.Fatalf("evidence omitted_fields = %v, want []", omitted)
-			}
+		if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
+			t.Fatalf("decode %s %v: %v", detail, command, err)
 		}
-		for i := 1; i < len(omitted); i++ {
-			if omitted[i-1].(string) > omitted[i].(string) {
-				t.Fatalf("%s omitted_fields not sorted: %v", detail, omitted)
-			}
+		results = append(results, envelope.Result)
+	}
+	return results
+}
+
+func assertRiskDetailResult(t *testing.T, detail string, result map[string]any) {
+	t.Helper()
+	omitted := result["omitted_fields"].([]any)
+	switch detail {
+	case "compact":
+		want := []any{"files[].score_components", "lanes"}
+		if !reflect.DeepEqual(omitted, want) {
+			t.Fatalf("compact omitted_fields = %v, want %v", omitted, want)
+		}
+		if _, ok := result["lanes"]; ok {
+			t.Fatal("compact risk result retained duplicated top-level lanes")
+		}
+	case "evidence":
+		if len(omitted) != 0 {
+			t.Fatalf("evidence omitted_fields = %v, want []", omitted)
+		}
+	}
+	for i := 1; i < len(omitted); i++ {
+		if omitted[i-1].(string) > omitted[i].(string) {
+			t.Fatalf("%s omitted_fields not sorted: %v", detail, omitted)
 		}
 	}
 }

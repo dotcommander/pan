@@ -34,11 +34,13 @@ type ContextCmd struct {
 	Eval     ContextEvalCmd     `cmd:"" help:"Evaluate retrieval cases."`
 }
 
+// ContextEvalCmd is `pan context eval`.
 type ContextEvalCmd struct {
 	Cases  string `name:"cases" type:"path" required:""`
 	Policy string `name:"policy" default:"structural-lexical/v1"`
 }
 
+// Run evaluates the configured retrieval cases.
 func (c ContextEvalCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
 	cases, err := retrieval.LoadEvalCases(c.Cases)
 	if err != nil {
@@ -108,112 +110,156 @@ func (BriefAliasCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.
 	return runBrief(kctx, root, deps, ctx, root.Brief.briefOptions)
 }
 
+const (
+	briefFilesKey        = "files"
+	briefInstructionsKey = "instructions"
+	briefNextCommandsKey = "next_commands"
+	briefStateKey        = "state"
+	briefSymbolsKey      = "symbols"
+	briefTopFilesKey     = "top_files"
+	briefVerifyKey       = "verify"
+	briefMapKey          = "map"
+	diagnosticWarning    = "warning"
+)
+
+type briefText struct {
+	brief    app.BriefResult
+	state    briefState
+	top      []app.BriefEntry
+	commands []app.BriefNextCommand
+	detail   detailLevel
+}
+
+type briefPresentation struct {
+	instructions []string
+	top          []app.BriefEntry
+	commands     []app.BriefNextCommand
+	omitted      []string
+	truncations  []string
+	used         int
+	truncated    bool
+}
+
 func runBrief(kctx *kong.Context, root *Root, deps Deps, ctx context.Context, opts briefOptions) error {
 	opts.Detail = normalizeDetail(opts.Detail)
 	brief, err := deps.App.Brief(ctx, root.Repo, opts.Intent, opts.Budget)
 	if err != nil {
 		return err
 	}
-	instructions := slices.Clone(brief.Snapshot.Instructions)
-	top := slices.Clone(brief.Entries)
-	omitted := []string{}
-	if opts.Detail == detailCompact {
-		omitted = append(omitted, "instructions", "map", "top_files[].components", "top_files[].families")
-		instructions = nil
-		for i := range top {
-			top[i].Components = nil
-			top[i].Families = nil
-		}
-	} else if opts.Detail == detailPaths {
-		omitted = append(omitted, "top_files", "files", "symbols", "verify", "state", "instructions", "map", "next_commands")
-		instructions = nil
-		for i := range top {
-			top[i] = app.BriefEntry{Path: top[i].Path}
-		}
-	}
-	truncated := false
+	presentation := projectBrief(brief, opts.Detail)
+	presentation.trimToBudget(opts.Budget)
 	state := briefRepositoryState(ctx, brief.Snapshot.Root)
-	nextCommands := slices.Clone(brief.NextCommands)
-	if nextCommands == nil {
-		nextCommands = []app.BriefNextCommand{}
-	}
-	var truncations []string
-	used := briefVariableBytes(instructions, top, nextCommands)
-	for i := len(top) - 1; used > opts.Budget && i >= 0; i-- {
-		if len(top[i].Families) == 0 {
-			continue
-		}
-		top[i].Families = nil
-		truncated = true
-		if !slices.Contains(truncations, "symbol_families") {
-			truncations = append(truncations, "symbol_families")
-		}
-		used = briefVariableBytes(instructions, top, nextCommands)
-	}
-	for used > opts.Budget && len(top) > 0 {
-		top = top[:len(top)-1]
-		truncated = true
-		if !slices.Contains(truncations, "ranked_files") {
-			truncations = append(truncations, "ranked_files")
-		}
-		used = briefVariableBytes(instructions, top, nextCommands)
-	}
-	for used > opts.Budget && len(nextCommands) > 0 {
-		nextCommands = nextCommands[:len(nextCommands)-1]
-		truncated = true
-		if !slices.Contains(truncations, "suggested_commands") {
-			truncations = append(truncations, "suggested_commands")
-		}
-		used = briefVariableBytes(instructions, top, nextCommands)
-	}
-	for used > opts.Budget && len(instructions) > 0 {
-		instructions = instructions[:len(instructions)-1]
-		truncated = true
-		if !slices.Contains(truncations, "instructions") {
-			truncations = append(truncations, "instructions")
-		}
-		used = briefVariableBytes(instructions, top, nextCommands)
-	}
-	analysis := makeBriefAnalysis(brief)
-	if truncations == nil {
-		truncations = []string{}
-	}
-	result := map[string]any{
-		"detail":         opts.Detail,
-		"omitted_fields": sortedStrings(omitted),
-		"intent":         opts.Intent,
-		"instructions":   instructions,
-		"files":          len(brief.Snapshot.Files),
-		"symbols":        len(brief.Snapshot.Symbols),
-		"top_files":      top,
-		"budget":         opts.Budget,
-		"verify":         briefVerifyCommands(brief.Snapshot.Root),
-		"state":          state,
-		"analysis":       analysis,
-		"next_commands":  nextCommands,
-		"budget_info":    map[string]any{"unit": "bytes", "requested": opts.Budget, "scope": "variable_content", "used": used, "truncated": truncated, "truncations": slices.Clone(truncations)},
-		"truncated":      truncated,
-	}
-	if opts.Detail == detailPaths {
-		paths := make([]string, 0, len(top))
-		for _, entry := range top {
-			paths = append(paths, entry.Path)
-		}
-		result["paths"] = paths
-		for _, field := range []string{"top_files", "files", "symbols", "verify", "state", "next_commands"} {
-			delete(result, field)
-		}
-	}
-	if opts.Detail != detailEvidence {
-		delete(result, "instructions")
-	}
-	if opts.Detail == detailEvidence {
-		result["map"] = brief.Map
-	}
+	result := briefJSONResult(brief, state, opts, presentation)
 	if root.Format == formatJSON {
 		return emit(kctx, root, deps, brief.Snapshot, result)
 	}
-	return writeBrief(deps, brief, state, top, nextCommands, opts.Detail)
+	return writeBrief(deps, briefText{brief: brief, state: state, top: presentation.top, commands: presentation.commands, detail: opts.Detail})
+}
+
+func projectBrief(brief app.BriefResult, detail detailLevel) briefPresentation {
+	presentation := briefPresentation{
+		instructions: slices.Clone(brief.Snapshot.Instructions),
+		top:          slices.Clone(brief.Entries),
+		commands:     slices.Clone(brief.NextCommands),
+	}
+	if presentation.commands == nil {
+		presentation.commands = []app.BriefNextCommand{}
+	}
+	switch detail {
+	case detailCompact:
+		presentation.omitted = []string{briefInstructionsKey, "map", "top_files[].components", "top_files[].families"}
+		presentation.instructions = nil
+		for i := range presentation.top {
+			presentation.top[i].Components = nil
+			presentation.top[i].Families = nil
+		}
+	case detailEvidence:
+		// Evidence retains all fields.
+	case detailPaths:
+		presentation.omitted = []string{briefTopFilesKey, briefFilesKey, briefSymbolsKey, briefVerifyKey, briefStateKey, briefInstructionsKey, briefMapKey, briefNextCommandsKey}
+		presentation.instructions = nil
+		for i := range presentation.top {
+			presentation.top[i] = app.BriefEntry{Path: presentation.top[i].Path}
+		}
+	}
+	return presentation
+}
+
+func (p *briefPresentation) trimToBudget(budget int) {
+	p.used = briefVariableBytes(p.instructions, p.top, p.commands)
+	for i := len(p.top) - 1; p.used > budget && i >= 0; i-- {
+		if len(p.top[i].Families) == 0 {
+			continue
+		}
+		p.top[i].Families = nil
+		p.markTruncated("symbol_families")
+		p.used = briefVariableBytes(p.instructions, p.top, p.commands)
+	}
+	for p.used > budget && len(p.top) > 0 {
+		p.top = p.top[:len(p.top)-1]
+		p.markTruncated("ranked_files")
+		p.used = briefVariableBytes(p.instructions, p.top, p.commands)
+	}
+	for p.used > budget && len(p.commands) > 0 {
+		p.commands = p.commands[:len(p.commands)-1]
+		p.markTruncated("suggested_commands")
+		p.used = briefVariableBytes(p.instructions, p.top, p.commands)
+	}
+	for p.used > budget && len(p.instructions) > 0 {
+		p.instructions = p.instructions[:len(p.instructions)-1]
+		p.markTruncated("instructions")
+		p.used = briefVariableBytes(p.instructions, p.top, p.commands)
+	}
+	if p.truncations == nil {
+		p.truncations = []string{}
+	}
+}
+
+func (p *briefPresentation) markTruncated(kind string) {
+	p.truncated = true
+	if !slices.Contains(p.truncations, kind) {
+		p.truncations = append(p.truncations, kind)
+	}
+}
+
+func briefJSONResult(brief app.BriefResult, state briefState, opts briefOptions, presentation briefPresentation) map[string]any {
+	result := map[string]any{
+		"detail":             opts.Detail,
+		"omitted_fields":     sortedStrings(presentation.omitted),
+		"intent":             opts.Intent,
+		briefInstructionsKey: presentation.instructions,
+		briefFilesKey:        len(brief.Snapshot.Files),
+		briefSymbolsKey:      len(brief.Snapshot.Symbols),
+		briefTopFilesKey:     presentation.top,
+		"budget":             opts.Budget,
+		briefVerifyKey:       briefVerifyCommands(brief.Snapshot.Root),
+		briefStateKey:        state,
+		"analysis":           makeBriefAnalysis(brief),
+		briefNextCommandsKey: presentation.commands,
+		"budget_info":        map[string]any{"unit": "bytes", "requested": opts.Budget, "scope": "variable_content", "used": presentation.used, "truncated": presentation.truncated, "truncations": slices.Clone(presentation.truncations)},
+		"truncated":          presentation.truncated,
+	}
+	switch opts.Detail {
+	case detailPaths:
+		result["paths"] = briefPaths(presentation.top)
+		for _, field := range []string{briefTopFilesKey, briefFilesKey, briefSymbolsKey, briefVerifyKey, briefStateKey, briefNextCommandsKey} {
+			delete(result, field)
+		}
+		delete(result, briefInstructionsKey)
+	case detailEvidence:
+		result[briefMapKey] = brief.Map
+	case detailCompact:
+		delete(result, briefInstructionsKey)
+	}
+	return result
+}
+
+func briefPaths(top []app.BriefEntry) []string {
+	paths := make([]string, 0, len(top))
+	for _, entry := range top {
+		paths = append(paths, entry.Path)
+	}
+	return paths
 }
 
 // briefAnalysis is the stable, answer-ready analysis shape. Keep bounded
@@ -243,7 +289,7 @@ func makeBriefAnalysis(result app.BriefResult) briefAnalysisJSON {
 	}
 	warnings := make([]string, 0)
 	for _, diagnostic := range result.Snapshot.Diagnostics {
-		if diagnostic.Level == "warning" {
+		if diagnostic.Level == diagnosticWarning {
 			warnings = append(warnings, diagnostic.Message)
 		}
 	}
@@ -268,15 +314,48 @@ func makeBriefAnalysis(result app.BriefResult) briefAnalysisJSON {
 // writeBrief renders the source-compatible orientation sections that matter
 // before an agent edits code: declared verification commands, repository state,
 // and a bounded rendered symbol map.
-func writeBrief(deps Deps, brief app.BriefResult, state briefState, top []app.BriefEntry, commands []app.BriefNextCommand, detail detailLevel) error {
-	if detail == detailPaths {
-		for _, entry := range top {
-			if _, err := fmt.Fprintln(deps.Out, entry.Path); err != nil {
-				return err
-			}
-		}
+func writeBrief(deps Deps, text briefText) error {
+	if text.detail == detailPaths {
+		return writeBriefPaths(deps, text.top)
+	}
+	if err := writeBriefAnalysis(deps, text.brief); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(deps.Out); err != nil {
+		return err
+	}
+	if err := writeBriefVerification(deps, briefVerifyCommands(text.state.Repository)); err != nil {
+		return err
+	}
+	if err := writeBriefState(deps, text.state); err != nil {
+		return err
+	}
+	if err := writeBriefRankedFiles(deps, text.top); err != nil {
+		return err
+	}
+	if err := writeBriefFamilies(deps, text.top, text.detail); err != nil {
+		return err
+	}
+	if err := writeBriefCommands(deps, text.commands); err != nil {
+		return err
+	}
+	if text.detail != detailEvidence {
 		return nil
 	}
+	_, err := fmt.Fprintf(deps.Out, "\n## Map\n%s", text.brief.Map.Text)
+	return err
+}
+
+func writeBriefPaths(deps Deps, top []app.BriefEntry) error {
+	for _, entry := range top {
+		if _, err := fmt.Fprintln(deps.Out, entry.Path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeBriefAnalysis(deps Deps, brief app.BriefResult) error {
 	totalFiles := "unknown"
 	if brief.Coverage.TotalFiles != nil {
 		totalFiles = strconv.Itoa(*brief.Coverage.TotalFiles)
@@ -284,39 +363,42 @@ func writeBrief(deps Deps, brief app.BriefResult, state briefState, top []app.Br
 	if _, err := fmt.Fprintf(deps.Out, "## Analysis\n  complete: %t   files: %d/%s\n", brief.Coverage.Complete, brief.Coverage.AnalyzedFiles, totalFiles); err != nil {
 		return err
 	}
-	if len(brief.Coverage.Limits) > 0 {
-		if _, err := fmt.Fprintf(deps.Out, "  limits: %s\n", strings.Join(brief.Coverage.Limits, ", ")); err != nil {
+	if len(brief.Coverage.Limits) == 0 {
+		return nil
+	}
+	_, err := fmt.Fprintf(deps.Out, "  limits: %s\n", strings.Join(brief.Coverage.Limits, ", "))
+	return err
+}
+
+func writeBriefRankedFiles(deps Deps, top []app.BriefEntry) error {
+	if len(top) == 0 {
+		return nil
+	}
+	if _, err := fmt.Fprintln(deps.Out, "\n## Ranked files"); err != nil {
+		return err
+	}
+	for _, entry := range top {
+		if err := writeBriefRankedFile(deps, entry); err != nil {
 			return err
 		}
 	}
-	verification := briefVerifyCommands(state.Repository)
-	if _, err := fmt.Fprintln(deps.Out); err != nil {
+	return nil
+}
+
+func writeBriefRankedFile(deps Deps, entry app.BriefEntry) error {
+	if _, err := fmt.Fprintf(deps.Out, "  %s  score=%d class=%s", entry.Path, entry.Score, entry.Class); err != nil {
 		return err
 	}
-	if err := writeBriefVerification(deps, verification); err != nil {
-		return err
-	}
-	if err := writeBriefState(deps, state); err != nil {
-		return err
-	}
-	if len(top) > 0 {
-		if _, err := fmt.Fprintln(deps.Out, "\n## Ranked files"); err != nil {
+	if entry.Tag != "" {
+		if _, err := fmt.Fprintf(deps.Out, " tag=%s", entry.Tag); err != nil {
 			return err
 		}
-		for _, entry := range top {
-			if _, err := fmt.Fprintf(deps.Out, "  %s  score=%d class=%s", entry.Path, entry.Score, entry.Class); err != nil {
-				return err
-			}
-			if entry.Tag != "" {
-				if _, err := fmt.Fprintf(deps.Out, " tag=%s", entry.Tag); err != nil {
-					return err
-				}
-			}
-			if _, err := fmt.Fprintln(deps.Out); err != nil {
-				return err
-			}
-		}
 	}
+	_, err := fmt.Fprintln(deps.Out)
+	return err
+}
+
+func writeBriefFamilies(deps Deps, top []app.BriefEntry, detail detailLevel) error {
 	if detail == detailEvidence {
 		if _, err := fmt.Fprintln(deps.Out, "\n## Symbol families"); err != nil {
 			return err
@@ -330,6 +412,10 @@ func writeBrief(deps Deps, brief app.BriefResult, state briefState, top []app.Br
 			return err
 		}
 	}
+	return nil
+}
+
+func writeBriefCommands(deps Deps, commands []app.BriefNextCommand) error {
 	if _, err := fmt.Fprintln(deps.Out, "\n## Suggested commands"); err != nil {
 		return err
 	}
@@ -337,10 +423,6 @@ func writeBrief(deps Deps, brief app.BriefResult, state briefState, top []app.Br
 		if _, err := fmt.Fprintf(deps.Out, "  pan %s  # %s\n", strings.Join(command.Args, " "), command.Reason); err != nil {
 			return err
 		}
-	}
-	if detail == detailEvidence {
-		_, err := fmt.Fprintf(deps.Out, "\n## Map\n%s", brief.Map.Text)
-		return err
 	}
 	return nil
 }
