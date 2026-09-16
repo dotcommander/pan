@@ -65,7 +65,7 @@ To inspect a different repository, change only the selector:
 
 ## Configuration and state
 
-Most commands load Pan's configuration. On a normal first run, Pan seeds the platform user configuration directory at `pan/config.yaml`; `scan doctor` reads configuration without creating a missing file. Inspect or manage that file with:
+Most commands load Pan's configuration. On a normal first run, Pan seeds the platform user configuration directory at `pan/config.yaml`; `scan doctor` reads configuration without creating a missing file. Its `pan.doctor/v1` report exposes `status`, `analysis.complete`, `analysis.limits`, `analysis.diagnostic_details` (parse-failure diagnostics, listed when any exist and omitted otherwise), and `warnings`; check them before relying on an absence from a later report. Inspect or manage that file with:
 
 ```bash
 ./bin/pan config print
