@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,14 @@ import (
 const Version = 2
 
 // EntryFile is the single file this package owns inside a cache directory.
-const EntryFile = "analysis.json"
+const (
+	EntryFile = "analysis.json"
+
+	reasonMissingCache             = "missing_cache"
+	reasonAnalyzerRevisionMismatch = "analyzer_revision_mismatch"
+	reasonContentChanged           = "content_changed"
+	reasonFresh                    = "fresh"
+)
 
 // Entry is the persisted cache record.
 type Entry struct {
@@ -126,10 +134,10 @@ func SnapshotID(cfg config.Config, snap analyze.Snapshot, manifest map[string]st
 func Store(dir, root string, cfg config.Config, snap analyze.Snapshot, stamps map[string]analyze.FileStamp) (string, error) {
 	manifest := analyze.ManifestFromSnapshot(snap)
 	if len(manifest) == 0 && len(snap.Files) != 0 {
-		return "", fmt.Errorf("store cache: snapshot has no captured source manifest")
+		return "", errors.New("store cache: snapshot has no captured source manifest")
 	}
 	if len(stamps) == 0 && len(snap.Files) != 0 {
-		return "", fmt.Errorf("store cache: snapshot has no captured metadata stamps")
+		return "", errors.New("store cache: snapshot has no captured metadata stamps")
 	}
 	entry := Entry{
 		Version:           Version,
@@ -166,12 +174,12 @@ func LoadValidated(ctx context.Context, root, dir string, cfg config.Config) (an
 	status := Status{CachePath: path}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		status.Reason = "missing_cache"
+		status.Reason = reasonMissingCache
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
 	status.Exists = true
 	var entry Entry
-	if err := json.Unmarshal(data, &entry); err != nil {
+	if unmarshalErr := json.Unmarshal(data, &entry); unmarshalErr != nil {
 		status.Reason = "corrupt_cache"
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
@@ -180,51 +188,14 @@ func LoadValidated(ctx context.Context, root, dir string, cfg config.Config) (an
 		built := entry.BuiltAt
 		status.BuiltAt = &built
 	}
-	switch {
-	case entry.Version != Version:
-		status.Reason = "version_mismatch"
-	case entry.SchemaVersion != analyze.SchemaVersion:
-		status.Reason = "schema_mismatch"
-	case entry.AnalyzerRevision != analyze.AnalyzerRevision:
-		status.Reason = "analyzer_revision_mismatch"
-	case entry.Root != root:
-		status.Reason = "root_mismatch"
-	case entry.ConfigFingerprint != Fingerprint(cfg):
-		status.Reason = "config_changed"
-	case len(entry.Manifest) == 0:
-		status.Reason = "manifest_missing"
-	default:
-		status.Usable = true
-	}
-	if !status.Usable {
+	status.Reason = entryCompatibilityReason(entry, root, cfg)
+	if status.Reason != "" {
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
-	before, err := analyze.Stamps(ctx, root, cfg)
-	if err != nil {
-		status.Stale, status.Reason = true, "stamp_failed"
-		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-	}
-	if stale, reason := stampsStale(entry.Stamps, before); stale {
+	status.Usable = true
+	contents, after, reason := verifiedManifestContents(ctx, root, cfg, entry)
+	if reason != "" {
 		status.Stale, status.Reason = true, reason
-		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-	}
-	contents := make(map[string][]byte, len(entry.Manifest))
-	for p, want := range entry.Manifest {
-		b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
-		if err != nil {
-			status.Stale, status.Reason = true, "content_unavailable"
-			return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-		}
-		sum := sha256.Sum256(b)
-		if hex.EncodeToString(sum[:]) != want {
-			status.Stale, status.Reason = true, "content_changed"
-			return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-		}
-		contents[p] = b
-	}
-	after, err := analyze.Stamps(ctx, root, cfg)
-	if err != nil || analyzeStampsChanged(before, after) {
-		status.Stale, status.Reason = true, "repository_changed_during_capture"
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
 	snap := entry.Snapshot
@@ -239,8 +210,68 @@ func LoadValidated(ctx context.Context, root, dir string, cfg config.Config) (an
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
 	snap.Status.Snapshot = &analyze.SnapshotInfo{ID: entry.Snapshot.Status.Snapshot.ID, Source: "cache", Freshness: "verified_at_start", CheckedAt: time.Now().UTC()}
-	status.Reason = "fresh"
+	status.Reason = reasonFresh
 	return snap, status, nil
+}
+
+func entryCompatibilityReason(entry Entry, root string, cfg config.Config) string {
+	switch {
+	case entry.Version != Version:
+		return "version_mismatch"
+	case entry.SchemaVersion != analyze.SchemaVersion:
+		return "schema_mismatch"
+	case entry.AnalyzerRevision != analyze.AnalyzerRevision:
+		return reasonAnalyzerRevisionMismatch
+	case entry.Root != root:
+		return "root_mismatch"
+	case entry.ConfigFingerprint != Fingerprint(cfg):
+		return "config_changed"
+	case len(entry.Manifest) == 0:
+		return "manifest_missing"
+	default:
+		return ""
+	}
+}
+
+func verifiedManifestContents(ctx context.Context, root string, cfg config.Config, entry Entry) (map[string][]byte, map[string]analyze.FileStamp, string) {
+	before, err := analyze.Stamps(ctx, root, cfg)
+	if err != nil {
+		return nil, nil, "stamp_failed"
+	}
+	if stale, reason := stampsStale(entry.Stamps, before); stale {
+		return nil, nil, reason
+	}
+	contents := make(map[string][]byte, len(entry.Manifest))
+	for path, want := range entry.Manifest {
+		data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+		if readErr != nil {
+			return nil, nil, "content_unavailable"
+		}
+		sum := sha256.Sum256(data)
+		if hex.EncodeToString(sum[:]) != want {
+			return nil, nil, reasonContentChanged
+		}
+		contents[path] = data
+	}
+	after, err := analyze.Stamps(ctx, root, cfg)
+	if err != nil || analyzeStampsChanged(before, after) {
+		return nil, nil, "repository_changed_during_capture"
+	}
+	return contents, after, ""
+}
+
+func manifestContentReason(root string, manifest map[string]string) string {
+	for path, want := range manifest {
+		data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+		if readErr != nil {
+			return "content_unavailable"
+		}
+		sum := sha256.Sum256(data)
+		if hex.EncodeToString(sum[:]) != want {
+			return reasonContentChanged
+		}
+	}
+	return ""
 }
 
 func analyzeStampsChanged(a, b map[string]analyze.FileStamp) bool {
@@ -256,7 +287,7 @@ func Inspect(ctx context.Context, root, dir string, cfg config.Config) Status {
 	status := Status{CachePath: path}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		status.Reason = "missing_cache"
+		status.Reason = reasonMissingCache
 		return status
 	}
 	status.Exists = true
@@ -272,21 +303,7 @@ func Inspect(ctx context.Context, root, dir string, cfg config.Config) Status {
 		status.BuiltAt = &built
 	}
 	status.TrackedFiles = len(entry.Stamps)
-	switch {
-	case entry.Version != Version:
-		status.Reason = "version_mismatch"
-		return status
-	case entry.SchemaVersion != analyze.SchemaVersion:
-		status.Reason = "schema_mismatch"
-		return status
-	case entry.AnalyzerRevision != analyze.AnalyzerRevision:
-		status.Reason = "analyzer_revision_mismatch"
-		return status
-	case entry.Root != root:
-		status.Reason = "root_mismatch"
-		return status
-	case entry.ConfigFingerprint != Fingerprint(cfg):
-		status.Reason = "config_changed"
+	if status.Reason = entryCompatibilityReason(entry, root, cfg); status.Reason != "" {
 		return status
 	}
 	status.Usable = true
@@ -301,24 +318,11 @@ func Inspect(ctx context.Context, root, dir string, cfg config.Config) Status {
 		status.Reason = reason
 		return status
 	}
-	if len(entry.Manifest) == 0 {
-		status.Usable = false
-		status.Reason = "manifest_missing"
+	if reason := manifestContentReason(root, entry.Manifest); reason != "" {
+		status.Stale, status.Reason = true, reason
 		return status
 	}
-	for p, want := range entry.Manifest {
-		data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(p)))
-		if readErr != nil {
-			status.Stale, status.Reason = true, "content_unavailable"
-			return status
-		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != want {
-			status.Stale, status.Reason = true, "content_changed"
-			return status
-		}
-	}
-	status.Reason = "fresh"
+	status.Reason = reasonFresh
 	return status
 }
 
@@ -357,6 +361,6 @@ func Clear(dir string) (ClearResult, error) {
 		return result, nil
 	}
 	// A missing entry is an idempotent success, not an error.
-	result.Reason = "missing_cache"
+	result.Reason = reasonMissingCache
 	return result, nil
 }

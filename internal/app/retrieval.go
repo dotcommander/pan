@@ -55,11 +55,13 @@ type BriefResult struct {
 	Budget       BriefBudget
 }
 
+// BriefNextCommand suggests one follow-up CLI invocation for a brief.
 type BriefNextCommand struct {
 	Args   []string `json:"args"`
 	Reason string   `json:"reason"`
 }
 
+// BriefCoverage records analysis completeness and configured bounds.
 type BriefCoverage struct {
 	AnalyzedFiles int            `json:"analyzed_files"`
 	TotalFiles    *int           `json:"total_files"`
@@ -71,6 +73,7 @@ type BriefCoverage struct {
 	Bounds        BriefBounds    `json:"bounds"`
 }
 
+// BriefBounds records the analysis limits used to produce a brief.
 type BriefBounds struct {
 	MaxFiles      int   `json:"max_files"`
 	MaxFileBytes  int64 `json:"max_file_bytes"`
@@ -78,6 +81,7 @@ type BriefBounds struct {
 	MaxNodes      int   `json:"max_nodes"`
 }
 
+// BriefBudget records the requested and used rendered-brief budget.
 type BriefBudget struct {
 	Unit        string               `json:"unit"`
 	Requested   int                  `json:"requested"`
@@ -107,7 +111,7 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 			Tested: rf.Tested, IntentHits: rf.IntentHits, Confidence: rf.Confidence,
 			Families: codemap.SymbolFamilies(rf.Symbols)})
 		if len(commands) == 0 && rf.CallerCount >= 2 && len(rf.Symbols) > 0 {
-			commands = append(commands, BriefNextCommand{Args: []string{"flow", "calls", rf.Symbols[0].Name, "--depth", "2"}, Reason: "trace callers of a highly connected symbol"})
+			commands = append(commands, BriefNextCommand{Args: []string{"flow", callsEdgeKind, rf.Symbols[0].Name, "--depth", "2"}, Reason: "trace callers of a highly connected symbol"})
 		}
 	}
 	cfg := s.deps.Config.Normalized()
@@ -196,27 +200,33 @@ func briefWhy(components map[string]int) []string {
 
 // Map renders the ranked, token-budgeted repository map.
 func (s Service) Map(ctx context.Context, root string, opts codemap.Options) (analyze.Snapshot, codemap.Result, error) {
-	snap, ranked, opts, err := s.mapInputs(ctx, root, opts)
+	inputs, err := s.mapInputs(ctx, root, opts)
 	if err != nil {
 		return analyze.Snapshot{}, codemap.Result{}, err
 	}
-	return snap, codemap.Build(ranked, opts), nil
+	return inputs.snapshot, codemap.Build(inputs.ranked, inputs.options), nil
 }
 
 // MapStructured returns the Pan-compatible structured map for the same
 // ranking and option flow as Map.
 func (s Service) MapStructured(ctx context.Context, root string, opts codemap.Options) (codemap.StructuredOutput, error) {
-	snap, ranked, opts, err := s.mapInputs(ctx, root, opts)
+	inputs, err := s.mapInputs(ctx, root, opts)
 	if err != nil {
 		return codemap.StructuredOutput{}, err
 	}
-	return codemap.BuildStructured(snap, ranked, opts), nil
+	return codemap.BuildStructured(inputs.snapshot, inputs.ranked, inputs.options), nil
 }
 
-func (s Service) mapInputs(ctx context.Context, root string, opts codemap.Options) (analyze.Snapshot, []ranking.RankedFile, codemap.Options, error) {
+type mapInputResult struct {
+	snapshot analyze.Snapshot
+	ranked   []ranking.RankedFile
+	options  codemap.Options
+}
+
+func (s Service) mapInputs(ctx context.Context, root string, opts codemap.Options) (mapInputResult, error) {
 	snap, ranked, err := s.ranked(ctx, root, ranking.Options{Intent: opts.Intent, Consumed: opts.Consumed, IncludeTests: opts.IncludeTests})
 	if err != nil {
-		return analyze.Snapshot{}, nil, codemap.Options{}, err
+		return mapInputResult{}, err
 	}
 	opts.Root, opts.Edges = snap.Root, snap.Edges
 	if opts.SymbolRefs {
@@ -225,7 +235,7 @@ func (s Service) mapInputs(ctx context.Context, root string, opts codemap.Option
 	if opts.Calls {
 		ranking.ApplyCallEdgeBonus(ranked, snap.Edges, opts.CallsThreshold, opts.CallsIncludeTests)
 	}
-	return snap, ranked, opts, nil
+	return mapInputResult{snapshot: snap, ranked: ranked, options: opts}, nil
 }
 
 // Find resolves one symbol query against the ranked symbol set.
@@ -386,7 +396,7 @@ func (s Service) CacheWarm(ctx context.Context, root, dir string) (analyze.Snaps
 		return analyze.Snapshot{}, cache.Status{}, err
 	}
 	live := s
-	live.deps.SnapshotSource = "live"
+	live.deps.SnapshotSource = liveSnapshotSource
 	snap, err := live.Snapshot(ctx, root)
 	if err != nil {
 		return analyze.Snapshot{}, cache.Status{}, err

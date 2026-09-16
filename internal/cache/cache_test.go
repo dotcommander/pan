@@ -132,18 +132,18 @@ func TestLoadValidatedDetectsSameSizeSameMTimeContentChange(t *testing.T) {
 	}
 	stamp := snap.Stamps()["one.go"]
 	cacheDir := t.TempDir()
-	if _, err := Store(cacheDir, root, cfg, snap, snap.Stamps()); err != nil {
-		t.Fatal(err)
+	if _, storeErr := Store(cacheDir, root, cfg, snap, snap.Stamps()); storeErr != nil {
+		t.Fatal(storeErr)
 	}
 	changed := []byte("package two\n")
 	if len(changed) != len(original) {
 		t.Fatal("test fixture must preserve size")
 	}
-	if err := os.WriteFile(path, changed, 0o600); err != nil {
-		t.Fatal(err)
+	if writeErr := os.WriteFile(path, changed, 0o600); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	if err := os.Chtimes(path, stamp.ModTime, stamp.ModTime); err != nil {
-		t.Fatal(err)
+	if chtimesErr := os.Chtimes(path, stamp.ModTime, stamp.ModTime); chtimesErr != nil {
+		t.Fatal(chtimesErr)
 	}
 	_, status, err := LoadValidated(context.Background(), root, cacheDir, cfg)
 	if err == nil || !status.Stale || status.Reason != "content_changed" {
@@ -172,8 +172,8 @@ func TestInspectRejectsAnalyzerRevisionMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	var entry Entry
-	if err := json.Unmarshal(data, &entry); err != nil {
-		t.Fatal(err)
+	if unmarshalErr := json.Unmarshal(data, &entry); unmarshalErr != nil {
+		t.Fatal(unmarshalErr)
 	}
 	entry.AnalyzerRevision = "older/v1"
 	data, err = json.Marshal(entry)

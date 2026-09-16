@@ -3,6 +3,7 @@ package retrieval
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -14,12 +15,20 @@ import (
 )
 
 const (
-	EvalCaseSchema                 = "pan.context-eval-case/v1"
-	EvalReportSchema               = "pan.context-eval-report/v1"
-	StructuralLexicalPolicy        = "structural-lexical/v1"
+	// EvalCaseSchema identifies one JSONL retrieval evaluation case.
+	EvalCaseSchema = "pan.context-eval-case/v1"
+	// EvalReportSchema identifies one retrieval evaluation report.
+	EvalReportSchema = "pan.context-eval-report/v1"
+	// StructuralLexicalPolicy selects structural and lexical ranking.
+	StructuralLexicalPolicy = "structural-lexical/v1"
+	// StructuralReferenceGraphPolicy also enables reference-graph ranking.
 	StructuralReferenceGraphPolicy = "structural-reference-graph/v1"
+
+	classificationLexical    = "lexical"
+	classificationNonlexical = "nonlexical"
 )
 
+// EvalCase defines one expected retrieval result for a snapshot.
 type EvalCase struct {
 	Schema          string   `json:"schema"`
 	ID              string   `json:"case_id"`
@@ -32,6 +41,8 @@ type EvalCase struct {
 	Provenance      string   `json:"provenance"`
 	Classification  string   `json:"classification"`
 }
+
+// EvalResult records one case's retrieval outcome.
 type EvalResult struct {
 	CaseID          string               `json:"case_id"`
 	Classification  string               `json:"classification"`
@@ -44,6 +55,8 @@ type EvalResult struct {
 	Truncations     []analyze.Truncation `json:"truncations"`
 	Duration        time.Duration        `json:"duration_ns"`
 }
+
+// EvalAggregate summarizes retrieval quality across cases.
 type EvalAggregate struct {
 	Cases               int     `json:"cases"`
 	LexicalCases        int     `json:"lexical_cases"`
@@ -53,6 +66,8 @@ type EvalAggregate struct {
 	MeanReciprocalRank  float64 `json:"mean_reciprocal_rank"`
 	PromotionEligible   bool    `json:"promotion_eligible"`
 }
+
+// EvalReport contains per-case and aggregate retrieval evaluation results.
 type EvalReport struct {
 	Schema           string              `json:"schema"`
 	PolicyID         string              `json:"policy_id"`
@@ -64,12 +79,13 @@ type EvalReport struct {
 	Graph            *ranking.GraphStats `json:"graph,omitempty"`
 }
 
+// LoadEvalCases parses and validates JSONL evaluation cases from path.
 func LoadEvalCases(path string) ([]EvalCase, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	s := bufio.NewScanner(f)
 	s.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	var out []EvalCase
@@ -87,7 +103,7 @@ func LoadEvalCases(path string) ([]EvalCase, error) {
 		return nil, err
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("eval cases are empty")
+		return nil, errors.New("eval cases are empty")
 	}
 	return out, nil
 }
@@ -96,22 +112,24 @@ func (c EvalCase) validate() error {
 	case c.Schema != EvalCaseSchema:
 		return fmt.Errorf("schema must be %s", EvalCaseSchema)
 	case strings.TrimSpace(c.ID) == "":
-		return fmt.Errorf("case_id is required")
+		return errors.New("case_id is required")
 	case strings.TrimSpace(c.SnapshotID) == "":
-		return fmt.Errorf("snapshot_id is required")
+		return errors.New("snapshot_id is required")
 	case strings.TrimSpace(c.Request) == "":
-		return fmt.Errorf("request is required")
+		return errors.New("request is required")
 	case c.TokenBudget <= 0:
-		return fmt.Errorf("token_budget must be positive")
+		return errors.New("token_budget must be positive")
 	case strings.TrimSpace(c.Provenance) == "":
-		return fmt.Errorf("provenance is required")
-	case c.Classification != "lexical" && c.Classification != "nonlexical":
-		return fmt.Errorf("classification must be lexical or nonlexical")
+		return errors.New("provenance is required")
+	case c.Classification != classificationLexical && c.Classification != classificationNonlexical:
+		return errors.New("classification must be lexical or nonlexical")
 	case len(c.ExpectedPaths) == 0 && len(c.ExpectedSymbols) == 0:
-		return fmt.Errorf("expected evidence is required")
+		return errors.New("expected evidence is required")
 	}
 	return nil
 }
+
+// Evaluate scores retrieval results against the supplied cases under policy.
 func Evaluate(snap analyze.Snapshot, cases []EvalCase, policy string) (EvalReport, error) {
 	if policy == "" {
 		policy = StructuralLexicalPolicy
@@ -121,10 +139,10 @@ func Evaluate(snap analyze.Snapshot, cases []EvalCase, policy string) (EvalRepor
 		return EvalReport{}, fmt.Errorf("unsupported retrieval policy %q", policy)
 	}
 	if snap.Status.Snapshot == nil || snap.Status.Snapshot.ID == "" {
-		return EvalReport{}, fmt.Errorf("snapshot identity is required")
+		return EvalReport{}, errors.New("snapshot identity is required")
 	}
 	r := EvalReport{Schema: EvalReportSchema, PolicyID: policy, SnapshotID: snap.Status.Snapshot.ID, AnalyzerRevision: analyze.AnalyzerRevision, Cases: []EvalResult{}}
-	var pe, pf, se, sf int
+	counts := evalInclusionCounts{}
 	for _, c := range cases {
 		if err := c.validate(); err != nil {
 			return EvalReport{}, fmt.Errorf("case %s: %w", c.ID, err)
@@ -132,51 +150,19 @@ func Evaluate(snap analyze.Snapshot, cases []EvalCase, policy string) (EvalRepor
 		if c.SnapshotID != r.SnapshotID {
 			return EvalReport{}, fmt.Errorf("snapshot mismatch for %s", c.ID)
 		}
-		r.ArtifactIDs = append(r.ArtifactIDs, c.ArtifactIDs...)
-		start := time.Now()
-		ranked, stats := ranking.RankWithStats(snap, "", ranking.Options{Intent: c.Request, ReferenceGraph: graphPolicy})
-		if graphPolicy {
-			if r.Graph == nil {
-				r.Graph = &ranking.GraphStats{}
-			}
-			r.Graph.Nodes = max(r.Graph.Nodes, stats.Nodes)
-			r.Graph.Edges = max(r.Graph.Edges, stats.Edges)
-			r.Graph.Iterations = max(r.Graph.Iterations, stats.Iterations)
-		}
-		packet, err := Task(snap, ranked, c.Request, TaskOptions{Tokens: c.TokenBudget, PolicyID: policy})
+		result, stats, err := evaluateCase(snap, c, policy, graphPolicy)
 		if err != nil {
-			return EvalReport{}, fmt.Errorf("case %s: %w", c.ID, err)
+			return EvalReport{}, err
 		}
-		result := scoreEvalCase(c, packet)
-		result.Duration = time.Since(start)
-		r.Cases = append(r.Cases, result)
-		r.Aggregate.Cases++
-		if c.Classification == "lexical" {
-			r.Aggregate.LexicalCases++
-		} else {
-			r.Aggregate.NonlexicalCases++
-		}
-		for _, v := range result.PathInclusion {
-			pe++
-			if v {
-				pf++
-			}
-		}
-		for _, v := range result.SymbolInclusion {
-			se++
-			if v {
-				sf++
-			}
-		}
-		r.Aggregate.MeanReciprocalRank += result.ReciprocalRank
+		counts = appendEvalResult(&r, evalResultUpdate{caseInput: c, result: result, stats: stats, graphPolicy: graphPolicy}, counts)
 	}
 	slices.Sort(r.ArtifactIDs)
 	r.ArtifactIDs = slices.Compact(r.ArtifactIDs)
-	if pe > 0 {
-		r.Aggregate.PathInclusionRate = float64(pf) / float64(pe)
+	if counts.pathExpected > 0 {
+		r.Aggregate.PathInclusionRate = float64(counts.pathFound) / float64(counts.pathExpected)
 	}
-	if se > 0 {
-		r.Aggregate.SymbolInclusionRate = float64(sf) / float64(se)
+	if counts.symbolExpected > 0 {
+		r.Aggregate.SymbolInclusionRate = float64(counts.symbolFound) / float64(counts.symbolExpected)
 	}
 	if r.Aggregate.Cases > 0 {
 		r.Aggregate.MeanReciprocalRank /= float64(r.Aggregate.Cases)
@@ -184,6 +170,69 @@ func Evaluate(snap analyze.Snapshot, cases []EvalCase, policy string) (EvalRepor
 	r.Aggregate.PromotionEligible = r.Aggregate.LexicalCases >= 25 && r.Aggregate.NonlexicalCases >= 25
 	return r, nil
 }
+
+type evalInclusionCounts struct {
+	pathExpected, pathFound     int
+	symbolExpected, symbolFound int
+}
+
+type evalResultUpdate struct {
+	caseInput   EvalCase
+	result      EvalResult
+	stats       ranking.GraphStats
+	graphPolicy bool
+}
+
+func appendEvalResult(report *EvalReport, update evalResultUpdate, counts evalInclusionCounts) evalInclusionCounts {
+	report.ArtifactIDs = append(report.ArtifactIDs, update.caseInput.ArtifactIDs...)
+	updateEvalGraph(report, update.stats, update.graphPolicy)
+	report.Cases = append(report.Cases, update.result)
+	report.Aggregate.Cases++
+	if update.caseInput.Classification == classificationLexical {
+		report.Aggregate.LexicalCases++
+	} else {
+		report.Aggregate.NonlexicalCases++
+	}
+	counts.pathExpected, counts.pathFound = inclusionCounts(update.result.PathInclusion, counts.pathExpected, counts.pathFound)
+	counts.symbolExpected, counts.symbolFound = inclusionCounts(update.result.SymbolInclusion, counts.symbolExpected, counts.symbolFound)
+	report.Aggregate.MeanReciprocalRank += update.result.ReciprocalRank
+	return counts
+}
+
+func inclusionCounts(values map[string]bool, expected, found int) (updatedExpected, updatedFound int) {
+	for _, included := range values {
+		expected++
+		if included {
+			found++
+		}
+	}
+	return expected, found
+}
+
+func evaluateCase(snap analyze.Snapshot, c EvalCase, policy string, graphPolicy bool) (EvalResult, ranking.GraphStats, error) {
+	start := time.Now()
+	ranked, stats := ranking.RankWithStats(snap, "", ranking.Options{Intent: c.Request, ReferenceGraph: graphPolicy})
+	packet, err := Task(snap, ranked, c.Request, TaskOptions{Tokens: c.TokenBudget, PolicyID: policy})
+	if err != nil {
+		return EvalResult{}, ranking.GraphStats{}, fmt.Errorf("case %s: %w", c.ID, err)
+	}
+	result := scoreEvalCase(c, packet)
+	result.Duration = time.Since(start)
+	return result, stats, nil
+}
+
+func updateEvalGraph(report *EvalReport, stats ranking.GraphStats, graphPolicy bool) {
+	if !graphPolicy {
+		return
+	}
+	if report.Graph == nil {
+		report.Graph = &ranking.GraphStats{}
+	}
+	report.Graph.Nodes = max(report.Graph.Nodes, stats.Nodes)
+	report.Graph.Edges = max(report.Graph.Edges, stats.Edges)
+	report.Graph.Iterations = max(report.Graph.Iterations, stats.Iterations)
+}
+
 func scoreEvalCase(c EvalCase, packet TaskReport) EvalResult {
 	r := EvalResult{CaseID: c.ID, Classification: c.Classification, TokenBudget: c.TokenBudget, PathInclusion: map[string]bool{}, SymbolInclusion: map[string]bool{}, Truncations: slices.Clone(packet.Truncations)}
 	for _, target := range packet.Targets {

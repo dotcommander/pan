@@ -8,6 +8,7 @@ import (
 	improveconfig "github.com/dotcommander/pan/internal/improve/config"
 )
 
+// ImproveExport writes bounded persisted improvement observations to output.
 func (s Service) ImproveExport(_ context.Context, output string, limit int, since *time.Time, cfg improveconfig.Config) (int, error) {
 	_, stateDir, err := s.improvePolicy()
 	if err != nil {

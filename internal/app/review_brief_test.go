@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/config"
 	"github.com/dotcommander/pan/internal/review"
 )
@@ -33,6 +34,11 @@ func TestReviewBriefSeparatesIgnoredWorkspaceSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertReviewBriefExcludesWorkspace(t, snap, result)
+}
+
+func assertReviewBriefExcludesWorkspace(t *testing.T, snap analyze.Snapshot, result map[string]any) {
+	t.Helper()
 	if !snap.Status.Complete {
 		t.Fatalf("workspace artifacts consumed analysis bounds: %#v", snap.Status)
 	}

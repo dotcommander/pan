@@ -20,7 +20,11 @@ import (
 
 // levelInfo is the diagnostic level for advisory notes surfaced inside a
 // successful snapshot.
-const levelInfo = "info"
+const (
+	levelInfo          = "info"
+	liveSnapshotSource = "live"
+	callsEdgeKind      = "calls"
+)
 
 // Deps carries the configuration-bound collaborators every service method
 // shares.
@@ -58,21 +62,13 @@ func (s Service) buildSnapshot(ctx context.Context, root string, cfg config.Conf
 	if err != nil {
 		return analyze.Snapshot{}, fmt.Errorf("resolve repository root: %w", err)
 	}
-	var fallbackReason string
-	if s.deps.SnapshotSource != "live" {
-		base := s.deps.CacheDir
-		if base == "" {
-			base, err = cache.DefaultDir()
+	fallbackReason := ""
+	if s.deps.SnapshotSource != liveSnapshotSource {
+		cached, reason := s.cachedSnapshot(ctx, absRoot, cfg)
+		if cached != nil {
+			return *cached, nil
 		}
-		if err == nil {
-			if cached, status, loadErr := cache.LoadValidated(ctx, absRoot, cache.DirFor(base, absRoot), cfg); loadErr == nil {
-				return cached, nil
-			} else {
-				fallbackReason = status.Reason
-			}
-		} else {
-			fallbackReason = "cache_directory_unavailable"
-		}
+		fallbackReason = reason
 	}
 	snap, err := analyze.Build(ctx, absRoot, cfg)
 	if err != nil {
@@ -81,11 +77,27 @@ func (s Service) buildSnapshot(ctx context.Context, root string, cfg config.Conf
 	snap.Instructions = capturedInstructions(snap, cfg.MaxInstructions)
 	// Stamp every live snapshot with a deterministic identity and capture receipt.
 	checked := time.Now().UTC()
-	snap.Status.Snapshot = &analyze.SnapshotInfo{ID: cache.SnapshotID(cfg, snap, analyze.ManifestFromSnapshot(snap)), Source: "live", Freshness: "verified_at_start", CheckedAt: checked}
+	snap.Status.Snapshot = &analyze.SnapshotInfo{ID: cache.SnapshotID(cfg, snap, analyze.ManifestFromSnapshot(snap)), Source: liveSnapshotSource, Freshness: "verified_at_start", CheckedAt: checked}
 	if fallbackReason != "" {
 		snap.Diagnostics = append(snap.Diagnostics, analyze.Diagnostic{Level: levelInfo, Message: "snapshot cache fallback: " + fallbackReason})
 	}
 	return snap, nil
+}
+
+func (s Service) cachedSnapshot(ctx context.Context, root string, cfg config.Config) (*analyze.Snapshot, string) {
+	base := s.deps.CacheDir
+	if base == "" {
+		var err error
+		base, err = cache.DefaultDir()
+		if err != nil {
+			return nil, "cache_directory_unavailable"
+		}
+	}
+	cached, status, err := cache.LoadValidated(ctx, root, cache.DirFor(base, root), cfg)
+	if err != nil {
+		return nil, status.Reason
+	}
+	return &cached, ""
 }
 
 func capturedInstructions(snap analyze.Snapshot, limit int) []string {
@@ -135,7 +147,7 @@ func (s Service) Calls(ctx context.Context, root, selector string, depth int) (a
 	}
 	var result []analyze.Edge
 	for _, edge := range snap.Edges {
-		if edge.Kind == "calls" && (edge.From == selector || edge.To == selector) {
+		if edge.Kind == callsEdgeKind && (edge.From == selector || edge.To == selector) {
 			result = append(result, edge)
 		}
 	}
@@ -248,19 +260,20 @@ func (s Service) ReviewReport(ctx context.Context, root string, top int) (analyz
 // ReviewReportWithOptions composes scan packets and then applies local report
 // selection. It only calls a configured model scorer after deterministic evidence is assembled.
 func (s Service) ReviewReportWithOptions(ctx context.Context, root string, options ReviewOptions) (analyze.Snapshot, review.Report, error) {
-	snap, report, options, err := s.collectReviewReport(ctx, root, options)
+	inputs, err := s.collectReviewReport(ctx, root, options)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
-	report, err = options.Model.Score(ctx, report)
+	report := inputs.report
+	report, err = inputs.options.Model.Score(ctx, report)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
-	report, err = review.ApplyOptions(report, options.Review)
+	report, err = review.ApplyOptions(report, inputs.options.Review)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
-	return snap, report, nil
+	return inputs.snapshot, report, nil
 }
 
 // ReviewSelectionDocument collects the same deterministic one-shot evidence as
@@ -271,15 +284,15 @@ func (s Service) ReviewSelectionDocument(ctx context.Context, root string, optio
 		return analyze.Snapshot{}, review.SelectionDocument{}, errors.New("review selection preview requires model options to be empty")
 	}
 	options.Model = review.ModelOptions{}
-	snap, report, _, err := s.collectReviewReport(ctx, root, options)
+	inputs, err := s.collectReviewReport(ctx, root, options)
 	if err != nil {
 		return analyze.Snapshot{}, review.SelectionDocument{}, err
 	}
-	document, err := review.NewSelectionDocument(snap.Status, report, options.Review)
+	document, err := review.NewSelectionDocument(inputs.snapshot.Status, inputs.report, options.Review)
 	if err != nil {
 		return analyze.Snapshot{}, review.SelectionDocument{}, err
 	}
-	return snap, document, nil
+	return inputs.snapshot, document, nil
 }
 
 func normalizeReviewOptions(options ReviewOptions) ReviewOptions {
@@ -294,44 +307,57 @@ func reviewModelConfigured(options review.ModelOptions) bool {
 		options.Local || options.NoCache || options.CacheDir != "" || options.ContentHashes != nil
 }
 
+type reviewReportInputs struct {
+	snapshot analyze.Snapshot
+	report   review.Report
+	options  ReviewOptions
+}
+
 // collectReviewReport owns the one-shot snapshot and scan evidence shared by
 // normal reports and deterministic selection previews.
-func (s Service) collectReviewReport(ctx context.Context, root string, options ReviewOptions) (analyze.Snapshot, review.Report, ReviewOptions, error) {
+func (s Service) collectReviewReport(ctx context.Context, root string, options ReviewOptions) (reviewReportInputs, error) {
 	options = normalizeReviewOptions(options)
 	if err := options.Review.Validate(); err != nil {
-		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+		return reviewReportInputs{}, err
 	}
 	snap, err := s.SnapshotWithMaxBytes(ctx, root, options.MaxBytes)
 	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+		return reviewReportInputs{}, err
 	}
 	if reviewModelConfigured(options.Model) {
 		options.Model.ContentHashes = review.ContentHashes(snap.Root, snap.Files)
 	}
-	var patterns *scan.CustomPatterns
-	if options.Patterns != "" {
-		catalog, catalogErr := scan.LoadCustomPatternsFile(options.Patterns)
-		if catalogErr != nil {
-			return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, catalogErr
-		}
-		patterns = &catalog
+	patterns, err := loadReviewPatterns(options.Patterns)
+	if err != nil {
+		return reviewReportInputs{}, err
 	}
 	risks, err := scan.RiskWithCustomPatterns(ctx, snap, 0, patterns)
 	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+		return reviewReportInputs{}, err
 	}
 	surface, err := scan.Surface(ctx, snap, 0)
 	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+		return reviewReportInputs{}, err
 	}
 	effects, err := scan.Effects(ctx, snap, 0)
 	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+		return reviewReportInputs{}, err
 	}
 	hygiene := scan.Hygiene(ctx, snap.Root, snap)
 	changes := scan.Changes(ctx, snap.Root, options.Days, 0, time.Time{})
 	report := review.Compose(review.Packets{Overview: scan.Overview(snap), Risks: risks, Surface: surface, Effects: effects, Hygiene: hygiene, Changes: changes, Paths: review.ReportPaths(snap.Root, snap.Files)}, 0)
-	return snap, report, options, nil
+	return reviewReportInputs{snapshot: snap, report: report, options: options}, nil
+}
+
+func loadReviewPatterns(path string) (*scan.CustomPatterns, error) {
+	if path == "" {
+		return nil, nil
+	}
+	catalog, err := scan.LoadCustomPatternsFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return &catalog, nil
 }
 
 // ReviewDocument composes the deterministic audit report and projects it

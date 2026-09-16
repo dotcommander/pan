@@ -103,8 +103,8 @@ func TestReviewSelectionDocumentPerformsNoSnapshotOrModelCacheWrites(t *testing.
 	if entries := cacheDirEntries(t, cacheDir); len(entries) != 0 {
 		t.Fatalf("cold preview wrote cache entries: %v", entries)
 	}
-	if _, _, err := svc.CacheWarm(context.Background(), root, cacheDir); err != nil {
-		t.Fatal(err)
+	if _, _, warmErr := svc.CacheWarm(context.Background(), root, cacheDir); warmErr != nil {
+		t.Fatal(warmErr)
 	}
 	warm := cacheDirEntries(t, cacheDir)
 	if len(warm) == 0 {

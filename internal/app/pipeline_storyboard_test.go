@@ -30,13 +30,14 @@ func TestPipelineStoryboardRefreshFailureFallsBack(t *testing.T) {
 			env = append(env, entry)
 		}
 	}
-	cmd.Env = append(env,
+	env = append(env,
 		"PAN_STORYBOARD_REFRESH_HELPER=1",
 		"PAN_STORYBOARD_REFRESH_ROOT="+root,
 		"HOME="+home,
 		"XDG_CONFIG_HOME="+filepath.Join(home, "config"),
 		"APPDATA="+filepath.Join(home, "appdata"),
 	)
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("refresh fallback helper: %v\n%s", err, out)
@@ -55,8 +56,8 @@ func TestPipelineStoryboardRefreshFailureHelper(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(filepath.Join(root, "unreachable.yaml"), output); err != nil {
-		t.Fatal(err)
+	if symlinkErr := os.Symlink(filepath.Join(root, "unreachable.yaml"), output); symlinkErr != nil {
+		t.Fatal(symlinkErr)
 	}
 	result, err := New(Deps{Config: config.Default()}).PipelineStoryboard(context.Background(), root, StoryboardOptions{
 		CommandHelp:  "off",
