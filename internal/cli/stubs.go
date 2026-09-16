@@ -18,5 +18,6 @@ type ReviewCmd struct {
 	Risks   ReviewRisksCmd   `cmd:"" help:"Risk packets."`
 	Effects ReviewEffectsCmd `cmd:"" help:"Effect packets."`
 	Eval    ReviewEvalCmd    `cmd:"" help:"Evaluate an outcome ledger against report documents."`
+	Receipt ReviewReceiptCmd `cmd:"" help:"Validate a host-agent execution receipt against a selection document."`
 	Outputs ReviewOutputsCmd `cmd:"" help:"Report output inventory."`
 }

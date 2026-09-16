@@ -230,7 +230,7 @@ func (c ReviewEvalCmd) Validate() error {
 
 // Run executes `pan review eval`.
 func (c ReviewEvalCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
-	if err := rejectEvalOutputAlias(c.Output, append([]string{c.Outcomes}, c.Reports...)); err != nil {
+	if err := rejectOutputAlias(c.Output, "evaluation", append([]string{c.Outcomes}, c.Reports...)...); err != nil {
 		return err
 	}
 	result, err := eval.Evaluate(ctx, c.Outcomes, c.Reports)
@@ -257,36 +257,91 @@ func (c ReviewEvalCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx contex
 	return nil
 }
 
-// rejectEvalOutputAlias refuses an output path that aliases one of the
-// evaluation inputs, so a run can never destroy the ledger or reports it is
-// reading.
-func rejectEvalOutputAlias(out string, inputs []string) error {
+// rejectOutputAlias refuses an output path that aliases one of the named
+// inputs, so a run can never destroy the documents it is reading. label
+// names the command surface in the error message.
+func rejectOutputAlias(out, label string, inputs ...string) error {
 	if out == "-" {
 		return nil
 	}
 	outputPath, err := filepath.Abs(filepath.Clean(out))
 	if err != nil {
-		return fmt.Errorf("resolve evaluation output: %w", err)
+		return fmt.Errorf("resolve %s output: %w", label, err)
 	}
 	outputInfo, outputErr := os.Stat(outputPath)
 	if outputErr != nil && !os.IsNotExist(outputErr) {
-		return fmt.Errorf("stat evaluation output: %w", outputErr)
+		return fmt.Errorf("stat %s output: %w", label, outputErr)
 	}
 	for _, input := range inputs {
 		inputPath, err := filepath.Abs(filepath.Clean(input))
 		if err != nil {
-			return fmt.Errorf("resolve evaluation input: %w", err)
+			return fmt.Errorf("resolve %s input: %w", label, err)
 		}
 		if inputPath == outputPath {
-			return errors.New("evaluation output aliases an input")
+			return fmt.Errorf("%s output aliases an input", label)
 		}
 		if outputErr != nil {
 			continue
 		}
 		inputInfo, err := os.Stat(inputPath)
 		if err == nil && os.SameFile(outputInfo, inputInfo) {
-			return errors.New("evaluation output aliases an input")
+			return fmt.Errorf("%s output aliases an input", label)
 		}
 	}
 	return nil
+}
+
+// ReviewReceiptCmd is `pan review receipt`: validate one host-agent
+// execution receipt against one selection document. It reads only the two
+// named paths, never contacts a provider, and never inspects a repository.
+// Omitted selected rows surface as partial coverage in the validated
+// receipt; stale, unknown, duplicate, and malformed receipts fail with an
+// error instead of reading as complete.
+type ReviewReceiptCmd struct {
+	Selection string `name:"selection" required:"" type:"path" help:"Selection document path from 'review report --preview'."`
+	Receipt   string `name:"receipt" required:"" type:"path" help:"Execution receipt JSON path produced by the host agent."`
+	Markdown  bool   `name:"markdown" help:"Emit a Markdown coverage summary instead of the validated receipt JSON."`
+	JSON      bool   `name:"json" help:"Emit the validated pan.review-execution/v1 receipt."`
+	Output    string `name:"output" short:"o" aliases:"out" default:"-" help:"Write the validation result to this path; - writes stdout."`
+}
+
+// Validate requires exactly one output format and a non-empty output path.
+func (c ReviewReceiptCmd) Validate() error {
+	if c.JSON == c.Markdown {
+		return errors.New("review receipt requires exactly one of --json or --markdown")
+	}
+	if c.Output == "" {
+		return errors.New("--output must be a path or -")
+	}
+	return nil
+}
+
+// Run executes `pan review receipt`.
+func (c ReviewReceiptCmd) Run(kctx *kong.Context, root *Root, deps Deps, _ context.Context) error {
+	if err := rejectOutputAlias(c.Output, "receipt", c.Selection, c.Receipt); err != nil {
+		return err
+	}
+	receipt, err := review.ValidateExecutionReceipt(c.Selection, c.Receipt)
+	if err != nil {
+		return err
+	}
+	var body []byte
+	if c.Markdown {
+		body = []byte(review.RenderExecutionReceiptMarkdown(receipt))
+	} else {
+		body, err = json.Marshal(receipt)
+		if err != nil {
+			return fmt.Errorf("encode execution receipt: %w", err)
+		}
+		body = append(body, '\n')
+	}
+	if c.Output == "-" {
+		_, err = deps.Out.Write(body)
+		return err
+	}
+	outputPath, err := filepath.Abs(filepath.Clean(c.Output))
+	if err != nil {
+		return fmt.Errorf("resolve receipt output: %w", err)
+	}
+	return writeFileBody(outputPath, body)
 }
