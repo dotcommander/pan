@@ -52,7 +52,7 @@ func TestModelOptionsRequireEndpointAndResolveLocal(t *testing.T) {
 		t.Fatal("missing endpoint accepted")
 	}
 	got, err := (ModelOptions{Local: true}).Resolve()
-	if err != nil || got.Model != localModel || got.BaseURL != localBaseURL || got.APIKeyEnv != localAPIKeyEnv {
+	if err != nil || got.Model != localModel || got.BaseURL != localBaseURL || got.APIKeyEnv != localProfileEnv {
 		t.Fatalf("local profile = %#v, %v", got, err)
 	}
 }

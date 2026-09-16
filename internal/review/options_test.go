@@ -118,56 +118,76 @@ func TestApplyOptionsWithSelectionRecordsPredicatePrecedence(t *testing.T) {
 
 func TestApplyOptionsWithSelectionPreservesTopOrderAndInputs(t *testing.T) {
 	t.Parallel()
-	original := []ReadItem{
+	original := selectionInputFixture()
+	before := cloneReadItems(original)
+	limited := applySelection(t, original, Options{Top: 2})
+	assertLimitedSelection(t, limited, original)
+	assertUnlimitedSelection(t, original)
+	assertSelectionInputsUnchanged(t, original, before, limited)
+}
+
+func selectionInputFixture() []ReadItem {
+	return []ReadItem{
 		{Rank: 1, EvidenceID: EvidenceIdentity(ReadItem{Path: "internal/auth/token.go", Score: 30, Why: []string{"risk:security"}}), Path: "internal/auth/token.go", Score: 30, Lane: LaneKept, Why: []string{"risk:security"}},
 		{Rank: 2, EvidenceID: EvidenceIdentity(ReadItem{Path: "internal/auth/handler.go", Score: 20, Why: []string{"risk:security", "churn:2 commits"}}), Path: "internal/auth/handler.go", Score: 20, Lane: LaneKept, Why: []string{"risk:security", "churn:2 commits"}},
 		{Rank: 3, EvidenceID: EvidenceIdentity(ReadItem{Path: "internal/auth/store.go", Score: 10, Why: []string{"risk:security"}}), Path: "internal/auth/store.go", Score: 10, Lane: LaneAlternate, Why: []string{"risk:security"}},
 	}
-	before := slices.Clone(original)
-	before[0].Why = slices.Clone(original[0].Why)
-	before[1].Why = slices.Clone(original[1].Why)
-	before[2].Why = slices.Clone(original[2].Why)
+}
 
-	limited, err := ApplyOptionsWithSelection(Report{ReadQueue: original}, Options{Top: 2})
+func cloneReadItems(items []ReadItem) []ReadItem {
+	cloned := slices.Clone(items)
+	for i := range cloned {
+		cloned[i].Why = slices.Clone(cloned[i].Why)
+	}
+	return cloned
+}
+
+func applySelection(t *testing.T, items []ReadItem, options Options) SelectionResult {
+	t.Helper()
+	result, err := ApplyOptionsWithSelection(Report{ReadQueue: items}, options)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(limited.Report.ReadQueue) != 2 || limited.Report.ReadQueue[0].Path != original[0].Path || limited.Report.ReadQueue[1].Path != original[1].Path {
-		t.Fatalf("limited queue = %#v", limited.Report.ReadQueue)
+	return result
+}
+
+func assertLimitedSelection(t *testing.T, result SelectionResult, original []ReadItem) {
+	t.Helper()
+	if len(result.Report.ReadQueue) != 2 || result.Report.ReadQueue[0].Path != original[0].Path || result.Report.ReadQueue[1].Path != original[1].Path {
+		t.Fatalf("limited queue = %#v", result.Report.ReadQueue)
 	}
-	wantDecisions := []struct {
-		path         string
-		decision     SelectionDecision
-		reason       SelectionReason
-		selectedRank int
-	}{
-		{original[0].Path, DecisionSelected, ReasonSelected, 1},
-		{original[1].Path, DecisionSelected, ReasonSelected, 2},
-		{original[2].Path, DecisionDeprioritized, ReasonTopLimit, 0},
+	want := []SelectionItem{
+		{Input: ReadItem{Path: original[0].Path}, Decision: DecisionSelected, ReasonCode: ReasonSelected, SelectedRank: 1},
+		{Input: ReadItem{Path: original[1].Path}, Decision: DecisionSelected, ReasonCode: ReasonSelected, SelectedRank: 2},
+		{Input: ReadItem{Path: original[2].Path}, Decision: DecisionDeprioritized, ReasonCode: ReasonTopLimit},
 	}
-	for i, want := range wantDecisions {
-		if limited.Items[i].Input.Path != want.path || limited.Items[i].Decision != want.decision ||
-			limited.Items[i].ReasonCode != want.reason || limited.Items[i].SelectedRank != want.selectedRank {
-			t.Fatalf("decision %d = %#v, want %#v", i, limited.Items[i], want)
+	for i, expected := range want {
+		item := result.Items[i]
+		if item.Input.Path != expected.Input.Path || item.Decision != expected.Decision || item.ReasonCode != expected.ReasonCode || item.SelectedRank != expected.SelectedRank {
+			t.Fatalf("decision %d = %#v, want %#v", i, item, expected)
 		}
 	}
+}
 
-	unlimited, err := ApplyOptionsWithSelection(Report{ReadQueue: original}, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, item := range unlimited.Items {
+func assertUnlimitedSelection(t *testing.T, original []ReadItem) {
+	t.Helper()
+	result := applySelection(t, original, Options{})
+	for i, item := range result.Items {
 		if item.Decision != DecisionSelected || item.ReasonCode != ReasonSelected || item.SelectedRank != i+1 {
 			t.Fatalf("unlimited decision %d = %#v", i, item)
 		}
 	}
-	if len(unlimited.Report.ReadQueue) != len(original) {
-		t.Fatalf("unlimited queue = %#v", unlimited.Report.ReadQueue)
+	if len(result.Report.ReadQueue) != len(original) {
+		t.Fatalf("unlimited queue = %#v", result.Report.ReadQueue)
 	}
+}
+
+func assertSelectionInputsUnchanged(t *testing.T, original, before []ReadItem, result SelectionResult) {
+	t.Helper()
 	if !reflect.DeepEqual(original, before) {
 		t.Fatalf("input changed:\n got %#v\nwant %#v", original, before)
 	}
-	limited.Items[0].Input.Why[0] = "mutated"
+	result.Items[0].Input.Why[0] = "mutated"
 	if !reflect.DeepEqual(original, before) {
 		t.Fatalf("decision aliases caller memory: %#v", original)
 	}

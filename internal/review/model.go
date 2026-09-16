@@ -16,7 +16,7 @@ import (
 const (
 	localModel       = "Qwen3.6-35B-A3B-oQ4-fp16-mtp"
 	localBaseURL     = "http://127.0.0.1:8000/v1"
-	localAPIKeyEnv   = "PAN_API_KEY"
+	localProfileEnv  = "PAN_API_KEY"
 	modelBatchSize   = 8
 	modelCacheLimit  = 5000
 	modelResponseCap = 1 << 20
@@ -58,7 +58,7 @@ func (o ModelOptions) Resolve() (ModelOptions, error) {
 			o.BaseURL = localBaseURL
 		}
 		if o.APIKeyEnv == "" {
-			o.APIKeyEnv = localAPIKeyEnv
+			o.APIKeyEnv = localProfileEnv
 		}
 	}
 	if o.Model == "" {

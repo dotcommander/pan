@@ -19,21 +19,33 @@ func TestSelectionDocumentProjectsFrozenSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertSelectionDocumentMetadata(t, document)
+	assertSelectionDocumentItems(t, document)
+	assertSelectionDocumentLegacyProjection(t, document, report, options)
+}
+
+type expectedSelectionItem struct {
+	path         string
+	lane         string
+	decision     SelectionDecision
+	reason       SelectionReason
+	selectedRank int
+}
+
+func assertSelectionDocumentMetadata(t *testing.T, document SelectionDocument) {
+	t.Helper()
 	if document.Schema != SelectionDocumentSchema || document.Population.Scope != "composed_read_queue" || document.Population.UpstreamLimit != 100 {
 		t.Fatalf("population = %#v", document.Population)
 	}
-	if !reflect.DeepEqual(document.Analysis, SelectionAnalysis{
-		Complete: false, Limits: []string{"max_files:2"}, Skipped: []string{"vendor/legacy"}, SkippedCount: 3,
-	}) {
+	want := SelectionAnalysis{Complete: false, Limits: []string{"max_files:2"}, Skipped: []string{"vendor/legacy"}, SkippedCount: 3}
+	if !reflect.DeepEqual(document.Analysis, want) {
 		t.Fatalf("analysis = %#v", document.Analysis)
 	}
-	want := []struct {
-		path         string
-		lane         string
-		decision     SelectionDecision
-		reason       SelectionReason
-		selectedRank int
-	}{
+}
+
+func assertSelectionDocumentItems(t *testing.T, document SelectionDocument) {
+	t.Helper()
+	want := []expectedSelectionItem{
 		{"internal/auth/token.go", LaneKept, DecisionSelected, ReasonSelected, 1},
 		{"internal/auth/token_test.go", LaneTest, DecisionDeprioritized, ReasonTopLimit, 0},
 		{"docs/guide.md", LaneDocs, DecisionFiltered, ReasonIncludeMismatch, 0},
@@ -42,13 +54,20 @@ func TestSelectionDocumentProjectsFrozenSelection(t *testing.T) {
 		t.Fatalf("items=%d summary=%#v", len(document.Items), document.Summary)
 	}
 	for i, expected := range want {
-		item := document.Items[i]
-		if item.Input.Path != expected.path || item.Input.Lane != expected.lane || item.Input.Rank != i+1 ||
-			item.Decision != expected.decision || item.ReasonCode != expected.reason || item.SelectedRank != expected.selectedRank {
-			t.Fatalf("item %d = %#v, want %+v", i, item, expected)
-		}
+		assertSelectionDocumentItem(t, document.Items[i], i+1, expected)
 	}
+}
 
+func assertSelectionDocumentItem(t *testing.T, item SelectionItem, rank int, expected expectedSelectionItem) {
+	t.Helper()
+	if item.Input.Path != expected.path || item.Input.Lane != expected.lane || item.Input.Rank != rank ||
+		item.Decision != expected.decision || item.ReasonCode != expected.reason || item.SelectedRank != expected.selectedRank {
+		t.Fatalf("item %d = %#v, want %+v", rank-1, item, expected)
+	}
+}
+
+func assertSelectionDocumentLegacyProjection(t *testing.T, document SelectionDocument, report Report, options Options) {
+	t.Helper()
 	legacy, err := ApplyOptions(report, options)
 	if err != nil {
 		t.Fatal(err)
@@ -58,15 +77,19 @@ func TestSelectionDocumentProjectsFrozenSelection(t *testing.T) {
 		if item.Decision != DecisionSelected {
 			continue
 		}
-		row := legacy.ReadQueue[selected]
-		if item.SelectedRank != row.Rank || item.Input.Path != row.Path || item.Input.Score != row.Score ||
-			item.Input.Lane != row.Lane || !slices.Equal(item.Input.Why, row.Why) {
-			t.Fatalf("selected projection %#v does not match report row %#v", item, row)
-		}
+		assertSelectedProjection(t, item, legacy.ReadQueue[selected])
 		selected++
 	}
 	if selected != len(legacy.ReadQueue) {
 		t.Fatalf("selected=%d report rows=%d", selected, len(legacy.ReadQueue))
+	}
+}
+
+func assertSelectedProjection(t *testing.T, item SelectionItem, row ReadItem) {
+	t.Helper()
+	if item.SelectedRank != row.Rank || item.Input.Path != row.Path || item.Input.Score != row.Score ||
+		item.Input.Lane != row.Lane || !slices.Equal(item.Input.Why, row.Why) {
+		t.Fatalf("selected projection %#v does not match report row %#v", item, row)
 	}
 }
 
@@ -163,8 +186,8 @@ func TestParseSelectionDocumentRejectsInvalidContracts(t *testing.T) {
 			t.Fatal(err)
 		}
 		var object map[string]any
-		if err := json.Unmarshal(data, &object); err != nil {
-			t.Fatal(err)
+		if unmarshalErr := json.Unmarshal(data, &object); unmarshalErr != nil {
+			t.Fatal(unmarshalErr)
 		}
 		edit(object)
 		data, err = json.Marshal(object)

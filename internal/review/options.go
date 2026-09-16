@@ -45,16 +45,25 @@ type SelectionDecision string
 type SelectionReason string
 
 const (
-	DecisionSelected      SelectionDecision = "selected"
-	DecisionFiltered      SelectionDecision = "filtered"
+	// DecisionSelected retains a row in the selected report queue.
+	DecisionSelected SelectionDecision = "selected"
+	// DecisionFiltered excludes a row because a selector did not match.
+	DecisionFiltered SelectionDecision = "filtered"
+	// DecisionDeprioritized excludes a row because the top limit was reached.
 	DecisionDeprioritized SelectionDecision = "deprioritized"
 
-	ReasonSelected          SelectionReason = "selected"
-	ReasonIncludeMismatch   SelectionReason = "include_mismatch"
-	ReasonExcludeMatch      SelectionReason = "exclude_match"
+	// ReasonSelected records an accepted row.
+	ReasonSelected SelectionReason = "selected"
+	// ReasonIncludeMismatch records an include-selector rejection.
+	ReasonIncludeMismatch SelectionReason = "include_mismatch"
+	// ReasonExcludeMatch records an exclude-selector rejection.
+	ReasonExcludeMatch SelectionReason = "exclude_match"
+	// ReasonInventoryMismatch records an inventory-lane rejection.
 	ReasonInventoryMismatch SelectionReason = "inventory_mismatch"
-	ReasonFocusMismatch     SelectionReason = "focus_mismatch"
-	ReasonTopLimit          SelectionReason = "top_limit"
+	// ReasonFocusMismatch records a focus-expression rejection.
+	ReasonFocusMismatch SelectionReason = "focus_mismatch"
+	// ReasonTopLimit records a row omitted by the selected top limit.
+	ReasonTopLimit SelectionReason = "top_limit"
 )
 
 // SelectionItem records the decision made for one already-ranked input row.

@@ -294,42 +294,65 @@ func validateSelectionContent(doc SelectionDocument) error {
 }
 
 func validateSelectionItems(doc SelectionDocument, options Options) error {
-	seenPaths := make(map[string]bool, len(doc.Items))
-	selectedRank := 0
+	validator := selectionItemValidator{seenPaths: make(map[string]bool, len(doc.Items))}
 	for i, item := range doc.Items {
-		input := item.Input
-		if input.Rank != i+1 {
-			return fmt.Errorf("selection item %d has input rank %d", i+1, input.Rank)
-		}
-		if input.Path == "" {
-			return fmt.Errorf("selection item %d has an empty path", i+1)
-		}
-		if seenPaths[input.Path] {
-			return fmt.Errorf("selection item %d duplicates path %q", i+1, input.Path)
-		}
-		seenPaths[input.Path] = true
-		if !ValidIdentity(input.EvidenceID) {
-			return fmt.Errorf("selection item %d has a malformed evidence identity", i+1)
-		}
-		if input.Score < 0 {
-			return fmt.Errorf("selection item %d has a negative score", i+1)
-		}
-		if !ValidLane(input.Lane) {
-			return fmt.Errorf("selection item %d has non-canonical lane %q", i+1, input.Lane)
-		}
-		if !validDecisionPair(item.Decision, item.ReasonCode) {
-			return fmt.Errorf("selection item %d has invalid decision/reason pair %q/%q", i+1, item.Decision, item.ReasonCode)
-		}
-		if item.Decision == DecisionSelected {
-			selectedRank++
-			if item.SelectedRank != selectedRank {
-				return fmt.Errorf("selection item %d has selected rank %d", i+1, item.SelectedRank)
-			}
-		} else if item.SelectedRank != 0 {
-			return fmt.Errorf("selection item %d has nonselected rank %d", i+1, item.SelectedRank)
+		if err := validator.validate(item, i+1); err != nil {
+			return err
 		}
 	}
 	return compareRecomputedSelection(doc, options)
+}
+
+type selectionItemValidator struct {
+	seenPaths    map[string]bool
+	selectedRank int
+}
+
+func (v *selectionItemValidator) validate(item SelectionItem, position int) error {
+	if err := v.validateInput(item.Input, position); err != nil {
+		return err
+	}
+	if !validDecisionPair(item.Decision, item.ReasonCode) {
+		return fmt.Errorf("selection item %d has invalid decision/reason pair %q/%q", position, item.Decision, item.ReasonCode)
+	}
+	return v.validateSelectedRank(item, position)
+}
+
+func (v *selectionItemValidator) validateInput(input ReadItem, position int) error {
+	if input.Rank != position {
+		return fmt.Errorf("selection item %d has input rank %d", position, input.Rank)
+	}
+	if input.Path == "" {
+		return fmt.Errorf("selection item %d has an empty path", position)
+	}
+	if v.seenPaths[input.Path] {
+		return fmt.Errorf("selection item %d duplicates path %q", position, input.Path)
+	}
+	v.seenPaths[input.Path] = true
+	if !ValidIdentity(input.EvidenceID) {
+		return fmt.Errorf("selection item %d has a malformed evidence identity", position)
+	}
+	if input.Score < 0 {
+		return fmt.Errorf("selection item %d has a negative score", position)
+	}
+	if !ValidLane(input.Lane) {
+		return fmt.Errorf("selection item %d has non-canonical lane %q", position, input.Lane)
+	}
+	return nil
+}
+
+func (v *selectionItemValidator) validateSelectedRank(item SelectionItem, position int) error {
+	if item.Decision != DecisionSelected {
+		if item.SelectedRank != 0 {
+			return fmt.Errorf("selection item %d has nonselected rank %d", position, item.SelectedRank)
+		}
+		return nil
+	}
+	v.selectedRank++
+	if item.SelectedRank != v.selectedRank {
+		return fmt.Errorf("selection item %d has selected rank %d", position, item.SelectedRank)
+	}
+	return nil
 }
 
 func validDecisionPair(decision SelectionDecision, reason SelectionReason) bool {
@@ -392,14 +415,7 @@ func compareRecomputedSelection(doc SelectionDocument, options Options) error {
 }
 
 func reviewOptions(options SelectionOptions) Options {
-	return Options{
-		Top:       options.Top,
-		Focus:     options.Focus,
-		Include:   options.Include,
-		Exclude:   options.Exclude,
-		Inventory: options.Inventory,
-		WhyTop:    options.WhyTop,
-	}
+	return Options(options)
 }
 
 func equalReadInput(a, b ReadItem) bool {
