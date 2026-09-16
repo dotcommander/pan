@@ -37,6 +37,42 @@ type Rationale struct {
 	Why   []string `json:"why"`
 }
 
+// SelectionDecision values form the closed selection outcome vocabulary.
+type SelectionDecision string
+
+// SelectionReason values explain the owning selection decision without
+// claiming analyzer coverage or execution outcome.
+type SelectionReason string
+
+const (
+	DecisionSelected      SelectionDecision = "selected"
+	DecisionFiltered      SelectionDecision = "filtered"
+	DecisionDeprioritized SelectionDecision = "deprioritized"
+
+	ReasonSelected          SelectionReason = "selected"
+	ReasonIncludeMismatch   SelectionReason = "include_mismatch"
+	ReasonExcludeMatch      SelectionReason = "exclude_match"
+	ReasonInventoryMismatch SelectionReason = "inventory_mismatch"
+	ReasonFocusMismatch     SelectionReason = "focus_mismatch"
+	ReasonTopLimit          SelectionReason = "top_limit"
+)
+
+// SelectionItem records the decision made for one already-ranked input row.
+// Input order, rather than path order, is the ranking authority.
+type SelectionItem struct {
+	Input        ReadItem          `json:"input"`
+	Decision     SelectionDecision `json:"decision"`
+	ReasonCode   SelectionReason   `json:"reason_code"`
+	SelectedRank int               `json:"selected_rank"`
+}
+
+// SelectionResult is the single output of local report selection: the legacy
+// report projection and one decision for every input row.
+type SelectionResult struct {
+	Report Report
+	Items  []SelectionItem
+}
+
 // Validate rejects invalid local report controls before scanning begins.
 func (o Options) Validate() error {
 	if o.Top < 0 || o.Top > maxReadQueue {
@@ -61,52 +97,99 @@ func (o Options) Validate() error {
 	return nil
 }
 
-// ApplyOptions filters, caps, reranks, and explains a composed report.
+// ApplyOptions filters, caps, reranks, and explains a composed report. It is
+// the compatibility wrapper for the decision-producing selection owner.
 func ApplyOptions(report Report, options Options) (Report, error) {
-	if err := options.Validate(); err != nil {
+	result, err := ApplyOptionsWithSelection(report, options)
+	if err != nil {
 		return Report{}, err
+	}
+	return result.Report, nil
+}
+
+// ApplyOptionsWithSelection performs the existing selection pass while
+// retaining one immutable decision for every input row.
+func ApplyOptionsWithSelection(report Report, options Options) (SelectionResult, error) {
+	if err := options.Validate(); err != nil {
+		return SelectionResult{}, err
 	}
 	var focus *regexp.Regexp
 	if options.Focus != "" {
 		focus = regexp.MustCompile("(?i)" + options.Focus)
 	}
 	items := make([]ReadItem, 0, len(report.ReadQueue))
-	for _, item := range report.ReadQueue {
-		if !matchesOptions(item, options, focus) {
+	decisions := make([]SelectionItem, 0, len(report.ReadQueue))
+	for _, original := range report.ReadQueue {
+		item := cloneReadItem(original)
+		reason := selectionReason(original, options, focus)
+		if reason == ReasonSelected {
+			items = append(items, item)
+		}
+		decisions = append(decisions, SelectionItem{
+			Input:      cloneReadItem(original),
+			Decision:   decisionFor(reason),
+			ReasonCode: reason,
+		})
+	}
+	selected := 0
+	for i := range decisions {
+		if decisions[i].ReasonCode != ReasonSelected {
 			continue
 		}
-		items = append(items, item)
-	}
-	if options.Top > 0 && len(items) > options.Top {
-		items = items[:options.Top]
+		selected++
+		if options.Top > 0 && selected > options.Top {
+			decisions[i].Decision = DecisionDeprioritized
+			decisions[i].ReasonCode = ReasonTopLimit
+			selected--
+			continue
+		}
+		decisions[i].SelectedRank = selected
 	}
 	for i := range items {
 		items[i].Rank = i + 1
 		items[i].EvidenceID = EvidenceIdentity(items[i])
 		items[i].Lane = CullDispositions(items[i : i+1])[0].Lane
 	}
+	if options.Top > 0 && len(items) > options.Top {
+		items = items[:options.Top]
+	}
+	if len(items) != selected {
+		return SelectionResult{}, fmt.Errorf("review: selected %d rows but recorded %d decisions", len(items), selected)
+	}
 	report.ReadQueue = items
 	report.Rationale = rationale(items, options.WhyTop)
 	if report.CullLedger != nil {
 		report.CullLedger = BuildCullLedger(items)
 	}
-	return report, nil
+	return SelectionResult{Report: report, Items: decisions}, nil
 }
 
-func matchesOptions(item ReadItem, options Options, focus *regexp.Regexp) bool {
+func selectionReason(item ReadItem, options Options, focus *regexp.Regexp) SelectionReason {
 	if len(options.Include) > 0 && !matchesAnyGlob(options.Include, item.Path) {
-		return false
+		return ReasonIncludeMismatch
 	}
 	if matchesAnyGlob(options.Exclude, item.Path) {
-		return false
+		return ReasonExcludeMatch
 	}
 	if options.Inventory != "" && !hasInventoryLane(item, options.Inventory) {
-		return false
+		return ReasonInventoryMismatch
 	}
-	if focus == nil {
-		return true
+	if focus != nil && !focus.MatchString(strings.Join(append([]string{item.Path, item.Lane}, item.Why...), "\n")) {
+		return ReasonFocusMismatch
 	}
-	return focus.MatchString(strings.Join(append([]string{item.Path, item.Lane}, item.Why...), "\n"))
+	return ReasonSelected
+}
+
+func decisionFor(reason SelectionReason) SelectionDecision {
+	if reason == ReasonSelected {
+		return DecisionSelected
+	}
+	return DecisionFiltered
+}
+
+func cloneReadItem(item ReadItem) ReadItem {
+	item.Why = append([]string(nil), item.Why...)
+	return item
 }
 
 func hasInventoryLane(item ReadItem, lane string) bool {

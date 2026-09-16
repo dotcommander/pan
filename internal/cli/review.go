@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/app"
@@ -20,6 +21,7 @@ import (
 // envelope; --markdown and --json select a bare report body for humans and
 // machines, --cull appends the deterministic cull ledger, and --output
 // routes the body to a file.
+// Preview emits the standalone deterministic selection document.
 type ReviewReportCmd struct {
 	Top       int      `name:"top" default:"25" help:"Maximum read-queue entries; 0 lists all (bounded at 100)."`
 	MaxBytes  int64    `name:"max-bytes" default:"1048576" help:"Maximum bytes read from each report source file."`
@@ -41,10 +43,16 @@ type ReviewReportCmd struct {
 	Summary   bool     `name:"summary" help:"Emit the compact summary format."`
 	Cull      bool     `name:"cull" help:"Append the deterministic cull ledger separating production rows from test, docs, generated, and low-signal lanes."`
 	Output    string   `name:"output" short:"o" aliases:"out" default:"-" help:"Write the report body to this path; - writes stdout."`
+	Preview   bool     `name:"preview" help:"Emit the provider-free pan.review-selection/v1 document to stdout."`
 }
 
 // Validate rejects conflicting format flags and an empty output path.
 func (c ReviewReportCmd) Validate() error {
+	if c.Preview {
+		if conflicts := c.previewConflicts(); len(conflicts) > 0 {
+			return fmt.Errorf("--preview cannot be combined with %s", strings.Join(conflicts, ", "))
+		}
+	}
 	if err := validateTop(c.Top); err != nil {
 		return err
 	}
@@ -68,9 +76,50 @@ func (c ReviewReportCmd) Validate() error {
 	return nil
 }
 
+func (c ReviewReportCmd) previewConflicts() []string {
+	var conflicts []string
+	for _, flag := range []struct {
+		name    string
+		enabled bool
+	}{
+		{"--model", c.Model != ""},
+		{"--local", c.Local},
+		{"--base-url", c.BaseURL != ""},
+		{"--api-key-env", c.APIKeyEnv != ""},
+		{"--no-cache", c.NoCache},
+		{"--cache-dir", c.CacheDir != ""},
+		{"--markdown", c.Markdown},
+		{"--json", c.JSON},
+		{"--summary", c.Summary},
+		{"--cull", c.Cull},
+		{"--output", c.Output != "-"},
+	} {
+		if flag.enabled {
+			conflicts = append(conflicts, flag.name)
+		}
+	}
+	return conflicts
+}
+
 // Run executes `pan review report`.
 func (c ReviewReportCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
+	if c.Preview && root.Artifact != "" {
+		return errors.New("--preview cannot be combined with --artifact")
+	}
 	options := app.ReviewOptions{Review: review.Options{Top: c.Top, Focus: c.Focus, Include: c.Include, Exclude: c.Exclude, Inventory: c.Inventory, WhyTop: c.WhyTop}, Days: c.Days, MaxBytes: c.MaxBytes, Patterns: c.Patterns, Model: review.ModelOptions{Model: c.Model, BaseURL: c.BaseURL, APIKeyEnv: c.APIKeyEnv, Local: c.Local, NoCache: c.NoCache, CacheDir: c.CacheDir}}
+	if c.Preview {
+		options.Model = review.ModelOptions{}
+		_, document, err := deps.App.ReviewSelectionDocument(ctx, root.Repo, options)
+		if err != nil {
+			return err
+		}
+		body, err := document.Bytes()
+		if err != nil {
+			return err
+		}
+		_, err = deps.Out.Write(body)
+		return err
+	}
 	snap, report, err := deps.App.ReviewReportWithOptions(ctx, root.Repo, options)
 	if err != nil {
 		return err

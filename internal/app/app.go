@@ -248,42 +248,10 @@ func (s Service) ReviewReport(ctx context.Context, root string, top int) (analyz
 // ReviewReportWithOptions composes scan packets and then applies local report
 // selection. It only calls a configured model scorer after deterministic evidence is assembled.
 func (s Service) ReviewReportWithOptions(ctx context.Context, root string, options ReviewOptions) (analyze.Snapshot, review.Report, error) {
-	if options.Days <= 0 {
-		options.Days = defaultReviewChangeDays
-	}
-	if err := options.Review.Validate(); err != nil {
-		return analyze.Snapshot{}, review.Report{}, err
-	}
-	snap, err := s.SnapshotWithMaxBytes(ctx, root, options.MaxBytes)
+	snap, report, options, err := s.collectReviewReport(ctx, root, options)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
-	if options.Model.Model != "" || options.Model.Local {
-		options.Model.ContentHashes = review.ContentHashes(snap.Root, snap.Files)
-	}
-	var patterns *scan.CustomPatterns
-	if options.Patterns != "" {
-		catalog, catalogErr := scan.LoadCustomPatternsFile(options.Patterns)
-		if catalogErr != nil {
-			return analyze.Snapshot{}, review.Report{}, catalogErr
-		}
-		patterns = &catalog
-	}
-	risks, err := scan.RiskWithCustomPatterns(ctx, snap, 0, patterns)
-	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, err
-	}
-	surface, err := scan.Surface(ctx, snap, 0)
-	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, err
-	}
-	effects, err := scan.Effects(ctx, snap, 0)
-	if err != nil {
-		return analyze.Snapshot{}, review.Report{}, err
-	}
-	hygiene := scan.Hygiene(ctx, snap.Root, snap)
-	changes := scan.Changes(ctx, snap.Root, options.Days, 0, time.Time{})
-	report := review.Compose(review.Packets{Overview: scan.Overview(snap), Risks: risks, Surface: surface, Effects: effects, Hygiene: hygiene, Changes: changes, Paths: review.ReportPaths(snap.Root, snap.Files)}, 0)
 	report, err = options.Model.Score(ctx, report)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
@@ -293,6 +261,77 @@ func (s Service) ReviewReportWithOptions(ctx context.Context, root string, optio
 		return analyze.Snapshot{}, review.Report{}, err
 	}
 	return snap, report, nil
+}
+
+// ReviewSelectionDocument collects the same deterministic one-shot evidence as
+// a report, then emits the local selection preview without model scoring.
+func (s Service) ReviewSelectionDocument(ctx context.Context, root string, options ReviewOptions) (analyze.Snapshot, review.SelectionDocument, error) {
+	options = normalizeReviewOptions(options)
+	if reviewModelConfigured(options.Model) {
+		return analyze.Snapshot{}, review.SelectionDocument{}, errors.New("review selection preview requires model options to be empty")
+	}
+	options.Model = review.ModelOptions{}
+	snap, report, _, err := s.collectReviewReport(ctx, root, options)
+	if err != nil {
+		return analyze.Snapshot{}, review.SelectionDocument{}, err
+	}
+	document, err := review.NewSelectionDocument(snap.Status, report, options.Review)
+	if err != nil {
+		return analyze.Snapshot{}, review.SelectionDocument{}, err
+	}
+	return snap, document, nil
+}
+
+func normalizeReviewOptions(options ReviewOptions) ReviewOptions {
+	if options.Days <= 0 {
+		options.Days = defaultReviewChangeDays
+	}
+	return options
+}
+
+func reviewModelConfigured(options review.ModelOptions) bool {
+	return options.Model != "" || options.BaseURL != "" || options.APIKeyEnv != "" ||
+		options.Local || options.NoCache || options.CacheDir != "" || options.ContentHashes != nil
+}
+
+// collectReviewReport owns the one-shot snapshot and scan evidence shared by
+// normal reports and deterministic selection previews.
+func (s Service) collectReviewReport(ctx context.Context, root string, options ReviewOptions) (analyze.Snapshot, review.Report, ReviewOptions, error) {
+	options = normalizeReviewOptions(options)
+	if err := options.Review.Validate(); err != nil {
+		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+	}
+	snap, err := s.SnapshotWithMaxBytes(ctx, root, options.MaxBytes)
+	if err != nil {
+		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+	}
+	if reviewModelConfigured(options.Model) {
+		options.Model.ContentHashes = review.ContentHashes(snap.Root, snap.Files)
+	}
+	var patterns *scan.CustomPatterns
+	if options.Patterns != "" {
+		catalog, catalogErr := scan.LoadCustomPatternsFile(options.Patterns)
+		if catalogErr != nil {
+			return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, catalogErr
+		}
+		patterns = &catalog
+	}
+	risks, err := scan.RiskWithCustomPatterns(ctx, snap, 0, patterns)
+	if err != nil {
+		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+	}
+	surface, err := scan.Surface(ctx, snap, 0)
+	if err != nil {
+		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+	}
+	effects, err := scan.Effects(ctx, snap, 0)
+	if err != nil {
+		return analyze.Snapshot{}, review.Report{}, ReviewOptions{}, err
+	}
+	hygiene := scan.Hygiene(ctx, snap.Root, snap)
+	changes := scan.Changes(ctx, snap.Root, options.Days, 0, time.Time{})
+	report := review.Compose(review.Packets{Overview: scan.Overview(snap), Risks: risks, Surface: surface, Effects: effects, Hygiene: hygiene, Changes: changes, Paths: review.ReportPaths(snap.Root, snap.Files)}, 0)
+	return snap, report, options, nil
 }
 
 // ReviewDocument composes the deterministic audit report and projects it
