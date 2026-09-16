@@ -244,13 +244,9 @@ func (s Service) Find(ctx context.Context, root, query, kind, file string) (anal
 	if err != nil {
 		return analyze.Snapshot{}, nil, err
 	}
-	parsed := retrieval.ParseFindQuery(query)
-	if kind == "" {
-		kind = parsed.Kind
-	}
-	if file == "" {
-		file = parsed.File
-	}
+	parsed := retrieval.EffectiveFindQuery(query, kind, file)
+	kind = parsed.Kind
+	file = parsed.File
 	matches := retrieval.Find(ranked, parsed.Name, kind, file)
 	if len(matches) == 0 {
 		if parsed.Name == "" {

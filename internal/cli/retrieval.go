@@ -179,11 +179,12 @@ func (c ContextTaskCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 // ContextFindCmd is `pan context find`: ranked symbol search with optional
 // kind and file filters and an exact-prefix "symbol:" handle grammar.
 type ContextFindCmd struct {
-	Query string `arg:"" help:"Symbol query; supports kind:/file: qualifiers and symbol: handles."`
-	Kind  string `name:"kind" help:"Filter by symbol kind (function, struct, interface, ...)."`
-	File  string `name:"file" help:"Filter to files containing this substring."`
-	Top   int    `name:"top" default:"20" help:"Maximum matches to list; 0 lists all."`
-	Limit *int   `name:"limit" help:"Pan-compatible maximum matches; 0 lists all."`
+	Query   string `arg:"" help:"Symbol query; supports kind:/file: qualifiers and symbol: handles."`
+	Kind    string `name:"kind" help:"Filter by symbol kind (function, struct, interface, ...)."`
+	File    string `name:"file" help:"Filter to files containing this substring."`
+	Top     int    `name:"top" default:"20" help:"Maximum matches to list; 0 lists all."`
+	Limit   *int   `name:"limit" help:"Pan-compatible maximum matches; 0 lists all."`
+	Explain bool   `name:"explain" help:"Emit a pan/v1 envelope with effective filters and bounded match certainty."`
 }
 
 // Validate rejects a blank query or negative --top.
@@ -211,6 +212,10 @@ func (c ContextFindCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 		limit = *c.Limit
 	}
 	matches = limitMatches(matches, limit)
+	if c.Explain {
+		query := retrieval.EffectiveFindQuery(c.Query, c.Kind, c.File)
+		return emit(kctx, root, deps, snap, retrieval.NewFindReport(query, matches, snap.Status.Complete))
+	}
 	// Pan's find --format json is a raw array, including [] when there
 	// are no matches. Root's global format flag provides that compatibility
 	// spelling for this command.

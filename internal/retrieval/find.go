@@ -25,6 +25,10 @@ const (
 	BasisContains       = "contains"
 	BasisHandle         = "handle"
 	maxAmbiguousMatches = 5
+
+	FindOutcomeFound            = "found"
+	FindOutcomeNoMatchInScope   = "no_match_in_analyzed_scope"
+	FindOutcomeNoMatchInPartial = "no_match_in_partial_snapshot"
 )
 
 // SymbolMatch is one hit from Find. File plus Symbol.Location identify the
@@ -42,9 +46,46 @@ type SymbolMatch struct {
 // FindQuery is a parsed symbol query: a name plus optional kind and file
 // filters.
 type FindQuery struct {
-	Name string
-	Kind string
-	File string
+	Name string `json:"name"`
+	Kind string `json:"kind,omitempty"`
+	File string `json:"file,omitempty"`
+}
+
+// FindReport explains a Find result without changing Find's compatibility
+// output. Outcome describes only the analyzed and filtered snapshot; it never
+// attributes a miss to one skipped input without direct evidence.
+type FindReport struct {
+	Query   FindQuery     `json:"query"`
+	Matches []SymbolMatch `json:"matches"`
+	Outcome string        `json:"outcome"`
+}
+
+// EffectiveFindQuery applies explicit filters over positional qualifiers,
+// matching the precedence used by the application service.
+func EffectiveFindQuery(query, kind, file string) FindQuery {
+	parsed := ParseFindQuery(query)
+	if kind != "" {
+		parsed.Kind = kind
+	}
+	if file != "" {
+		parsed.File = file
+	}
+	return parsed
+}
+
+// NewFindReport returns the opt-in explanation form for one Find result.
+func NewFindReport(query FindQuery, matches []SymbolMatch, complete bool) FindReport {
+	if matches == nil {
+		matches = []SymbolMatch{}
+	}
+	outcome := FindOutcomeFound
+	if len(matches) == 0 {
+		outcome = FindOutcomeNoMatchInScope
+		if !complete {
+			outcome = FindOutcomeNoMatchInPartial
+		}
+	}
+	return FindReport{Query: query, Matches: matches, Outcome: outcome}
 }
 
 // ParseFindQuery splits a positional query of the form

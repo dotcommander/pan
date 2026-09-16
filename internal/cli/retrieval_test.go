@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/dotcommander/pan/internal/app"
 	"github.com/dotcommander/pan/internal/cli"
+	"github.com/dotcommander/pan/internal/config"
 )
 
 func httpGoRepo() string {
@@ -179,6 +182,40 @@ func TestContextFindJSONUsesRepomapRawArrayAndEmptySlice(t *testing.T) {
 	got := runJSON(t, []string{"--repo", basicGoRepo(), "context", "find", "not-present", "--format", "json"})
 	if strings.TrimSpace(got) != "[]" {
 		t.Fatalf("empty find JSON = %s, want []", got)
+	}
+}
+
+func TestContextFindExplainReportsBoundedNoMatch(t *testing.T) {
+	t.Parallel()
+	got := runJSON(t, []string{"--repo", basicGoRepo(), "context", "find", "not-present", "--kind", "function", "--explain", "--format", "json"})
+	for _, want := range []string{
+		`"schema_version": "pan/v1"`,
+		`"complete": true`,
+		`"name": "not-present"`,
+		`"kind": "function"`,
+		`"matches": []`,
+		`"outcome": "no_match_in_analyzed_scope"`,
+	} {
+		if !bytes.Contains([]byte(got), []byte(want)) {
+			t.Fatalf("explained find output missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestContextFindExplainReportsPartialNoMatch(t *testing.T) {
+	t.Parallel()
+	var out bytes.Buffer
+	cfg := config.Config{MaxFiles: 100, MaxFileBytes: 1024, MaxTotalBytes: 4096, MaxNodes: 1, OutputBudget: 1024, CommandTimeout: time.Second}
+	deps := cli.Deps{App: app.New(app.Deps{Config: cfg}), Out: &out}
+	err := cli.Run(context.Background(), []string{"--repo", basicGoRepo(), "--format", "json", "context", "find", "not-present", "--explain"}, deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{`"complete": false`, `"max_nodes"`, `"matches": []`, `"outcome": "no_match_in_partial_snapshot"`} {
+		if !bytes.Contains([]byte(got), []byte(want)) {
+			t.Fatalf("partial explained find output missing %q:\n%s", want, got)
+		}
 	}
 }
 
