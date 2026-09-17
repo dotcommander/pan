@@ -260,7 +260,7 @@ func parseMethod(language string) string {
 	if language == languageGo {
 		return "go_ast"
 	}
-	if treeSitterLanguage(language) {
+	if analyze.SupportsTreeSitter(language) {
 		return "tree_sitter"
 	}
 	return ""
@@ -271,13 +271,4 @@ func capabilityTier(language string) string {
 		return "syntax"
 	}
 	return "unknown"
-}
-
-func treeSitterLanguage(language string) bool {
-	switch language {
-	case "c", "cpp", "java", "php", "python", "ruby", "rust", "typescript", "javascript", "tsx", "jsx":
-		return true
-	default:
-		return false
-	}
 }

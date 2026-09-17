@@ -137,7 +137,7 @@ func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
 		return nil
 	}
 	b.total += info.Size()
-	file := File{Path: slashRel, Language: language(rel), Size: info.Size(), Generated: generated(path)}
+	file := File{Path: slashRel, Language: LanguageForPath(rel), Size: info.Size(), Generated: generated(path)}
 	b.snap.Files = append(b.snap.Files, file)
 	contents, readErr := os.ReadFile(path)
 	if readErr != nil {
@@ -665,7 +665,8 @@ func excluded(path string, names []string) bool {
 	return false
 }
 
-func language(path string) string {
+// LanguageForPath returns the public analysis language identifier selected for path.
+func LanguageForPath(path string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".go":
 		return languageGo

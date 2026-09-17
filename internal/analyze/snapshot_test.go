@@ -291,6 +291,52 @@ func TestBuildParsesTreeSitterLanguages(t *testing.T) {
 	}
 }
 
+func TestSupportsTreeSitterMatchesConfiguredLanguages(t *testing.T) {
+	t.Parallel()
+
+	for _, language := range []string{
+		"c",
+		"cpp",
+		"java",
+		"php",
+		"python",
+		"ruby",
+		"rust",
+		"typescript",
+		"javascript",
+		"tsx",
+		"jsx",
+	} {
+		if !analyze.SupportsTreeSitter(language) {
+			t.Errorf("SupportsTreeSitter(%q) = false, want true", language)
+		}
+	}
+	if analyze.SupportsTreeSitter("go") {
+		t.Error("SupportsTreeSitter(go) = true, want false")
+	}
+	if analyze.SupportsTreeSitter("unknown") {
+		t.Error("SupportsTreeSitter(unknown) = true, want false")
+	}
+}
+
+func TestLanguageForPath(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"main.go": "go", "native.c": "c", "native.h": "c",
+		"native.cpp": "cpp", "native.cxx": "cpp", "native.hpp": "cpp",
+		"Main.java": "java", "index.php": "php", "tool.py": "python",
+		"task.rb": "ruby", "lib.rs": "rust", "app.ts": "typescript",
+		"app.tsx": "tsx", "app.js": "javascript", "app.mjs": "javascript",
+		"app.jsx": "jsx", "README": "unknown",
+	}
+	for path, want := range tests {
+		if got := analyze.LanguageForPath(path); got != want {
+			t.Errorf("LanguageForPath(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
+
 func TestBuildResolvesCapturedTreeSitterReferences(t *testing.T) {
 	t.Parallel()
 	dir := writeTree(t, map[string]string{

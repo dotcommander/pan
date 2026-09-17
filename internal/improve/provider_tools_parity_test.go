@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,23 @@ func TestProviderReaderJanitorExplorationTools(t *testing.T) {
 	}
 	if _, err := reader.call(ctx, providerReadFile, `{"path":".env"}`); err == nil {
 		t.Fatal("secret path was readable")
+	}
+}
+
+func TestProviderProjectLanguagesPreserveLegacyLabels(t *testing.T) {
+	t.Parallel()
+
+	files := []string{
+		"main.go", "app.ts", "app.tsx", "app.js", "app.jsx", "tool.py",
+		"lib.rs", "Main.java", "index.php", "task.rb", "native.c", "native.h",
+		"native.cc", "native.cpp", "ignored.mjs", "ignored.cxx", "ignored.GO",
+	}
+	want := map[string]int{
+		"go": 1, "javascript": 4, "python": 1, "rust": 1, "java": 1,
+		"php": 1, "ruby": 1, "c_cpp": 4,
+	}
+	if got := projectLanguages(files); !reflect.DeepEqual(got, want) {
+		t.Fatalf("projectLanguages() = %#v, want %#v", got, want)
 	}
 }
 

@@ -594,24 +594,17 @@ func projectLanguages(files []string) map[string]int {
 
 func languageForPath(path string) string {
 	switch filepath.Ext(path) {
-	case ".go":
-		return cmdGo
-	case ".ts", ".tsx", ".js", ".jsx":
-		return "javascript"
-	case ".py":
-		return "python"
-	case ".rs":
-		return "rust"
-	case ".java":
-		return "java"
-	case ".php":
-		return "php"
-	case ".rb":
-		return "ruby"
-	case ".c", ".h", ".cc", ".cpp":
-		return "c_cpp"
+	case ".go", ".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".java", ".php", ".rb", ".c", ".h", ".cc", ".cpp":
 	default:
 		return ""
+	}
+	switch language := analyze.LanguageForPath(path); language {
+	case "typescript", "tsx", "javascript", "jsx":
+		return "javascript"
+	case "c", "cpp":
+		return "c_cpp"
+	default:
+		return language
 	}
 }
 

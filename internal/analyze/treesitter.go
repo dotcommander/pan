@@ -26,6 +26,24 @@ type sourceReference struct {
 	Line int
 }
 
+var treeSitterLanguages = map[string]func() *tree_sitter.Language{
+	languageC:      func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_c.Language()) },
+	languageCpp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_cpp.Language()) },
+	languageJava:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_java.Language()) },
+	languagePhp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_php.LanguagePHP()) },
+	languagePython: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_python.Language()) },
+	languageRuby:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_ruby.Language()) },
+	languageRust:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_rust.Language()) },
+	languageTypescript: func() *tree_sitter.Language {
+		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
+	},
+	languageJavascript: func() *tree_sitter.Language {
+		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
+	},
+	languageTsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
+	languageJsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
+}
+
 func parseTreeSitterBytes(source []byte, relative, language string) (parsedSource, error) {
 	grammar := treeSitterLanguage(language)
 	if grammar == nil {
@@ -51,28 +69,18 @@ func parseTreeSitterBytes(source []byte, relative, language string) (parsedSourc
 }
 
 func treeSitterLanguage(language string) *tree_sitter.Language {
-	switch language {
-	case languageC:
-		return tree_sitter.NewLanguage(tree_sitter_c.Language())
-	case languageCpp:
-		return tree_sitter.NewLanguage(tree_sitter_cpp.Language())
-	case languageJava:
-		return tree_sitter.NewLanguage(tree_sitter_java.Language())
-	case languagePhp:
-		return tree_sitter.NewLanguage(tree_sitter_php.LanguagePHP())
-	case languagePython:
-		return tree_sitter.NewLanguage(tree_sitter_python.Language())
-	case languageRuby:
-		return tree_sitter.NewLanguage(tree_sitter_ruby.Language())
-	case languageRust:
-		return tree_sitter.NewLanguage(tree_sitter_rust.Language())
-	case languageTypescript, languageJavascript:
-		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
-	case languageTsx, languageJsx:
-		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX())
-	default:
+	newLanguage, ok := treeSitterLanguages[language]
+	if !ok {
 		return nil
 	}
+	return newLanguage()
+}
+
+// SupportsTreeSitter reports whether language has a configured Tree-sitter
+// grammar. It keeps capability checks aligned with the parser's actual registry.
+func SupportsTreeSitter(language string) bool {
+	_, ok := treeSitterLanguages[language]
+	return ok
 }
 
 func extractTreeSitter(root *tree_sitter.Node, source []byte, relative string) parsedSource {
