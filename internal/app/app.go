@@ -210,6 +210,20 @@ func (s Service) Surface(ctx context.Context, root string, top int) (analyze.Sna
 	return snap, surface, nil
 }
 
+// Graph extracts the structural view over the snapshot's directed evidence
+// graph: degree-ranked hubs and strongly connected cycles.
+func (s Service) Graph(ctx context.Context, root string, top int) (analyze.Snapshot, scan.GraphReport, error) {
+	snap, err := s.Snapshot(ctx, root)
+	if err != nil {
+		return analyze.Snapshot{}, scan.GraphReport{}, err
+	}
+	report, err := scan.Graph(ctx, snap, top)
+	if err != nil {
+		return analyze.Snapshot{}, scan.GraphReport{}, err
+	}
+	return snap, report, nil
+}
+
 // Effects extracts side-effect and trust-boundary leads from bounded Go
 // source reads.
 func (s Service) Effects(ctx context.Context, root string, top int) (analyze.Snapshot, scan.EffectsReport, error) {

@@ -20,6 +20,7 @@ type ScanCmd struct {
 	Symbols   SymbolsCmd   `cmd:"" help:"Symbol inventory."`
 	Risks     RisksCmd     `cmd:"" help:"Risk-ranked review queue."`
 	Surface   SurfaceCmd   `cmd:"" help:"Public surface inventory."`
+	Graph     GraphCmd     `cmd:"" help:"Degree-ranked hubs and cycles over the evidence graph."`
 	Effects   EffectsCmd   `cmd:"" help:"Side-effect and trust boundaries."`
 	Hygiene   HygieneCmd   `cmd:"" help:"Git hygiene inventory."`
 	Changes   ChangesCmd   `cmd:"" help:"Change evidence over history."`
@@ -142,6 +143,23 @@ func (c SurfaceCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.C
 		return err
 	}
 	return emit(kctx, root, deps, snap, surface)
+}
+
+// GraphCmd is `pan scan graph`.
+type GraphCmd struct {
+	Top int `name:"top" default:"25" help:"Maximum hubs to list by total degree; 0 uses the bounded default."`
+}
+
+// Validate rejects negative --top values.
+func (c GraphCmd) Validate() error { return validateTop(c.Top) }
+
+// Run executes `pan scan graph`.
+func (c GraphCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
+	snap, report, err := deps.App.Graph(ctx, root.Repo, c.Top)
+	if err != nil {
+		return err
+	}
+	return emit(kctx, root, deps, snap, report)
 }
 
 // EffectsCmd is `pan scan effects`.
