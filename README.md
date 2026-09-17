@@ -14,6 +14,7 @@ Pan is a local Go CLI for inspecting a repository, tracing code evidence, and ru
 
 | Need | Start here |
 | --- | --- |
+| Resolve applicable instructions and repository purpose | `context preflight` |
 | Give a person or agent focused code context | `context map`, `context find`, or `context brief` |
 | Follow execution, dependencies, routes, or pipelines | `flow entry`, `flow calls`, or `flow scan` |
 | Inspect repository shape and review priorities | `scan overview`, `scan risks`, or `review report` |
@@ -83,7 +84,7 @@ Pan analyzes source; it does not run the target repository's code. Its evidence 
 
 | Command group | Evidence it provides or action it performs |
 | --- | --- |
-| `context` | Repository briefs and maps; symbol, file-impact, route, and language-server queries. |
+| `context` | Repository guidance and purpose preflight; briefs and maps; symbol, file-impact, route, and language-server queries. |
 | `flow` | Entry points, imports, call and impact evidence, pipeline specifications, rendered pipeline documents, validation, review, and local serving. |
 | `scan` | Repository, file, symbol, risk, public-surface, effect, hygiene, change, orphan, inventory, and analyzer-health reports. |
 | `review` | Briefs, reports, risk and effect packets, outcome-ledger evaluation, and output-surface inventory. |
@@ -116,6 +117,11 @@ line, capped at three matches and 200 runes per line; compact output omits both.
 `context explain FILE` reserves its token budget for the requested file. Its JSON
 result reports the total `symbol_count`, includes analyzed `symbols` when full
 detail fits, and otherwise returns an explicit `omitted_reason`.
+
+`context preflight TARGET` resolves root-to-target `AGENTS.md` guidance, the
+conditional `CLAUDE.md` fallback, and the nearest README or specification purpose
+signal under `--repo`. Use the global `--standalone` flag only when the target is
+intentionally outside that repository context.
 
 Run `./bin/pan <command> --help` for the arguments, outputs, and side effects of one command. `version` prints the binary and analysis-schema versions.
 

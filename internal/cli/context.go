@@ -17,21 +17,20 @@ import (
 	"github.com/dotcommander/pan/internal/retrieval"
 )
 
-// ContextCmd groups task-oriented code retrieval. Brief, map, task,
-// find, symbol, explain, endpoint, and the language-server queries are
-// implemented.
+// ContextCmd groups task-oriented code retrieval and repository context.
 type ContextCmd struct {
-	Brief    ContextBriefCmd    `cmd:"" help:"Task-oriented repository summary."`
-	Map      ContextMapCmd      `cmd:"" help:"Ranked, token-budgeted repository map."`
-	Task     ContextTaskCmd     `cmd:"" help:"Goal-oriented context packet."`
-	Find     ContextFindCmd     `cmd:"" help:"Symbol search."`
-	Symbol   ContextSymbolCmd   `cmd:"" help:"Symbol detail with source context."`
-	Explain  ContextExplainCmd  `cmd:"" help:"Ranking explanation for a file."`
-	Impact   ContextImpactCmd   `cmd:"" help:"Evidence-backed blast radius for a file."`
-	Endpoint ContextEndpointCmd `cmd:"" help:"Route-to-handler evidence."`
-	Lsp      ContextLspCmd      `cmd:"" help:"Bounded language-server queries."`
-	Init     ContextInitCmd     `cmd:"" help:"Create repository analysis scaffolding and an optional cache hook."`
-	Eval     ContextEvalCmd     `cmd:"" help:"Evaluate retrieval cases."`
+	Brief     ContextBriefCmd     `cmd:"" help:"Task-oriented repository summary."`
+	Map       ContextMapCmd       `cmd:"" help:"Ranked, token-budgeted repository map."`
+	Task      ContextTaskCmd      `cmd:"" help:"Goal-oriented context packet."`
+	Find      ContextFindCmd      `cmd:"" help:"Symbol search."`
+	Symbol    ContextSymbolCmd    `cmd:"" help:"Symbol detail with source context."`
+	Explain   ContextExplainCmd   `cmd:"" help:"Ranking explanation for a file."`
+	Impact    ContextImpactCmd    `cmd:"" help:"Evidence-backed blast radius for a file."`
+	Endpoint  ContextEndpointCmd  `cmd:"" help:"Route-to-handler evidence."`
+	Lsp       ContextLspCmd       `cmd:"" help:"Bounded language-server queries."`
+	Preflight ContextPreflightCmd `cmd:"" help:"Resolve applicable repository guidance and purpose."`
+	Init      ContextInitCmd      `cmd:"" help:"Create repository analysis scaffolding and an optional cache hook."`
+	Eval      ContextEvalCmd      `cmd:"" help:"Evaluate retrieval cases."`
 }
 
 // ContextEvalCmd is `pan context eval`.

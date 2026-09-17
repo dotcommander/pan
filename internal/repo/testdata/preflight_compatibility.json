@@ -1,0 +1,86 @@
+[
+  {
+    "name": "root-to-target precedence and nearest purpose",
+    "target": "root/workflow/generated/article.html",
+    "files": {
+      "root/AGENTS.md": "Root guidance",
+      "root/README.md": "# Product\nRoot purpose.",
+      "root/workflow/AGENTS.md": "Workflow guidance",
+      "root/workflow/README.md": "# Rewrite workflow\nOwns generated article artifacts.",
+      "root/workflow/generated/article.html": "<html />"
+    },
+    "want": {
+      "mode": "repository",
+      "target": "root/workflow/generated/article.html",
+      "guidance": ["root/AGENTS.md", "root/workflow/AGENTS.md"],
+      "purpose": {
+        "kind": "README.md",
+        "path": "root/workflow/README.md",
+        "summary": "Owns generated article artifacts."
+      },
+      "required_checks": [
+        {"kind": "agents", "path": "root/workflow/generated/AGENTS.md", "status": "absent"},
+        {"kind": "purpose", "path": "root/workflow/README.md", "status": "found"}
+      ]
+    }
+  },
+  {
+    "name": "nearest claude fallback without agents",
+    "target": "root/workflow/artifact.txt",
+    "files": {
+      "root/CLAUDE.md": "Root Claude guidance",
+      "root/workflow/artifact.txt": "artifact"
+    },
+    "want": {
+      "mode": "repository",
+      "target": "root/workflow/artifact.txt",
+      "guidance": ["root/CLAUDE.md"],
+      "required_checks": [
+        {"kind": "claude", "path": "root/workflow/CLAUDE.md", "status": "absent"},
+        {"kind": "claude", "path": "root/CLAUDE.md", "status": "found"}
+      ]
+    }
+  },
+  {
+    "name": "standalone bypasses repository discovery",
+    "standalone": true,
+    "target": "external/single.txt",
+    "files": {
+      "external/single.txt": "standalone"
+    },
+    "want": {
+      "mode": "standalone",
+      "target": "external/single.txt",
+      "guidance": []
+    }
+  },
+  {
+    "name": "direct-child symlink retains logical guidance chain",
+    "target": "external/people/facts.md",
+    "files": {
+      "root/AGENTS.md": "Root guidance",
+      "external/people/facts.md": "facts"
+    },
+    "symlinks": {
+      "root/data": "external"
+    },
+    "want": {
+      "mode": "repository",
+      "target": "external/people/facts.md",
+      "guidance": ["root/AGENTS.md"],
+      "required_checks": [
+        {"kind": "agents", "path": "root/data/people/AGENTS.md", "status": "absent"}
+      ]
+    }
+  },
+  {
+    "name": "unmapped external target is rejected",
+    "target": "external/facts.md",
+    "files": {
+      "external/facts.md": "facts"
+    },
+    "want": {
+      "error_contains": "target must be within repository_root"
+    }
+  }
+]

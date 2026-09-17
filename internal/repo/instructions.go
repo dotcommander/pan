@@ -1,5 +1,5 @@
-// Package repo discovers repository-level instruction assets (AGENTS.md,
-// CLAUDE.md) within an explicitly bounded scope.
+// Package repo discovers repository-level context assets within explicitly
+// bounded scopes.
 package repo
 
 import (
