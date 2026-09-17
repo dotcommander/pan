@@ -48,6 +48,32 @@ func TestContextPreflightEmitsRepositoryContext(t *testing.T) {
 	}
 }
 
+func TestContextPreflightResolvesRelativeTargetUnderRepo(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writePreflightFile(t, root, "AGENTS.md", "root guidance")
+	writePreflightFile(t, root, "internal/example.go", "package internal")
+
+	var out bytes.Buffer
+	args := []string{"--repo", root, "--format", "json", "context", "preflight", "internal/example.go"}
+	if err := cli.Run(context.Background(), args, newTestDeps(&out)); err != nil {
+		t.Fatal(err)
+	}
+	var envelope struct {
+		Result repo.PreflightResult `json:"result"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode output: %v\n%s", err, out.String())
+	}
+	wantGuidance := filepath.Join(root, "AGENTS.md")
+	if len(envelope.Result.Guidance) != 1 || envelope.Result.Guidance[0] != wantGuidance {
+		t.Fatalf("guidance = %v, want [%s]", envelope.Result.Guidance, wantGuidance)
+	}
+	if !envelope.Result.ContextResolved || envelope.Result.Mode != "repository" {
+		t.Fatalf("result = %#v", envelope.Result)
+	}
+}
+
 func TestContextPreflightStandaloneAllowsExternalTarget(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
