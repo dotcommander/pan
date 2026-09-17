@@ -7,6 +7,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/agent"
+	"github.com/dotcommander/pan/internal/checks"
 	"github.com/dotcommander/pan/internal/eval"
 	"github.com/dotcommander/pan/internal/review"
 	"github.com/dotcommander/pan/internal/scan"
@@ -84,6 +85,14 @@ type OutputCatalog struct {
 // reportSurfaces returns the envelope and composed-report surfaces.
 func reportSurfaces() []OutputSurface {
 	return []OutputSurface{
+		{
+			Name: "scan-checks", Producer: "scan checks", Schema: checks.Schema,
+			MediaType: jsonEnvelopeMedia, BestFor: "trusted, bounded repository contract checks",
+			Privacy:       "local target paths and check findings; no repository code execution",
+			Limits:        []string{"built-in in-process checks only", "SKILL.md reads are bounded to 1 MiB"},
+			Flags:         []string{flagRepo, flagFormat, "--check", "--list"},
+			Compatibility: "new read-only surface; findings are successful report outcomes",
+		},
 		{
 			Name: "envelope", Producer: "standard command results (except explicit document and protocol modes)", Schema: envelopeSchema,
 			MediaType: "text or json (--format)", BestFor: "machine-readable command results",
