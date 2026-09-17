@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/pipeline/spec"
 	"github.com/dotcommander/pan/internal/pipeline/symbols"
 )
@@ -160,7 +161,7 @@ func rankedGoRel(root, rankedPath string, rf symbols.RankedFile) string {
 	if rf.FileSymbols == nil {
 		return ""
 	}
-	if rf.Language != "" && rf.Language != "go" {
+	if rf.Language != "" && rf.Language != analyze.LanguageGo {
 		return ""
 	}
 	if strings.HasSuffix(rf.Path, "_test.go") {

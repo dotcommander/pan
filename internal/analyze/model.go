@@ -16,25 +16,28 @@ const SchemaVersion = "pan/v1"
 const AnalyzerRevision = "reference-queries/v1"
 
 const (
-	languageGo        = "go"
+	LanguageGo        = "go"
 	diagnosticWarning = "warning"
 )
 
 // Language identifiers name the selected parse grammar and double as public
 // JSON labels carried by snapshots, scan packets, and codemap output; their
-// values are evidence contracts and must not be renamed.
+// values are evidence contracts and must not be renamed. Consumers compare
+// snapshot Language values against these identifiers instead of redeclaring
+// the labels locally.
 const (
-	languageC          = "c"
-	languageCpp        = "cpp"
-	languageJava       = "java"
-	languagePhp        = "php"
-	languagePython     = "python"
-	languageRuby       = "ruby"
-	languageRust       = "rust"
-	languageTypescript = "typescript"
-	languageTsx        = "tsx"
-	languageJavascript = "javascript"
-	languageJsx        = "jsx"
+	LanguageUnknown    = "unknown"
+	LanguageC          = "c"
+	LanguageCpp        = "cpp"
+	LanguageJava       = "java"
+	LanguagePhp        = "php"
+	LanguagePython     = "python"
+	LanguageRuby       = "ruby"
+	LanguageRust       = "rust"
+	LanguageTypescript = "typescript"
+	LanguageTsx        = "tsx"
+	LanguageJavascript = "javascript"
+	LanguageJsx        = "jsx"
 )
 
 // Location names one repository-relative path and line.

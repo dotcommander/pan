@@ -35,10 +35,8 @@ func TierOf(component string) string {
 	}
 }
 
-// languageGo is the language tag the snapshot assigns to Go source files.
 const (
-	languageGo = "go"
-	edgeCalls  = "calls"
+	edgeCalls = "calls"
 )
 
 // Score component keys. These are a stability surface: `context explain`
@@ -362,7 +360,7 @@ func applyOrientationBoosts(ranked []RankedFile) {
 		rf := &ranked[i]
 		base := path.Base(rf.Path)
 		boost := 0
-		if rf.Package != "" && rf.Language == languageGo && strings.TrimSuffix(base, path.Ext(base)) == rf.Package {
+		if rf.Package != "" && rf.Language == analyze.LanguageGo && strings.TrimSuffix(base, path.Ext(base)) == rf.Package {
 			boost += 25
 		}
 		if base == "types.go" {
@@ -469,7 +467,7 @@ func importKeys(ranked []RankedFile, modulePath string) map[string][]int {
 		return keys
 	}
 	for i := range ranked {
-		if ranked[i].Language != languageGo {
+		if ranked[i].Language != analyze.LanguageGo {
 			continue
 		}
 		key := fullImportKey(dirImportKey(ranked[i].Path), modulePath)
@@ -493,7 +491,7 @@ func countImporters(ranked []RankedFile, modulePath string, internalDirs map[str
 	importers := make(map[string]map[string]struct{}) // key -> importing file paths
 	for i := range ranked {
 		rf := &ranked[i]
-		if rf.Language != languageGo {
+		if rf.Language != analyze.LanguageGo {
 			continue
 		}
 		seen := make(map[string]struct{})

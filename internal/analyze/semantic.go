@@ -32,7 +32,7 @@ func (b *builder) addSemanticGoCalls() {
 
 func hasGoFiles(files []File) bool {
 	for _, file := range files {
-		if file.Language == languageGo {
+		if file.Language == LanguageGo {
 			return true
 		}
 	}

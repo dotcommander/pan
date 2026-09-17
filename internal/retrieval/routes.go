@@ -25,11 +25,9 @@ type RouteRegistration struct {
 	Confidence string `json:"confidence"`
 }
 
-// Shared lexical-analysis vocabulary: the snapshot call-edge kind and the
-// Go language label.
+// Shared lexical-analysis vocabulary: the snapshot call-edge kind.
 const (
 	edgeKindCalls = "calls"
-	languageGo    = "go"
 )
 
 // Registration framework names the detectors report.
@@ -71,7 +69,7 @@ func Routes(ctx context.Context, snap analyze.Snapshot) ([]RouteRegistration, er
 	detectors := routeDetectors()
 	var out []RouteRegistration
 	for _, file := range snap.Files {
-		if file.Language != languageGo || isTestFile(file.Path) {
+		if file.Language != analyze.LanguageGo || isTestFile(file.Path) {
 			continue
 		}
 		registrations, err := extractRoutes(ctx, snap.Root, file.Path, detectors)

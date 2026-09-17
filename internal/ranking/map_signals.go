@@ -32,7 +32,7 @@ type referenceTarget struct{ path string }
 func referenceTargets(ranked []RankedFile) map[string][]referenceTarget {
 	byName := make(map[string][]referenceTarget)
 	for i := range ranked {
-		if ranked[i].Language == languageGo {
+		if ranked[i].Language == analyze.LanguageGo {
 			continue
 		}
 		for _, symbol := range ranked[i].Symbols {

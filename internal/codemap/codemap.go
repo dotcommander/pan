@@ -17,15 +17,13 @@ import (
 // Rendering modes. Enriched shows exported signatures with doc sentences;
 // compact shows exported names only and therefore fits more files per token.
 const (
-	ModeEnriched    = "enriched"
-	ModeCompact     = "compact"
-	ModeVerbose     = "verbose"
-	ModeDetail      = "detail"
-	ModeLines       = "lines"
-	ModeXML         = "xml"
-	kindFunction    = "function"
-	languageUnknown = "unknown"
-	languageGo      = "go"
+	ModeEnriched = "enriched"
+	ModeCompact  = "compact"
+	ModeVerbose  = "verbose"
+	ModeDetail   = "detail"
+	ModeLines    = "lines"
+	ModeXML      = "xml"
+	kindFunction = "function"
 )
 
 // Options shapes one map build.
@@ -74,7 +72,7 @@ func Build(ranked []ranking.RankedFile, opts Options) Result {
 	if mode == "" {
 		mode = ModeEnriched
 	}
-	ranked = slices.DeleteFunc(ranked, func(file ranking.RankedFile) bool { return file.Language == languageUnknown })
+	ranked = slices.DeleteFunc(ranked, func(file ranking.RankedFile) bool { return file.Language == analyze.LanguageUnknown })
 	cost := EnrichedCost
 	if mode == ModeCompact {
 		cost = CompactCost
@@ -181,7 +179,7 @@ func formatTags(f ranking.RankedFile) string {
 	if f.DependsOn > 0 {
 		tags = append(tags, fmt.Sprintf("imports %d", f.DependsOn))
 	}
-	if !f.TestFile && !f.Tested && f.Language == languageGo {
+	if !f.TestFile && !f.Tested && f.Language == analyze.LanguageGo {
 		tags = append(tags, "untested")
 	}
 	if len(tags) == 0 {

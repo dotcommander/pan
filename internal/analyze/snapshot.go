@@ -197,7 +197,7 @@ func (b *builder) admitEntry(slashRel string, d fs.DirEntry) (fs.FileInfo, bool,
 }
 
 func (b *builder) parseSource(file File, contents []byte) {
-	if file.Language == languageGo {
+	if file.Language == LanguageGo {
 		b.parseGoBytes(contents, file.Path)
 		return
 	}
@@ -669,31 +669,31 @@ func excluded(path string, names []string) bool {
 func LanguageForPath(path string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".go":
-		return languageGo
+		return LanguageGo
 	case ".c", ".h":
-		return languageC
+		return LanguageC
 	case ".cc", ".cpp", ".cxx", ".hh", ".hpp", ".hxx":
-		return languageCpp
+		return LanguageCpp
 	case ".java":
-		return languageJava
+		return LanguageJava
 	case ".php":
-		return languagePhp
+		return LanguagePhp
 	case ".py":
-		return languagePython
+		return LanguagePython
 	case ".rb":
-		return languageRuby
+		return LanguageRuby
 	case ".rs":
-		return languageRust
+		return LanguageRust
 	case ".ts":
-		return languageTypescript
+		return LanguageTypescript
 	case ".tsx":
-		return languageTsx
+		return LanguageTsx
 	case ".js", ".mjs", ".cjs":
-		return languageJavascript
+		return LanguageJavascript
 	case ".jsx":
-		return languageJsx
+		return LanguageJsx
 	default:
-		return "unknown"
+		return LanguageUnknown
 	}
 }
 

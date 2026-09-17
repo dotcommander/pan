@@ -20,9 +20,9 @@ var typescriptReferenceQuery string
 func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]sourceReference, error) {
 	querySource := ""
 	switch language {
-	case languagePython:
+	case LanguagePython:
 		querySource = pythonReferenceQuery
-	case languageTypescript, languageJavascript, languageTsx, languageJsx:
+	case LanguageTypescript, LanguageJavascript, LanguageTsx, LanguageJsx:
 		querySource = typescriptReferenceQuery
 	default:
 		return nil, nil

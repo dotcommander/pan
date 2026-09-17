@@ -105,7 +105,7 @@ func scoreComponentTotal(rf ranking.RankedFile) int {
 // parseMethod names the analyzer behind a file's symbols. Only Go files are
 // parsed; everything else contributes inventory facts only.
 func parseMethod(rf ranking.RankedFile) string {
-	if rf.Language == languageGo {
+	if rf.Language == analyze.LanguageGo {
 		return ParseGoAST
 	}
 	return ParseInventory

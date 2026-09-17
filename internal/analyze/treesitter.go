@@ -27,21 +27,21 @@ type sourceReference struct {
 }
 
 var treeSitterLanguages = map[string]func() *tree_sitter.Language{
-	languageC:      func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_c.Language()) },
-	languageCpp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_cpp.Language()) },
-	languageJava:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_java.Language()) },
-	languagePhp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_php.LanguagePHP()) },
-	languagePython: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_python.Language()) },
-	languageRuby:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_ruby.Language()) },
-	languageRust:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_rust.Language()) },
-	languageTypescript: func() *tree_sitter.Language {
+	LanguageC:      func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_c.Language()) },
+	LanguageCpp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_cpp.Language()) },
+	LanguageJava:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_java.Language()) },
+	LanguagePhp:    func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_php.LanguagePHP()) },
+	LanguagePython: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_python.Language()) },
+	LanguageRuby:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_ruby.Language()) },
+	LanguageRust:   func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_rust.Language()) },
+	LanguageTypescript: func() *tree_sitter.Language {
 		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
 	},
-	languageJavascript: func() *tree_sitter.Language {
+	LanguageJavascript: func() *tree_sitter.Language {
 		return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTypescript())
 	},
-	languageTsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
-	languageJsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
+	LanguageTsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
+	LanguageJsx: func() *tree_sitter.Language { return tree_sitter.NewLanguage(tree_sitter_typescript.LanguageTSX()) },
 }
 
 func parseTreeSitterBytes(source []byte, relative, language string) (parsedSource, error) {

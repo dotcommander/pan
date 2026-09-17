@@ -80,7 +80,7 @@ func candidateCorpora(ctx context.Context, snapshot analyze.Snapshot) (candidate
 		if err := ctx.Err(); err != nil {
 			return candidateCorpus{}, err
 		}
-		if file.Language != "go" {
+		if file.Language != analyze.LanguageGo {
 			continue
 		}
 		contents, err := os.ReadFile(filepath.Join(snapshot.Root, filepath.FromSlash(file.Path)))
@@ -112,7 +112,7 @@ func candidateSymbols(ctx context.Context, snapshot analyze.Snapshot, corpora ca
 func candidateFileContents(snapshot analyze.Snapshot) (map[string]string, error) {
 	contents := make(map[string]string, len(snapshot.Files))
 	for _, file := range snapshot.Files {
-		if file.Language != "go" || strings.HasSuffix(file.Path, "_test.go") {
+		if file.Language != analyze.LanguageGo || strings.HasSuffix(file.Path, "_test.go") {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(snapshot.Root, filepath.FromSlash(file.Path)))

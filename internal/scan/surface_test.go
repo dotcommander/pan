@@ -93,7 +93,7 @@ func TestSurfaceExcludesTestsAndUnknownFiles(t *testing.T) {
 		"notes.md":  "os.Getenv(\"X\")",
 	})
 	snap := analyze.Snapshot{Root: dir, Files: []analyze.File{
-		{Path: "a_test.go", Language: languageGo},
+		{Path: "a_test.go", Language: analyze.LanguageGo},
 		{Path: "notes.md", Language: "unknown"},
 	}}
 	report, err := Surface(t.Context(), snap, 0)

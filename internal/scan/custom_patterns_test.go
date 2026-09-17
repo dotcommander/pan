@@ -20,7 +20,7 @@ func TestRiskWithCustomPatternsAddsBoundedRegexMatches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report, err := RiskWithCustomPatterns(context.Background(), analyze.Snapshot{Root: root, Files: []analyze.File{{Path: "service.go", Language: languageGo}}}, 0, &patterns)
+	report, err := RiskWithCustomPatterns(context.Background(), analyze.Snapshot{Root: root, Files: []analyze.File{{Path: "service.go", Language: analyze.LanguageGo}}}, 0, &patterns)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -198,7 +198,7 @@ func impactCheckNext(importers, tests []string) []string {
 }
 
 func likelyTestCommands(language string, tests []string) []string {
-	if len(tests) == 0 || language != languageGo {
+	if len(tests) == 0 || language != analyze.LanguageGo {
 		return nil
 	}
 	dirs := make(map[string]struct{}, len(tests))

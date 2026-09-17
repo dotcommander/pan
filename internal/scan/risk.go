@@ -306,11 +306,11 @@ func riskForFile(ctx context.Context, snap analyze.Snapshot, file analyze.File, 
 	}
 	addEntrypointRisk(file.Path, lower, add)
 	addPathTermRisk(lower, table.terms, add)
-	if file.Language == languageGo && risk.FileClass == string(fileclass.Production) {
+	if file.Language == analyze.LanguageGo && risk.FileClass == string(fileclass.Production) {
 		addStructuralRisk(snap.Root, file.Path, table, &risk, add)
 	}
 	patterns := table.patterns
-	if file.Language != languageGo {
+	if file.Language != analyze.LanguageGo {
 		patterns = genericRiskPatterns(table.patterns)
 	}
 	truncated, err := addContentRisk(ctx, snap.Root, file.Path, patterns, riskContentRecorder(&risk, add))

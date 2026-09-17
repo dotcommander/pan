@@ -131,7 +131,7 @@ func TestEffectsWithOptionsIgnoresCallsInComments(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{"client.py": "# fetch('https://example.test')\nvalue = 1\n"})
 	snap := analyze.Snapshot{Root: dir, Files: []analyze.File{{Path: "client.py", Language: "python"}}}
-	report, err := EffectsWithOptions(t.Context(), snap, EffectsOptions{Language: languagePython})
+	report, err := EffectsWithOptions(t.Context(), snap, EffectsOptions{Language: analyze.LanguagePython})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -54,7 +54,7 @@ func TestBuildKeepsDemotedTestsAndDropsUnknownFiles(t *testing.T) {
 	ranked := []ranking.RankedFile{
 		{Path: "main.go", Language: "go", Symbols: []analyze.Symbol{{Name: "Main", Kind: "function"}}},
 		{Path: "main_test.go", Language: "go", TestFile: true, Symbols: []analyze.Symbol{{Name: "TestMain", Kind: "function"}}},
-		{Path: "go.mod", Language: languageUnknown},
+		{Path: "go.mod", Language: analyze.LanguageUnknown},
 	}
 	result := Build(ranked, Options{Mode: ModeCompact})
 	if result.TotalFiles != 2 || !strings.Contains(result.Text, "main_test.go") || strings.Contains(result.Text, "go.mod") {

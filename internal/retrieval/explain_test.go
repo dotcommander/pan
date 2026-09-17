@@ -13,8 +13,8 @@ func TestExplainPrioritizesTargetAndReturnsSymbols(t *testing.T) {
 		{Name: "helper", Kind: "function"},
 	}
 	ranked := []ranking.RankedFile{
-		{Path: "other.go", Language: languageGo, Symbols: makeSymbols(80)},
-		{Path: "target.go", Language: languageGo, Symbols: targetSymbols, Components: map[string]int{"symbols": 4}},
+		{Path: "other.go", Language: analyze.LanguageGo, Symbols: makeSymbols(80)},
+		{Path: "target.go", Language: analyze.LanguageGo, Symbols: targetSymbols, Components: map[string]int{"symbols": 4}},
 	}
 	got, err := Explain(ranked, "target.go", 4096)
 	if err != nil {
@@ -26,7 +26,7 @@ func TestExplainPrioritizesTargetAndReturnsSymbols(t *testing.T) {
 }
 
 func TestExplainNoSymbolEvidenceIsExplicit(t *testing.T) {
-	ranked := []ranking.RankedFile{{Path: "target.go", Language: languageGo}}
+	ranked := []ranking.RankedFile{{Path: "target.go", Language: analyze.LanguageGo}}
 	got, err := Explain(ranked, "target.go", 4096)
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestExplainNoSymbolEvidenceIsExplicit(t *testing.T) {
 }
 
 func TestExplainTinyBudgetIsExplicitAndBounded(t *testing.T) {
-	ranked := []ranking.RankedFile{{Path: "target.go", Language: languageGo, Symbols: []analyze.Symbol{{Name: "Run"}}}}
+	ranked := []ranking.RankedFile{{Path: "target.go", Language: analyze.LanguageGo, Symbols: []analyze.Symbol{{Name: "Run"}}}}
 	got, err := Explain(ranked, "target.go", 1)
 	if err != nil {
 		t.Fatal(err)

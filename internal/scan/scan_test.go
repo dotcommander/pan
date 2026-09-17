@@ -34,7 +34,7 @@ func goSnapshot(root string, rels ...string) analyze.Snapshot {
 func makeGoFiles(rels ...string) []analyze.File {
 	files := make([]analyze.File, 0, len(rels))
 	for _, rel := range rels {
-		files = append(files, analyze.File{Path: rel, Language: languageGo})
+		files = append(files, analyze.File{Path: rel, Language: analyze.LanguageGo})
 	}
 	return files
 }

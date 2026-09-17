@@ -106,7 +106,6 @@ func phaseHasFile(files []string, target string) bool {
 
 const (
 	accessRead = "read"
-	languageGo = "go"
 )
 
 func isReadAccess(access string) bool {

@@ -135,7 +135,7 @@ type StructuredCallSite struct {
 // private ranking copy and leaves the caller's ranked slice reusable.
 func BuildStructured(snap analyze.Snapshot, ranked []ranking.RankedFile, opts Options) StructuredOutput {
 	working := slices.DeleteFunc(slices.Clone(ranked), func(file ranking.RankedFile) bool {
-		return file.Language == languageUnknown
+		return file.Language == analyze.LanguageUnknown
 	})
 	result := Build(working, opts)
 	selected := selectedFiles(working)
@@ -160,7 +160,7 @@ func BuildStructured(snap analyze.Snapshot, ranked []ranking.RankedFile, opts Op
 func selectedFiles(ranked []ranking.RankedFile) []ranking.RankedFile {
 	selected := make([]ranking.RankedFile, 0, len(ranked))
 	for _, file := range ranked {
-		if file.Language != languageUnknown && file.DetailLevel >= 0 {
+		if file.Language != analyze.LanguageUnknown && file.DetailLevel >= 0 {
 			selected = append(selected, file)
 		}
 	}
@@ -209,7 +209,7 @@ func structuredFile(file ranking.RankedFile) StructuredFile {
 		ParseMethod: parseMethod(file.Language), Score: file.Score,
 		ScoreComponents: cloneComponents(file.Components), DetailLevel: file.DetailLevel,
 		ImportedBy: file.ImportedBy, DependsOn: file.DependsOn,
-		Untested:         !file.TestFile && !file.Tested && file.Language == languageGo,
+		Untested:         !file.TestFile && !file.Tested && file.Language == analyze.LanguageGo,
 		Imports:          append([]string(nil), file.Imports...),
 		RelationEvidence: relationEvidence(file), Symbols: structuredSymbols(path, file.Symbols),
 	}
@@ -257,7 +257,7 @@ func symbolHandle(path string, symbol analyze.Symbol) string {
 }
 
 func parseMethod(language string) string {
-	if language == languageGo {
+	if language == analyze.LanguageGo {
 		return "go_ast"
 	}
 	if analyze.SupportsTreeSitter(language) {

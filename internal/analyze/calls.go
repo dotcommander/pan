@@ -21,7 +21,7 @@ type CallSite struct {
 // Go callers retain the Go AST path; the tree-sitter grammars cover the other
 // languages carried by Snapshot.
 func TreeSitterCalls(source []byte, language string) ([]CallSite, error) {
-	if language == languageGo {
+	if language == LanguageGo {
 		return goCalls(source)
 	}
 	grammar := treeSitterLanguage(language)

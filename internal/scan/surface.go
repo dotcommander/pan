@@ -73,7 +73,7 @@ func Surface(ctx context.Context, snap analyze.Snapshot, top int) (SurfaceReport
 	counts := map[string]int{}
 	var truncations []Truncation
 	for _, file := range snap.Files {
-		if file.Language == languageUnknown || isTestPath(file.Path) {
+		if file.Language == analyze.LanguageUnknown || isTestPath(file.Path) {
 			continue
 		}
 		lines, truncated, err := readLines(ctx, path.Join(snap.Root, filepathFromSlash(file.Path)))

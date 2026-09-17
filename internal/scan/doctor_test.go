@@ -16,8 +16,8 @@ func doctorSnapshot() analyze.Snapshot {
 	return analyze.Snapshot{
 		Root: ".",
 		Files: []analyze.File{
-			{Path: "cmd/app/main.go", Language: languageGo},
-			{Path: "internal/service/service.go", Language: languageGo},
+			{Path: "cmd/app/main.go", Language: analyze.LanguageGo},
+			{Path: "internal/service/service.go", Language: analyze.LanguageGo},
 		},
 		Symbols: []analyze.Symbol{
 			{Name: "main", Location: analyze.Location{Path: "cmd/app/main.go"}},

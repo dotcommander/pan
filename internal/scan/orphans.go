@@ -111,7 +111,7 @@ func OrphansWithReferences(ctx context.Context, snap analyze.Snapshot, top int, 
 	// references classify as test-only).
 	fset := token.NewFileSet()
 	for _, file := range snap.Files {
-		if file.Language != languageGo {
+		if file.Language != analyze.LanguageGo {
 			continue
 		}
 		if err := ctx.Err(); err != nil {

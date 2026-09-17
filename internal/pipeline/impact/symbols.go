@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/pipeline/scan"
 	"github.com/dotcommander/pan/internal/pipeline/symbols"
 )
@@ -26,7 +27,7 @@ func goSymbolFiles(root, target string, ranked []symbols.RankedFile) []string {
 }
 
 func addSymbolFileMatch(root, target string, ranked symbols.RankedFile, topLevel, fields map[string]bool) {
-	if ranked.FileSymbols == nil || (ranked.Language != "" && ranked.Language != languageGo) {
+	if ranked.FileSymbols == nil || (ranked.Language != "" && ranked.Language != analyze.LanguageGo) {
 		return
 	}
 	path := ranked.Path

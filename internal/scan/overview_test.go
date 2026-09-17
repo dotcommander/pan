@@ -11,10 +11,10 @@ func TestOverviewCountsAndSorting(t *testing.T) {
 	t.Parallel()
 	snap := analyze.Snapshot{
 		Files: []analyze.File{
-			{Path: "cmd/app/main.go", Language: languageGo},
-			{Path: "internal/service/service.go", Language: languageGo},
-			{Path: "internal/service/service_test.go", Language: languageGo},
-			{Path: "gen/code_gen.go", Language: languageGo, Generated: true},
+			{Path: "cmd/app/main.go", Language: analyze.LanguageGo},
+			{Path: "internal/service/service.go", Language: analyze.LanguageGo},
+			{Path: "internal/service/service_test.go", Language: analyze.LanguageGo},
+			{Path: "gen/code_gen.go", Language: analyze.LanguageGo, Generated: true},
 			{Path: "README.md", Language: "markdown"},
 			{Path: "notes.txt", Language: "unknown"},
 			{Path: "docs/guide.md", Language: "markdown"},
@@ -34,7 +34,7 @@ func TestOverviewCountsAndSorting(t *testing.T) {
 		t.Fatalf("generated=%d test=%d, want 1/1", report.GeneratedFiles, report.TestFiles)
 	}
 	wantLangs := []LanguageCount{
-		{Language: languageGo, Files: 4},
+		{Language: analyze.LanguageGo, Files: 4},
 		{Language: "markdown", Files: 2},
 		{Language: "unknown", Files: 1},
 	}

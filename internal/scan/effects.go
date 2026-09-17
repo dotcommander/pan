@@ -45,14 +45,11 @@ const (
 	evidenceParsedCall = "parsed call expression"
 )
 
-// Shared detection vocabulary used across the scan packets: the source
-// language tag snapshots stamp on Go files and the path-term spelling the
-// risk and inventory tables share.
+// Shared detection vocabulary used across the scan packets: the path-term
+// spelling the risk and inventory tables share. Source language tags come
+// from the analyze identifiers.
 const (
-	languageGo      = "go"
-	languagePython  = "python"
-	languageUnknown = "unknown"
-	termCredential  = "credential"
+	termCredential = "credential"
 )
 
 // Effect is one static side-effect or trust-boundary lead.
@@ -149,7 +146,7 @@ func effectTable() []effectPattern {
 }
 
 func effectLanguages() []string {
-	return []string{"c", "cpp", languageGo, "java", "javascript", "jsx", "php", languagePython, "ruby", "rust", "tsx", "typescript"}
+	return []string{analyze.LanguageC, analyze.LanguageCpp, analyze.LanguageGo, analyze.LanguageJava, analyze.LanguageJavascript, analyze.LanguageJsx, analyze.LanguagePhp, analyze.LanguagePython, analyze.LanguageRuby, analyze.LanguageRust, analyze.LanguageTsx, analyze.LanguageTypescript}
 }
 
 // Effects extracts side-effect and trust-boundary leads from non-test Go
@@ -212,7 +209,7 @@ type scannedEffectsFile struct {
 }
 
 func scanEffectsFile(ctx context.Context, root string, file analyze.File, options EffectsOptions, patterns []effectPattern) (scannedEffectsFile, error) {
-	if file.Language == languageUnknown || isTestPath(file.Path) || (options.Language != "" && file.Language != options.Language) {
+	if file.Language == analyze.LanguageUnknown || isTestPath(file.Path) || (options.Language != "" && file.Language != options.Language) {
 		return scannedEffectsFile{}, nil
 	}
 	lines, truncated, err := readLines(ctx, path.Join(root, filepathFromSlash(file.Path)))
@@ -281,7 +278,7 @@ func scanEffectLines(lines []sourceLine, patterns []effectPattern) []Effect {
 // the bounded source span, the source packet retains its established heuristic
 // fallback instead of dropping an otherwise useful lead.
 func scanEffects(language string, lines []sourceLine, patterns []effectPattern) []Effect {
-	if language == languageGo {
+	if language == analyze.LanguageGo {
 		if effects, err := scanGoEffects(lines, patterns); err == nil {
 			return effects
 		}

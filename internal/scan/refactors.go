@@ -47,7 +47,7 @@ func RefactorSignatures(ctx context.Context, snap analyze.Snapshot) (RefactorRep
 	buckets := map[refactorKey][]RefactorSite{}
 	fset := token.NewFileSet()
 	for _, item := range snap.Files {
-		if item.Language != languageGo || item.Generated || isTestPath(item.Path) {
+		if item.Language != analyze.LanguageGo || item.Generated || isTestPath(item.Path) {
 			continue
 		}
 		if err := ctx.Err(); err != nil {

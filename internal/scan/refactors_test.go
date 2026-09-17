@@ -17,7 +17,7 @@ func TestRefactorSignaturesGroupsExactNormalizedBodies(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "sample.go"), []byte(source), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	report, err := RefactorSignatures(context.Background(), analyze.Snapshot{Root: root, Files: []analyze.File{{Path: "sample.go", Language: languageGo}}})
+	report, err := RefactorSignatures(context.Background(), analyze.Snapshot{Root: root, Files: []analyze.File{{Path: "sample.go", Language: analyze.LanguageGo}}})
 	if err != nil {
 		t.Fatal(err)
 	}

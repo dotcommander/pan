@@ -97,8 +97,8 @@ func TestRiskExcludesTestAndGeneratedFiles(t *testing.T) {
 		"gen/code.go":        "package gen\nfunc Iss() {}\n",
 	})
 	snap := analyzeFiles(
-		analyze.File{Path: "auth/token_test.go", Language: languageGo},
-		analyze.File{Path: "gen/code.go", Language: languageGo, Generated: true},
+		analyze.File{Path: "auth/token_test.go", Language: analyze.LanguageGo},
+		analyze.File{Path: "gen/code.go", Language: analyze.LanguageGo, Generated: true},
 	)
 	snap.Root = dir
 	report, err := Risk(t.Context(), snap, 0)
@@ -132,7 +132,7 @@ func TestRiskAddsComplexExportedSignatureEvidence(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{"api.go": "package api\n"})
-	snap := analyzeFiles(analyze.File{Path: "api.go", Language: languageGo})
+	snap := analyzeFiles(analyze.File{Path: "api.go", Language: analyze.LanguageGo})
 	snap.Root = dir
 	snap.Symbols = []analyze.Symbol{{Name: "Serve", Exported: true, Signature: "(" + strings.Repeat("string, ", 12) + ") error", Location: analyze.Location{Path: "api.go"}}}
 	report, err := Risk(t.Context(), snap, 0)
@@ -153,8 +153,8 @@ func TestRiskProductionDefaultAndAdditiveClasses(t *testing.T) {
 		"receipts/result.json": `{"url":"http://127.0.0.1"}`,
 	})
 	snap := analyzeFiles(
-		analyze.File{Path: "service.go", Language: languageGo},
-		analyze.File{Path: "testdata/record.go", Language: languageGo},
+		analyze.File{Path: "service.go", Language: analyze.LanguageGo},
+		analyze.File{Path: "testdata/record.go", Language: analyze.LanguageGo},
 		analyze.File{Path: "receipts/result.json", Language: "json"},
 	)
 	snap.Root = dir
@@ -181,7 +181,7 @@ func TestRiskScoreComponentsCarryLocations(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{"service.go": "package service\n// TODO one\n// TODO two\n"})
-	snap := analyzeFiles(analyze.File{Path: "service.go", Language: languageGo})
+	snap := analyzeFiles(analyze.File{Path: "service.go", Language: analyze.LanguageGo})
 	snap.Root = dir
 	report, err := Risk(t.Context(), snap, 0)
 	if err != nil || len(report.Files) != 1 {
@@ -277,7 +277,7 @@ func TestRiskSourceEvidenceCapsMatchesAndText(t *testing.T) {
 	dir := t.TempDir()
 	long := "// TODO " + strings.Repeat("é", maxRiskEvidenceRunes)
 	writeTree(t, dir, map[string]string{"service.go": long + "\n// TODO two\n// TODO three\n// TODO four\n"})
-	snap := analyzeFiles(analyze.File{Path: "service.go", Language: languageGo})
+	snap := analyzeFiles(analyze.File{Path: "service.go", Language: analyze.LanguageGo})
 	snap.Root = dir
 	report, err := Risk(t.Context(), snap, 0)
 	if err != nil || len(report.Files) != 1 {
