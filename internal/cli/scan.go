@@ -26,6 +26,7 @@ type ScanCmd struct {
 	Orphans   OrphansCmd   `cmd:"" help:"Lexical zero-reference symbol candidates."`
 	Inventory InventoryCmd `cmd:"" help:"Boundary-owner inventory."`
 	Doctor    DoctorCmd    `cmd:"" help:"Analyzer health check."`
+	Git       GitScanCmd   `cmd:"" help:"Read-only Git worktree and outgoing-content evidence."`
 }
 
 // validateTop rejects negative --top values; zero lists all entries.

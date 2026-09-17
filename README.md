@@ -123,6 +123,13 @@ conditional `CLAUDE.md` fallback, and the nearest README or specification purpos
 signal under `--repo`. Use the global `--standalone` flag only when the target is
 intentionally outside that repository context.
 
+`scan git worktree` reports branch, upstream, local diff-range, working-state,
+large-file, artifact-path, and redacted secret-pattern evidence without fetching
+or mutating Git state. `scan git outgoing --revision REVISION` inspects outgoing
+paths and blobs for generic private-state, credential-file, oversized-blob, and
+executable-content risks. Project-specific enforcement remains the caller's policy;
+Pan supplies typed evidence and marks bounded output incomplete when truncated.
+
 Run `./bin/pan <command> --help` for the arguments, outputs, and side effects of one command. `version` prints the binary and analysis-schema versions.
 
 ## Guarded operations
