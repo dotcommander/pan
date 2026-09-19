@@ -31,7 +31,7 @@ const (
 )
 
 // binaryVersion is the human-readable pan binary version.
-const binaryVersion = "v0.3.0"
+const binaryVersion = "v0.4.0"
 
 const (
 	formatJSON     = "json"
