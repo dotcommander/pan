@@ -4,10 +4,7 @@ package gitoutgoing
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"io"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,65 +35,85 @@ type Report struct {
 	Blocked        bool           `json:"blocked"`
 }
 
+// scan examines every change record in the revision through one git log
+// stream, one --batch-check size pass, and one --batch sample pass.
 func scan(root, revision string, maxBlobBytes int64) (Report, error) {
 	report := Report{Revision: revision, MaxBlobBytes: maxBlobBytes, Paths: []PathEvidence{}, Findings: []Finding{}}
-	commits, err := gitLines(root, "rev-list", "--reverse", "--end-of-options", revision)
+	commits, err := rawLog(root, revision)
 	if err != nil {
 		return report, err
 	}
+
+	// Collect unique regular-file blob ids first-seen so size and sample
+	// lookups each run through a single long-lived cat-file process.
+	blobOrder := make([]string, 0)
+	isRegularBlob := make(map[string]bool)
+	for _, commit := range commits {
+		for _, record := range commit.records {
+			fields := strings.Fields(string(record.meta))
+			if len(fields) < 5 {
+				return report, fmt.Errorf("unexpected diff-tree record for %s", commit.oid)
+			}
+			if !regularFileMode(fields[1]) {
+				continue
+			}
+			oid := fields[3]
+			if !isRegularBlob[oid] {
+				isRegularBlob[oid] = true
+				blobOrder = append(blobOrder, oid)
+			}
+		}
+	}
+
+	sizes, err := blobSizes(root, blobOrder)
+	if err != nil {
+		return report, err
+	}
+	sampleOrder := make([]string, 0, len(blobOrder))
+	for _, oid := range blobOrder {
+		if sizes[oid] <= maxBlobBytes {
+			sampleOrder = append(sampleOrder, oid)
+		}
+	}
+	formats, err := blobFormats(root, sampleOrder)
+	if err != nil {
+		return report, err
+	}
+
 	seen := make(map[string]bool)
-	blobs := make(map[string]blobInfo)
 	findings := make([]Finding, 0)
 	for _, commit := range commits {
-		changes, err := gitNUL(root, "diff-tree", "--no-renames", "--no-commit-id", "--root", "-r", "-m", "--diff-filter=AMT", "--raw", "-z", commit)
-		if err != nil {
-			return report, err
-		}
-		for i := 0; i+1 < len(changes); i += 2 {
-			header, path := string(changes[i]), string(changes[i+1])
-			fields := strings.Fields(header)
-			if len(fields) < 5 || !strings.HasPrefix(header, ":") {
-				return report, fmt.Errorf("unexpected diff-tree record for %s", commit)
+		for _, record := range commit.records {
+			path := string(record.path)
+			fields := strings.Fields(string(record.meta))
+			if len(fields) < 5 {
+				return report, fmt.Errorf("unexpected diff-tree record for %s", commit.oid)
 			}
 			if len(report.Paths) < maxPathEvidence {
-				report.Paths = append(report.Paths, PathEvidence{Commit: commit, Path: path})
+				report.Paths = append(report.Paths, PathEvidence{Commit: commit.oid, Path: path})
 			} else {
 				report.PathsTruncated = true
 			}
-			for _, finding := range classifyPath(commit, path) {
+			for _, finding := range classifyPath(commit.oid, path) {
 				addFinding(&findings, seen, finding)
 			}
 			if !regularFileMode(fields[1]) {
 				continue
 			}
 			oid := fields[3]
-			blob, ok := blobs[oid]
+			size, ok := sizes[oid]
 			if !ok {
-				blob.size, err = blobSize(root, oid)
-				if err != nil {
-					return report, err
-				}
-				blobs[oid] = blob
+				return report, fmt.Errorf("missing blob size for %s", oid)
 			}
-			size := blob.size
 			if size > maxBlobBytes {
 				addFinding(&findings, seen, Finding{
-					Level: "blocked", Rule: "large-blob", Commit: commit, Path: path, Size: size,
+					Level: "blocked", Rule: "large-blob", Commit: commit.oid, Path: path, Size: size,
 				})
 				continue
 			}
-			if !blob.sampled {
-				sample, err := blobSample(root, oid)
-				if err != nil {
-					return report, err
-				}
-				blob.format = executableFormat(sample)
-				blob.sampled = true
-				blobs[oid] = blob
-			}
-			if blob.format != "" {
+			if blobFormat := formats[oid]; blobFormat != "" {
 				addFinding(&findings, seen, Finding{
-					Level: "blocked", Rule: "executable-content", Commit: commit, Path: path,
+					Level: "blocked", Rule: "executable-content", Commit: commit.oid, Path: path,
 				})
 			}
 		}
@@ -113,12 +130,6 @@ func scan(root, revision string, maxBlobBytes int64) (Report, error) {
 		}
 	}
 	return report, nil
-}
-
-type blobInfo struct {
-	size    int64
-	format  string
-	sampled bool
 }
 
 func regularFileMode(mode string) bool {
@@ -227,74 +238,6 @@ func isMachOFat(sample []byte) bool {
 		entrySize = 32
 	}
 	return uint64(8)+uint64(narch)*uint64(entrySize) <= uint64(len(sample))
-}
-
-func blobSample(root, oid string) ([]byte, error) {
-	probe := exec.Command("git", "cat-file", "-e", oid+"^{blob}")
-	probe.Dir = root
-	if err := probe.Run(); err != nil {
-		return nil, err
-	}
-	cmd := exec.Command("git", "cat-file", "blob", oid)
-	cmd.Dir = root
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-	sample, readErr := io.ReadAll(io.LimitReader(stdout, sampleSize))
-	_ = stdout.Close()
-	waitErr := cmd.Wait()
-	if readErr != nil {
-		return nil, readErr
-	}
-	if waitErr != nil && len(sample) < sampleSize {
-		return nil, waitErr
-	}
-	return sample, nil
-}
-
-func blobSize(root, oid string) (int64, error) {
-	cmd := exec.Command("git", "cat-file", "-s", oid)
-	cmd.Dir = root
-	output, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-	size, err := strconv.ParseInt(strings.TrimSpace(string(output)), 10, 64)
-	if err != nil || size < 0 {
-		return 0, fmt.Errorf("invalid blob size for %s", oid)
-	}
-	return size, nil
-}
-
-func gitLines(root string, args ...string) ([]string, error) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = root
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	return strings.Fields(string(output)), nil
-}
-
-func gitNUL(root string, args ...string) ([][]byte, error) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = root
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-	records := bytes.Split(output, []byte{0})
-	if len(records) > 0 && len(records[len(records)-1]) == 0 {
-		records = records[:len(records)-1]
-	}
-	if len(records)%2 != 0 {
-		return nil, errors.New("odd number of diff-tree records")
-	}
-	return records, nil
 }
 
 func quoteGitPath(path string) string {
