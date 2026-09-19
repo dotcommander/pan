@@ -56,4 +56,8 @@ install: build
     if [ -L "$destination" ] && [ "$(readlink "$destination")" = "$target" ]; then
         exit 0
     fi
+    if [ -e "$destination" ] || [ -L "$destination" ]; then
+        echo "error: $destination exists and is not a link to $target; remove it first" >&2
+        exit 1
+    fi
     ln -s "$target" "$destination"
