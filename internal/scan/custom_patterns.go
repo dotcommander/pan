@@ -14,11 +14,15 @@ import (
 	"github.com/dlclark/regexp2"
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/fileclass"
+	"github.com/dotcommander/pan/internal/pathmatch"
 )
 
 // CustomPatterns is a portable, deterministic local scoring catalog.
 // Its contents are never sent to a provider.
 type CustomPatterns struct {
+	// Version is the catalog schema version. Absent (0) means the original
+	// unversioned catalog and is accepted as version 1.
+	Version   int              `json:"version,omitempty"`
 	PathTerms []PathTerm       `json:"path_terms"`
 	Content   []ContentPattern `json:"content_patterns"`
 }
@@ -27,6 +31,10 @@ type CustomPatterns struct {
 type PathTerm struct {
 	Term   string `json:"term"`
 	Weight int    `json:"weight"`
+	// IncludeGlobs and ExcludeGlobs optionally scope the rule to matching
+	// slash-separated repo-relative paths; see selectorApplies.
+	IncludeGlobs []string `json:"include_globs,omitempty"`
+	ExcludeGlobs []string `json:"exclude_globs,omitempty"`
 }
 
 // ContentPattern raises the risk score for up to MaxMatches regular-expression
@@ -36,6 +44,10 @@ type ContentPattern struct {
 	Pattern    string `json:"pattern"`
 	Weight     int    `json:"weight"`
 	MaxMatches int    `json:"max_matches"`
+	// IncludeGlobs and ExcludeGlobs optionally scope the rule to matching
+	// slash-separated repo-relative paths; see selectorApplies.
+	IncludeGlobs []string `json:"include_globs,omitempty"`
+	ExcludeGlobs []string `json:"exclude_globs,omitempty"`
 }
 
 type compiledPattern struct {
@@ -49,6 +61,9 @@ func LoadCustomPatterns(data []byte) (CustomPatterns, error) {
 	if err := json.Unmarshal(data, &patterns); err != nil {
 		return CustomPatterns{}, fmt.Errorf("parse patterns: %w", err)
 	}
+	if patterns.Version != 0 && patterns.Version != 1 {
+		return CustomPatterns{}, fmt.Errorf("unsupported patterns version %d", patterns.Version)
+	}
 	if len(patterns.PathTerms) == 0 && len(patterns.Content) == 0 {
 		return CustomPatterns{}, errors.New("patterns must define path_terms or content_patterns")
 	}
@@ -56,13 +71,34 @@ func LoadCustomPatterns(data []byte) (CustomPatterns, error) {
 		if strings.TrimSpace(term.Term) == "" || term.Weight <= 0 {
 			return CustomPatterns{}, fmt.Errorf("invalid path_terms[%d]", i)
 		}
+		if err := validateGlobSelectors("path_terms[%d]", i, term.IncludeGlobs, term.ExcludeGlobs); err != nil {
+			return CustomPatterns{}, err
+		}
 	}
 	for i, item := range patterns.Content {
 		if strings.TrimSpace(item.ID) == "" || strings.TrimSpace(item.Pattern) == "" || item.Weight <= 0 || item.MaxMatches <= 0 {
 			return CustomPatterns{}, fmt.Errorf("invalid content_patterns[%d]", i)
 		}
+		if err := validateGlobSelectors("content_patterns[%d]", i, item.IncludeGlobs, item.ExcludeGlobs); err != nil {
+			return CustomPatterns{}, err
+		}
 	}
 	return patterns, nil
+}
+
+// validateGlobSelectors rejects glob selectors that can never match a path.
+func validateGlobSelectors(kind string, index int, include, exclude []string) error {
+	for _, pattern := range include {
+		if err := pathmatch.Validate(pattern); err != nil {
+			return fmt.Errorf("%s include_globs: %w", fmt.Sprintf(kind, index), err)
+		}
+	}
+	for _, pattern := range exclude {
+		if err := pathmatch.Validate(pattern); err != nil {
+			return fmt.Errorf("%s exclude_globs: %w", fmt.Sprintf(kind, index), err)
+		}
+	}
+	return nil
 }
 
 // LoadCustomPatternsFile reads and validates a local pattern catalog.
@@ -164,6 +200,16 @@ type customRiskRules struct {
 	patterns []compiledPattern
 }
 
+// selectorApplies reports whether a slash-separated relative path passes a
+// rule's glob selectors. An empty include list matches every path; any
+// exclude match vetoes the rule for the path.
+func selectorApplies(rel string, include, exclude []string) bool {
+	if len(include) > 0 && !pathmatch.MatchAny(include, rel) {
+		return false
+	}
+	return !pathmatch.MatchAny(exclude, rel)
+}
+
 func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules, risk *FileRisk) error {
 	// Preserve the historical custom-catalog reason ordering for callers that
 	// display the built-in marker once per source occurrence; structured
@@ -172,6 +218,9 @@ func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules,
 		risk.Reasons = append(risk.Reasons, "change marker")
 	}
 	for _, term := range rules.terms {
+		if !selectorApplies(rel, term.IncludeGlobs, term.ExcludeGlobs) {
+			continue
+		}
 		if pathTermMatches(strings.ToLower(rel), strings.ToLower(term.Term)) {
 			risk.Score += term.Weight
 			risk.Lanes = appendUnique(risk.Lanes, laneBestPractices)
@@ -192,6 +241,9 @@ func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules,
 		text[i] = line.text
 	}
 	for _, pattern := range rules.patterns {
+		if !selectorApplies(rel, pattern.IncludeGlobs, pattern.ExcludeGlobs) {
+			continue
+		}
 		count, err := customMatchCount(pattern.re, strings.Join(text, "\n"), pattern.MaxMatches)
 		if err != nil {
 			return fmt.Errorf("match custom pattern %s: %w", pattern.ID, err)

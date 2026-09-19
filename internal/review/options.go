@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/dotcommander/pan/internal/pathmatch"
 )
 
 const (
@@ -174,10 +176,10 @@ func ApplyOptionsWithSelection(report Report, options Options) (SelectionResult,
 }
 
 func selectionReason(item ReadItem, options Options, focus *regexp.Regexp) SelectionReason {
-	if len(options.Include) > 0 && !matchesAnyGlob(options.Include, item.Path) {
+	if len(options.Include) > 0 && !pathmatch.MatchAny(options.Include, item.Path) {
 		return ReasonIncludeMismatch
 	}
-	if matchesAnyGlob(options.Exclude, item.Path) {
+	if pathmatch.MatchAny(options.Exclude, item.Path) {
 		return ReasonExcludeMatch
 	}
 	if options.Inventory != "" && !hasInventoryLane(item, options.Inventory) {
@@ -245,29 +247,6 @@ func isErrorHandlingInventoryItem(item ReadItem) bool {
 	}
 	lower := strings.ToLower(strings.ReplaceAll(item.Path, "\\", "/"))
 	return strings.Contains(lower, "cli") || strings.Contains(lower, "main.go")
-}
-
-func matchesAnyGlob(patterns []string, value string) bool {
-	for _, pattern := range patterns {
-		if doublestarMatch(strings.Split(pattern, "/"), strings.Split(value, "/")) {
-			return true
-		}
-	}
-	return false
-}
-
-func doublestarMatch(pattern, value []string) bool {
-	if len(pattern) == 0 {
-		return len(value) == 0
-	}
-	if pattern[0] == "**" {
-		return doublestarMatch(pattern[1:], value) || len(value) > 0 && doublestarMatch(pattern, value[1:])
-	}
-	if len(value) == 0 {
-		return false
-	}
-	matched, err := path.Match(pattern[0], value[0])
-	return err == nil && matched && doublestarMatch(pattern[1:], value[1:])
 }
 
 func rationale(items []ReadItem, top int) []Rationale {

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -41,12 +42,18 @@ type HTTPError struct {
 	StatusCode int
 	RetryAfter string
 	Detail     string
+	// RequestID is the provider correlation id when the response supplies
+	// one, so failures can be traced in provider logs.
+	RequestID string
 }
 
 func (e *HTTPError) Error() string {
 	message := fmt.Sprintf("provider returned HTTP %d", e.StatusCode)
 	if e.Detail != "" {
 		message += ": " + e.Detail
+	}
+	if e.RequestID != "" {
+		message += " (request " + e.RequestID + ")"
 	}
 	return message
 }
@@ -168,7 +175,7 @@ func (c *Client) completeOnce(ctx context.Context, request Request) (Response, e
 }
 
 func (c *Client) httpError(res *http.Response) *HTTPError {
-	result := &HTTPError{StatusCode: res.StatusCode, RetryAfter: res.Header.Get("Retry-After")}
+	result := &HTTPError{StatusCode: res.StatusCode, RetryAfter: res.Header.Get("Retry-After"), RequestID: requestIDFromHeaders(res.Header)}
 	data, err := io.ReadAll(io.LimitReader(res.Body, 8<<10))
 	if err != nil {
 		return result
@@ -233,14 +240,67 @@ func (c *Client) decode(body io.Reader, model string) (Response, error) {
 	if err != nil {
 		return Response{}, err
 	}
+	var response Response
 	switch c.provider {
 	case providerAnthropic:
-		return decodeAnthropic(data)
+		response, err = decodeAnthropic(data)
 	case providerGemini:
-		return decodeGemini(data, model)
+		response, err = decodeGemini(data, model)
 	default:
-		return decodeOpenAI(data)
+		response, err = decodeOpenAI(data)
 	}
+	if err != nil {
+		return Response{}, err
+	}
+	if !modelEchoMatches(model, response.Model) {
+		return Response{}, fmt.Errorf("provider served model %q; requested %q", response.Model, model)
+	}
+	return response, nil
+}
+
+// requestIDFromHeaders extracts the provider correlation id from the common
+// request-id headers (OpenAI, Anthropic, Gemini). Header lookup is
+// case-insensitive.
+func requestIDFromHeaders(header http.Header) string {
+	for _, name := range []string{"X-Request-Id", "Request-Id", "X-Goog-Request-Id"} {
+		if id := strings.TrimSpace(header.Get(name)); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// modelEchoMatches reports whether the model a provider served is consistent
+// with the requested model. Empty names skip the check because some
+// providers omit the echo and the Gemini adapter passes the request model
+// through. A vendor or project path prefix ("openai/gpt-4o",
+// "models/gemini-1.5-flash") and a version decoration ("gpt-4o-2024-08-13",
+// "claude-3-5-sonnet@20240620", "gemini-1.5-flash-latest") are tolerated; a
+// different family ("gpt-4o" served as "gpt-4o-mini") is a reroute and must
+// fail loudly so scores are never attributed to the wrong model identity.
+func modelEchoMatches(requested, served string) bool {
+	requested, served = strings.TrimSpace(requested), strings.TrimSpace(served)
+	if requested == "" || served == "" {
+		return true
+	}
+	if served == requested {
+		return true
+	}
+	if i := strings.LastIndex(served, "/"); i >= 0 {
+		served = served[i+1:]
+	}
+	if served == requested {
+		return true
+	}
+	rest, ok := strings.CutPrefix(served, requested)
+	if !ok || len(rest) < 2 {
+		return false
+	}
+	if rest[0] != '-' && rest[0] != ':' && rest[0] != '@' {
+		return false
+	}
+	tail := rest[1:]
+	return tail == "latest" || strings.ContainsFunc(tail, unicode.IsDigit)
 }
 
 func readResponse(body io.Reader, limit int64) ([]byte, error) {

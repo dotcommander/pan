@@ -143,15 +143,22 @@ func (o ModelOptions) scoreBatch(ctx context.Context, client *provider.Client, r
 		byIndex[score.Index] = score
 	}
 	for _, i := range missing {
-		key := cacheKey(o, rows[i])
 		score, ok := byIndex[i]
-		if !ok || score.Score < 1 || score.Score > 5 {
-			degradeModelScore(&rows[i], errors.New("invalid or missing model score"))
-			continue
+		switch {
+		case !ok:
+			// The judge answered the batch but abstained on this row.
+			markModelInconclusive(&rows[i], "no score returned for this row")
+		case score.Score < minModelScore || score.Score > maxModelScore:
+			// The judge committed an unusable verdict for this row.
+			markModelInconclusive(&rows[i], fmt.Sprintf("score %d outside %d-%d", score.Score, minModelScore, maxModelScore))
+		default:
+			// Key before applyModelScore mutates the row; cache entries are
+			// keyed on the deterministic pre-scoring state.
+			key := cacheKey(o, rows[i])
+			cached := cachedModelScore{Score: score.Score, Summary: strings.TrimSpace(score.Summary), Reasons: cleanModelReasons(score.Reasons)}
+			applyModelScore(&rows[i], cached)
+			storeModelScore(o, cache, key, cached)
 		}
-		cached := cachedModelScore{Score: score.Score, Summary: strings.TrimSpace(score.Summary), Reasons: cleanModelReasons(score.Reasons)}
-		applyModelScore(&rows[i], cached)
-		storeModelScore(o, cache, key, cached)
 	}
 	return nil
 }
@@ -194,6 +201,25 @@ func applyModelScore(row *ReadItem, score cachedModelScore) {
 	row.EvidenceID = EvidenceIdentity(*row)
 }
 
+// Model score contract: the judge returns one score per row within
+// [minModelScore, maxModelScore] (see modelPrompt).
+const (
+	minModelScore = 1
+	maxModelScore = 5
+)
+
+// markModelInconclusive records that the model judge did not commit a usable
+// verdict for a row: it either omitted the row from an otherwise valid
+// response or returned a score outside the contract. The deterministic score
+// is retained so ranking is unchanged, and the recorded reason distinguishes
+// "the judge did not decide" (model_inconclusive) from "the pipe broke"
+// (model_error). Abstentions are deliberately not cached; the row is asked
+// again on the next run.
+func markModelInconclusive(row *ReadItem, detail string) {
+	row.Why = appendUnique(row.Why, "model_inconclusive:"+sanitizeModelDetail(detail))
+	row.EvidenceID = EvidenceIdentity(*row)
+}
+
 func degradeModelScore(row *ReadItem, err error) {
 	row.Why = appendUnique(row.Why, "model_error:"+safeModelError(err))
 	row.EvidenceID = EvidenceIdentity(*row)
@@ -202,7 +228,10 @@ func safeModelError(err error) string {
 	if err == nil {
 		return "unknown"
 	}
-	return strings.NewReplacer("\n", " ", "\r", " ").Replace(err.Error())
+	return sanitizeModelDetail(err.Error())
+}
+func sanitizeModelDetail(detail string) string {
+	return strings.NewReplacer("\n", " ", "\r", " ").Replace(detail)
 }
 func cleanModelReasons(reasons []string) []string {
 	for i := range reasons {

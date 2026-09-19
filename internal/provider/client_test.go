@@ -26,7 +26,7 @@ func TestCompletionToolContract(t *testing.T) {
 		if request.Model != "fixture-model" || len(request.Tools) != 1 || request.Tools[0].Function.Name != "submit" {
 			t.Errorf("unexpected request: %+v", request)
 		}
-		_, _ = io.WriteString(w, `{"id":"receipt","model":"actual-model","choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call1","type":"function","function":{"name":"submit","arguments":"{\"ok\":true}"}}]},"finish_reason":"tool_calls"}],"usage":{"total_tokens":9}}`)
+		_, _ = io.WriteString(w, `{"id":"receipt","model":"fixture-model-2024-01-01","choices":[{"message":{"role":"assistant","tool_calls":[{"id":"call1","type":"function","function":{"name":"submit","arguments":"{\"ok\":true}"}}]},"finish_reason":"tool_calls"}],"usage":{"total_tokens":9}}`)
 	}))
 	t.Cleanup(server.Close)
 	client, err := New(Config{BaseURL: server.URL + "/v1/", APIKey: "fixture-key", Model: "fixture-model"})
@@ -37,7 +37,7 @@ func TestCompletionToolContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Model != "actual-model" || result.Usage.TotalTokens != 9 || result.Choices[0].Message.ToolCalls[0].Function.Arguments != `{"ok":true}` {
+	if result.Model != "fixture-model-2024-01-01" || result.Usage.TotalTokens != 9 || result.Choices[0].Message.ToolCalls[0].Function.Arguments != `{"ok":true}` {
 		t.Fatalf("lost response contract: %+v", result)
 	}
 }
