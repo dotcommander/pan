@@ -19,11 +19,14 @@ type parsedSource struct {
 	Symbols    []Symbol
 	Imports    []string
 	References []sourceReference
+	Bindings   []sourceBinding
+	Shadows    map[string]bool
 }
 
 type sourceReference struct {
-	Name string
-	Line int
+	Name   string
+	Line   int
+	Column int
 }
 
 var treeSitterLanguages = map[string]func() *tree_sitter.Language{
@@ -65,6 +68,7 @@ func parseTreeSitterBytes(source []byte, relative, language string) (parsedSourc
 		return parsedSource{}, queryErr
 	}
 	parsed.References = references
+	parsed.Bindings, parsed.Shadows = namedBindings(tree.RootNode(), source, language)
 	return parsed, nil
 }
 

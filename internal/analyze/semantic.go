@@ -3,7 +3,7 @@ package analyze
 import (
 	"go/ast"
 	"go/types"
-	"path/filepath"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -20,13 +20,45 @@ func (b *builder) addSemanticGoCalls() {
 		b.diag(Diagnostic{Level: diagnosticWarning, Message: "semantic Go analysis: " + err.Error()})
 		return
 	}
+	targets := b.goCallTargets(loaded)
+	resolved := make(map[Location]Edge)
+	conflicted := make(map[Location]bool)
 	for _, pkg := range loaded {
 		if pkg.TypesInfo == nil || pkg.Fset == nil {
 			continue
 		}
 		for _, file := range pkg.Syntax {
-			b.addPackageCalls(pkg, file)
+			b.addPackageCalls(pkg, file, targets, resolved, conflicted)
 		}
+	}
+	// Replace only the lexical evidence for the same expression. A different
+	// call on the same line retains its own lexical fallback.
+	remaining := b.snap.Edges[:0]
+	for _, edge := range b.snap.Edges {
+		if edge.Kind == "calls" && edge.Confidence == ConfidenceLexical {
+			if typed, ok := resolved[edge.Location]; ok && typed.From == edge.From && typed.To == edge.To {
+				b.nodes--
+				continue
+			}
+		}
+		remaining = append(remaining, edge)
+	}
+	b.snap.Edges = remaining
+	sites := make([]Location, 0, len(resolved))
+	for site := range resolved {
+		sites = append(sites, site)
+	}
+	slices.SortFunc(sites, func(a, b Location) int {
+		if a.Path != b.Path {
+			return strings.Compare(a.Path, b.Path)
+		}
+		if a.Line != b.Line {
+			return a.Line - b.Line
+		}
+		return a.Column - b.Column
+	})
+	for _, site := range sites {
+		b.addEdge(resolved[site])
 	}
 }
 
@@ -39,7 +71,7 @@ func hasGoFiles(files []File) bool {
 	return false
 }
 
-func (b *builder) addPackageCalls(pkg *packages.Package, file *ast.File) {
+func (b *builder) addPackageCalls(pkg *packages.Package, file *ast.File, targets map[types.Object]Location, resolved map[Location]Edge, conflicted map[Location]bool) {
 	for _, declaration := range file.Decls {
 		function, ok := declaration.(*ast.FuncDecl)
 		if !ok || function.Body == nil {
@@ -48,24 +80,38 @@ func (b *builder) addPackageCalls(pkg *packages.Package, file *ast.File) {
 		ast.Inspect(function.Body, func(node ast.Node) bool {
 			call, ok := node.(*ast.CallExpr)
 			if ok {
-				b.addTypedCall(pkg, call, function.Name.Name)
+				b.addTypedCall(pkg, call, function.Name.Name, targets, resolved, conflicted)
 			}
 			return true
 		})
 	}
 }
 
-func (b *builder) addTypedCall(pkg *packages.Package, call *ast.CallExpr, caller string) {
+func (b *builder) addTypedCall(pkg *packages.Package, call *ast.CallExpr, caller string, targets map[types.Object]Location, resolved map[Location]Edge, conflicted map[Location]bool) {
 	callee := callObject(pkg.TypesInfo, call)
-	if callee == nil || callee.Pkg() == nil {
+	if callee == nil {
 		return
+	}
+	target, ok := targets[callee]
+	if !ok {
+		return // The declaration is outside the bounded snapshot: keep lexical evidence.
 	}
 	position := pkg.Fset.Position(call.Pos())
-	rel, err := filepath.Rel(b.snap.Root, position.Filename)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	rel := b.goPackagePath(position.Filename)
+	if rel == "" {
 		return
 	}
-	b.addEdge(Edge{From: caller, To: callee.Name(), Kind: "calls", Confidence: ConfidenceConfirmed, Location: Location{Path: filepath.ToSlash(rel), Line: position.Line}})
+	site := Location{Path: rel, Line: position.Line, Column: position.Column}
+	if conflicted[site] {
+		return
+	}
+	edge := Edge{From: caller, To: callee.Name(), Kind: "calls", Confidence: ConfidenceConfirmed, Location: site, Target: &target}
+	if previous, exists := resolved[site]; exists && *previous.Target != target {
+		delete(resolved, site)
+		conflicted[site] = true
+		return
+	}
+	resolved[site] = edge
 }
 
 func callObject(info *types.Info, call *ast.CallExpr) types.Object {

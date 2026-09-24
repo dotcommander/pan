@@ -105,6 +105,8 @@ type builder struct {
 	skipped    []string
 	diags      []Diagnostic
 	references map[string][]sourceReference
+	bindings   map[string][]sourceBinding
+	shadows    map[string]map[string]bool
 }
 
 func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
@@ -218,6 +220,18 @@ func (b *builder) parseSource(file File, contents []byte) {
 		}
 		b.references[file.Path] = append(b.references[file.Path], parsed.References...)
 	}
+	if len(parsed.Bindings) > 0 {
+		if b.bindings == nil {
+			b.bindings = make(map[string][]sourceBinding)
+		}
+		b.bindings[file.Path] = parsed.Bindings
+	}
+	if len(parsed.Shadows) > 0 {
+		if b.shadows == nil {
+			b.shadows = make(map[string]map[string]bool)
+		}
+		b.shadows[file.Path] = parsed.Shadows
+	}
 }
 
 func (b *builder) parseGoBytes(contents []byte, rel string) {
@@ -258,7 +272,8 @@ func (b *builder) addCallEdges(fset *token.FileSet, rel string, fn *ast.FuncDecl
 			return true
 		}
 		if name := callName(call.Fun); name != "" {
-			b.addEdge(Edge{From: fn.Name.Name, To: name, Kind: "calls", Confidence: "lexical", Location: locate(fset, call.Pos(), rel)})
+			position := fset.Position(call.Pos())
+			b.addEdge(Edge{From: fn.Name.Name, To: name, Kind: "calls", Confidence: ConfidenceLexical, Location: Location{Path: rel, Line: position.Line, Column: position.Column}})
 		}
 		return true
 	})
@@ -333,7 +348,13 @@ func (b *builder) finalize() Snapshot {
 		if s.Edges[i].Symbol != s.Edges[j].Symbol {
 			return s.Edges[i].Symbol < s.Edges[j].Symbol
 		}
-		return s.Edges[i].Location.Line < s.Edges[j].Location.Line
+		if s.Edges[i].Location.Path != s.Edges[j].Location.Path {
+			return s.Edges[i].Location.Path < s.Edges[j].Location.Path
+		}
+		if s.Edges[i].Location.Line != s.Edges[j].Location.Line {
+			return s.Edges[i].Location.Line < s.Edges[j].Location.Line
+		}
+		return s.Edges[i].Location.Column < s.Edges[j].Location.Column
 	})
 	skipped := sortedUnique(b.skipped)
 	if len(skipped) > maxSkippedReported {
@@ -355,40 +376,6 @@ func (b *builder) finalize() Snapshot {
 	s.Diagnostics = diags
 	s.SchemaVersion = SchemaVersion
 	return s
-}
-
-func (b *builder) resolveReferences() {
-	definitions := make(map[string][]string)
-	declarations := make(map[sourceReferenceKey]struct{})
-	for _, symbol := range b.snap.Symbols {
-		definitions[symbol.Name] = append(definitions[symbol.Name], symbol.Location.Path)
-		declarations[sourceReferenceKey{Path: symbol.Location.Path, Name: symbol.Name, Line: symbol.Location.Line}] = struct{}{}
-	}
-	fromPaths := make([]string, 0, len(b.references))
-	for from := range b.references {
-		fromPaths = append(fromPaths, from)
-	}
-	slices.Sort(fromPaths)
-	for _, from := range fromPaths {
-		references := b.references[from]
-		for _, reference := range references {
-			if _, declaration := declarations[sourceReferenceKey{Path: from, Name: reference.Name, Line: reference.Line}]; declaration {
-				continue
-			}
-			for _, to := range sortedUnique(definitions[reference.Name]) {
-				if from == to {
-					continue
-				}
-				b.addEdge(Edge{From: from, To: to, Kind: "references", Symbol: reference.Name, Confidence: ConfidenceSyntactic, Location: Location{Path: from, Line: reference.Line}})
-			}
-		}
-	}
-}
-
-type sourceReferenceKey struct {
-	Path string
-	Name string
-	Line int
 }
 
 func sortedUnique(values []string) []string {

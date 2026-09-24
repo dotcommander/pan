@@ -145,12 +145,11 @@ func (s Service) Calls(ctx context.Context, root, selector string, depth int) (a
 	if selector == "" {
 		return snap, nil, errors.New("symbol selector is required")
 	}
-	var result []analyze.Edge
-	for _, edge := range snap.Edges {
-		if edge.Kind == callsEdgeKind && (edge.From == selector || edge.To == selector) {
-			result = append(result, edge)
-		}
+	match, err := selectCallSymbol(ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{}), selector)
+	if err != nil {
+		return snap, nil, err
 	}
+	result := selectedCallEdges(snap, selector, match)
 	if len(result) == 0 {
 		snap.Diagnostics = append(snap.Diagnostics, analyze.Diagnostic{Level: levelInfo, Message: "no matching calls found in analyzed graph"})
 	}

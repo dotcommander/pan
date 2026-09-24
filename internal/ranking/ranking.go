@@ -570,59 +570,6 @@ func resolveSuffix(imp string, dirs map[string]struct{}, out *string) bool {
 	return false
 }
 
-// applyCallerScores credits files whose symbols are called from elsewhere.
-// Pan's call edges match bare callee names, so this evidence is lexical: a
-// same-named helper in another package is indistinguishable. Caller files
-// come from the call edge location; From is the caller symbol name.
-func applyCallerScores(ranked []RankedFile, snap analyze.Snapshot) {
-	symbolsByFile := make(map[string]map[string]struct{})
-	byPath := make(map[string]*RankedFile, len(ranked))
-	for i := range ranked {
-		byPath[ranked[i].Path] = &ranked[i]
-	}
-	for p, g := range groupPaths(ranked) {
-		set := make(map[string]struct{}, len(g))
-		for _, name := range g {
-			set[name] = struct{}{}
-		}
-		symbolsByFile[p] = set
-	}
-	callers := make(map[string]map[string]struct{}) // file -> calling files
-	for _, edge := range snap.Edges {
-		if edge.Kind != edgeCalls {
-			continue
-		}
-		for file, names := range symbolsByFile {
-			if _, defined := names[edge.To]; defined && file != edge.Location.Path {
-				if callers[file] == nil {
-					callers[file] = make(map[string]struct{})
-				}
-				callers[file][edge.Location.Path] = struct{}{}
-			}
-		}
-	}
-	for file, sources := range callers {
-		rf, ok := byPath[file]
-		if !ok {
-			continue
-		}
-		addComponent(rf, ComponentCallers, min(20, len(sources)*2))
-		rf.CallerCount = len(sources)
-		rf.Confidence = analyze.ConfidenceLexical
-	}
-}
-
-// groupPaths maps file path -> defined symbol names.
-func groupPaths(ranked []RankedFile) map[string][]string {
-	out := make(map[string][]string, len(ranked))
-	for i := range ranked {
-		for _, symbol := range ranked[i].Symbols {
-			out[ranked[i].Path] = append(out[ranked[i].Path], symbol.Name)
-		}
-	}
-	return out
-}
-
 func applyTestSignals(ranked []RankedFile, includeTests bool) {
 	for i := range ranked {
 		if ranked[i].TestFile && !includeTests {

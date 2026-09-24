@@ -341,9 +341,9 @@ func TestBuildResolvesCapturedTreeSitterReferences(t *testing.T) {
 	t.Parallel()
 	dir := writeTree(t, map[string]string{
 		"definition.py":  "class Worker:\n    pass\n",
-		"consumer.py":    "def build():\n    return Worker()\n",
+		"consumer.py":    "from definition import Worker\ndef build():\n    return Worker()\n",
 		"definition.ts":  "export class Page {}\n",
-		"consumer.ts":    "export function render(): Page { return new Page() }\n",
+		"consumer.ts":    "import { Page } from './definition'\nexport function render(): Page { return new Page() }\n",
 		"duplicate-a.py": "class Duplicate:\n    pass\n",
 		"duplicate-b.py": "class Duplicate:\n    pass\n",
 	})

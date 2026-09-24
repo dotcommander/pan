@@ -26,8 +26,8 @@ func TestApplySymbolReferenceBonusPromotesReferencedNonGoSymbol(t *testing.T) {
 
 func TestApplyCallEdgeBonusFiltersTestEvidence(t *testing.T) {
 	t.Parallel()
-	ranked := []RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true}}, Components: map[string]int{}}}
-	edges := []analyze.Edge{{To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "a_test.go"}}}
+	ranked := []RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true, Location: analyze.Location{Path: "a.go", Line: 1}}}, Components: map[string]int{}}}
+	edges := []analyze.Edge{{To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "a_test.go"}, Target: &analyze.Location{Path: "a.go", Line: 1}}}
 	ApplyCallEdgeBonus(ranked, edges, 2, false)
 	if ranked[0].Components[ComponentCallers] != 0 {
 		t.Fatalf("test caller was scored: %#v", ranked[0])
@@ -40,7 +40,7 @@ func TestApplyCallEdgeBonusFiltersTestEvidence(t *testing.T) {
 
 func TestApplyCallEdgeBonusRejectsLexicalEvidence(t *testing.T) {
 	t.Parallel()
-	ranked := []RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true}}, Components: map[string]int{}}}
+	ranked := []RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true, Location: analyze.Location{Path: "a.go", Line: 1}}}, Components: map[string]int{}}}
 	ApplyCallEdgeBonus(ranked, []analyze.Edge{{To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceLexical, Location: analyze.Location{Path: "other.go"}}}, 2, true)
 	if ranked[0].Components[ComponentCallers] != 0 {
 		t.Fatalf("lexical caller was scored: %#v", ranked[0])

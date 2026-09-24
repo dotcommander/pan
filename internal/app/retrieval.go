@@ -327,18 +327,17 @@ func (s Service) Task(ctx context.Context, root, goal string, opts retrieval.Tas
 	return snap, report, nil
 }
 
-// ImpactReport bundles the blast-radius answer for one selector: the
-// lexical call edges touching the selector by name, the impact facts for
-// the file defining the best match, and whether any symbol matched at all.
+// ImpactReport bundles call evidence for one unambiguous selector, its
+// defining file's blast radius, and whether a symbol matched at all.
 type ImpactReport struct {
 	Edges  []analyze.Edge
 	Impact retrieval.ImpactResult
 	Found  bool
 }
 
-// Impact summarizes the blast radius of the file defining the best match for
-// selector, alongside the call edges touching the selector by name. Found
-// reports whether any symbol matched; call evidence is always lexical.
+// Impact summarizes the blast radius and call evidence for an exact symbol.
+// Ambiguous selectors require a handle; unmatched selectors retain lexical
+// evidence without claiming that a declaration was found.
 func (s Service) Impact(ctx context.Context, root, selector string) (analyze.Snapshot, ImpactReport, error) {
 	if selector == "" {
 		return analyze.Snapshot{}, ImpactReport{}, errors.New("symbol selector is required")
@@ -347,30 +346,20 @@ func (s Service) Impact(ctx context.Context, root, selector string) (analyze.Sna
 	if err != nil {
 		return analyze.Snapshot{}, ImpactReport{}, err
 	}
-	report := ImpactReport{Edges: callEdges(snap, selector)}
+	ranked := ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{})
+	match, err := selectCallSymbol(ranked, selector)
+	if err != nil {
+		return snap, ImpactReport{}, err
+	}
+	report := ImpactReport{Edges: selectedCallEdges(snap, selector, match)}
 	if len(report.Edges) == 0 {
 		snap.Diagnostics = append(snap.Diagnostics, analyze.Diagnostic{Level: levelInfo, Message: "no matching calls found in analyzed graph"})
 	}
-	ranked := ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{})
-	matches := retrieval.Find(ranked, selector, "", "")
-	if len(matches) == 0 {
-		return snap, report, nil
+	if match != nil {
+		report.Impact, _ = retrieval.Impact(ranked, match.File)
+		report.Found = true
 	}
-	report.Impact, _ = retrieval.Impact(ranked, matches[0].File)
-	report.Found = true
 	return snap, report, nil
-}
-
-// callEdges selects call edges touching selector by name, preserving the
-// snapshot's order.
-func callEdges(snap analyze.Snapshot, selector string) []analyze.Edge {
-	var edges []analyze.Edge
-	for _, edge := range snap.Edges {
-		if edge.Kind == "calls" && (edge.From == selector || edge.To == selector) {
-			edges = append(edges, edge)
-		}
-	}
-	return edges
 }
 
 // CacheStatus reports cache freshness for root under dir. An empty dir uses

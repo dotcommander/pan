@@ -2,6 +2,7 @@ package scan
 
 import (
 	"context"
+	"slices"
 
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/graph"
@@ -19,12 +20,14 @@ const (
 // and nontrivial strongly connected components (cycles, including
 // single-node recursion).
 type GraphReport struct {
-	Nodes       int            `json:"nodes"`
-	Edges       int            `json:"edges"`
-	Kinds       map[string]int `json:"kinds"`
-	Hubs        []graph.Hub    `json:"hubs"`
-	Cycles      [][]string     `json:"cycles"`
-	Truncations []Truncation   `json:"truncations,omitempty"`
+	Nodes           int                           `json:"nodes"`
+	Edges           int                           `json:"edges"`
+	Kinds           map[string]int                `json:"kinds"`
+	Hubs            []graph.Hub                   `json:"hubs"`
+	Cycles          [][]string                    `json:"cycles"`
+	Unresolved      []analyze.UnresolvedReference `json:"unresolved,omitempty"`
+	UnresolvedCount int                           `json:"unresolved_count,omitempty"`
+	Truncations     []Truncation                  `json:"truncations,omitempty"`
 }
 
 // Graph builds the report from every edge in the snapshot regardless of
@@ -46,14 +49,24 @@ func Graph(_ context.Context, snap analyze.Snapshot, top int) (GraphReport, erro
 	hubs := directed.Hubs(top)
 	cycles := directed.Cycles()
 	report := GraphReport{
-		Nodes:  len(nodes),
-		Edges:  directed.EdgeCount(),
-		Kinds:  kinds,
-		Hubs:   hubs,
-		Cycles: cycles,
+		Nodes:           len(nodes),
+		Edges:           directed.EdgeCount(),
+		Kinds:           kinds,
+		Hubs:            hubs,
+		Cycles:          cycles,
+		Unresolved:      slices.Clone(snap.UnresolvedReferences),
+		UnresolvedCount: snap.UnresolvedCount,
+	}
+	for i := range report.Unresolved {
+		report.Unresolved[i].Candidates = slices.Clone(report.Unresolved[i].Candidates)
 	}
 	if report.Cycles == nil {
 		report.Cycles = [][]string{}
+	}
+	if truncation := snap.UnresolvedTruncation; truncation != nil {
+		report.Truncations = append(report.Truncations, Truncation{
+			Field: truncation.Field, Shown: truncation.Shown, Total: truncation.Total, Reason: truncation.Reason,
+		})
 	}
 	if len(hubs) < len(nodes) {
 		report.Truncations = append(report.Truncations, Truncation{

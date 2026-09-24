@@ -128,6 +128,26 @@ func TestGraphEmptySnapshotHasStableShape(t *testing.T) {
 	}
 }
 
+func TestGraphSurfacesBoundedUnresolvedEvidence(t *testing.T) {
+	t.Parallel()
+	snap := analyze.Snapshot{
+		UnresolvedReferences: []analyze.UnresolvedReference{{From: "use.ts", Name: "Page", Reason: "no_import_binding", Candidates: []string{"a.ts", "b.ts"}, CandidateCount: 2}},
+		UnresolvedCount:      65,
+		UnresolvedTruncation: &analyze.Truncation{Field: "unresolved_references", Shown: 64, Total: 65, Reason: "unresolved evidence cap"},
+	}
+	report, err := Graph(context.Background(), snap, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.UnresolvedCount != 65 || len(report.Unresolved) != 1 || report.Unresolved[0].Reason != "no_import_binding" || len(report.Truncations) != 1 || report.Truncations[0].Total != 65 {
+		t.Fatalf("unresolved graph result = %+v", report)
+	}
+	report.Unresolved[0].Candidates[0] = "mutated"
+	if snap.UnresolvedReferences[0].Candidates[0] != "a.ts" {
+		t.Fatal("graph result mutated the snapshot")
+	}
+}
+
 func numberNode(i int) string {
 	return "n" + string(rune('A'+i%26)) + string(rune('0'+i/26))
 }

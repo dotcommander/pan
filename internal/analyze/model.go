@@ -13,7 +13,7 @@ const SchemaVersion = "pan/v1"
 // AnalyzerRevision changes when compiled evidence semantics change without a
 // public envelope schema change. Cache entries must match this value before
 // their stored snapshot can be reused.
-const AnalyzerRevision = "reference-queries/v1"
+const AnalyzerRevision = "resolved-calls-and-references/v2"
 
 const (
 	LanguageGo        = "go"
@@ -42,8 +42,9 @@ const (
 
 // Location names one repository-relative path and line.
 type Location struct {
-	Path string `json:"path"`
-	Line int    `json:"line"`
+	Path   string `json:"path"`
+	Line   int    `json:"line"`
+	Column int    `json:"column,omitempty"`
 }
 
 // Diagnostic is one analysis-time observation attached to a snapshot.
@@ -98,12 +99,13 @@ type Symbol struct {
 // Edge is one relationship between two named nodes with the confidence
 // label describing how it was observed.
 type Edge struct {
-	From       string   `json:"from"`
-	To         string   `json:"to"`
-	Kind       string   `json:"kind"`
-	Symbol     string   `json:"symbol,omitempty"`
-	Confidence string   `json:"confidence"`
-	Location   Location `json:"location"`
+	From       string    `json:"from"`
+	To         string    `json:"to"`
+	Kind       string    `json:"kind"`
+	Symbol     string    `json:"symbol,omitempty"`
+	Confidence string    `json:"confidence"`
+	Location   Location  `json:"location"`
+	Target     *Location `json:"target,omitempty"` // Exact in-snapshot declaration, only for resolved calls.
 }
 
 // Truncation records one bounded output surface: how many entries were
@@ -115,6 +117,18 @@ type Truncation struct {
 	Shown  int    `json:"shown"`
 	Total  int    `json:"total"`
 	Reason string `json:"reason"`
+}
+
+// UnresolvedReference records a bounded, unproven non-Go reference. It is
+// evidence of uncertainty, not proof that a declaration does not exist.
+type UnresolvedReference struct {
+	From           string   `json:"from"`
+	Name           string   `json:"name"`
+	Line           int      `json:"line"`
+	Column         int      `json:"column,omitempty"`
+	Reason         string   `json:"reason"`
+	Candidates     []string `json:"candidates,omitempty"`
+	CandidateCount int      `json:"candidate_count,omitempty"`
 }
 
 // ReadNext names one bounded source span worth inspecting next, with a
@@ -139,16 +153,19 @@ const (
 // is left empty by Build; the calling service layers instruction discovery on
 // top of the finalized snapshot.
 type Snapshot struct {
-	SchemaVersion  string               `json:"schema_version"`
-	Root           string               `json:"root"`
-	Files          []File               `json:"files"`
-	Symbols        []Symbol             `json:"symbols"`
-	Edges          []Edge               `json:"edges"`
-	Instructions   []string             `json:"instructions"`
-	Status         Status               `json:"status"`
-	Diagnostics    []Diagnostic         `json:"diagnostics,omitempty"`
-	Captured       map[string][]byte    `json:"-"`
-	CapturedStamps map[string]FileStamp `json:"-"`
+	SchemaVersion        string                `json:"schema_version"`
+	Root                 string                `json:"root"`
+	Files                []File                `json:"files"`
+	Symbols              []Symbol              `json:"symbols"`
+	Edges                []Edge                `json:"edges"`
+	Instructions         []string              `json:"instructions"`
+	Status               Status                `json:"status"`
+	Diagnostics          []Diagnostic          `json:"diagnostics,omitempty"`
+	UnresolvedReferences []UnresolvedReference `json:"unresolved_references,omitempty"`
+	UnresolvedCount      int                   `json:"unresolved_count,omitempty"`
+	UnresolvedTruncation *Truncation           `json:"unresolved_truncation,omitempty"`
+	Captured             map[string][]byte     `json:"-"`
+	CapturedStamps       map[string]FileStamp  `json:"-"`
 }
 
 // Stamps returns a defensive copy of the metadata set verified around capture.

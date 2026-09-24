@@ -40,7 +40,10 @@ func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]
 	seen := make(map[sourceReference]struct{})
 	for match, captureIndex := captures.Next(); match != nil; match, captureIndex = captures.Next() {
 		node := match.Captures[captureIndex].Node
-		ref := sourceReference{Name: node.Utf8Text(source), Line: int(node.StartPosition().Row) + 1}
+		if insideImport(&node) {
+			continue
+		}
+		ref := sourceReference{Name: node.Utf8Text(source), Line: int(node.StartPosition().Row) + 1, Column: int(node.StartPosition().Column) + 1}
 		if ref.Name == "" {
 			continue
 		}
@@ -54,6 +57,9 @@ func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]
 		if a.Line != b.Line {
 			return a.Line - b.Line
 		}
+		if a.Column != b.Column {
+			return a.Column - b.Column
+		}
 		if a.Name < b.Name {
 			return -1
 		}
@@ -63,4 +69,14 @@ func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]
 		return 0
 	})
 	return refs, nil
+}
+
+func insideImport(node *tree_sitter.Node) bool {
+	for parent := node.Parent(); parent != nil; parent = parent.Parent() {
+		switch parent.Kind() {
+		case "import_statement", "import_from_statement":
+			return true
+		}
+	}
+	return false
 }

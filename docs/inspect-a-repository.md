@@ -26,7 +26,9 @@ Before an absence claim, run this source-checked, unexecuted variation:
 | You know… | Use… | What it returns |
 | --- | --- | --- |
 | Only the task or goal | `./pan --repo . context brief "describe the task"` | A task-oriented repository summary. |
-| A symbol to trace | `./pan --repo . flow calls SymbolName --depth 2` | Bounded call-edge evidence for that selector. |
+| A bounded implementation packet | `./pan --repo . context task "describe the task" --tokens 4096` | Distinct matched goal terms, selected targets, and recorded omissions. |
+| A symbol to trace | `./pan --repo . flow calls SymbolName --depth 2` | Bounded call-edge evidence; use an exact `symbol:` handle when names collide. |
+| Graph reference uncertainty | `./pan --repo . --format json scan graph` | Resolved edges and bounded `unresolved` reference reasons. |
 | A route to trace | `./pan --repo . flow endpoint /route` | Route-to-handler-to-test evidence. |
 | A file whose change impact matters | `./pan --repo . context impact path/to/file.go` | Evidence-backed blast radius for that file. |
 | A review starting point | `./pan --repo . scan risks` | A risk-ranked review queue. |
@@ -41,5 +43,11 @@ A bounded snapshot can omit files because a configured size, node, or other limi
 | --- | --- | --- | --- |
 | A symbol or file is absent from a result. | The snapshot may be incomplete or the path may be excluded. | Read the command's `analysis` fields and run `scan doctor` when coverage is unclear. | Treat absence as a conclusion only after coverage supports it. |
 | A command needs more detail than the default result shows. | Some task-oriented commands project compact output by default. | Use that command's `--detail evidence` option. | Inspect `pan <command> --help` before scripting against a result shape. |
+
+Go call edges carry an exact `target` only when the declaration was captured and type-resolved. Interface dispatch and calls without an in-snapshot target remain lexical; a name shared by multiple declarations is not attributed to all of them. Use `context find SymbolName` to obtain an exact `symbol:` handle for `flow calls` or `flow impact` when Pan reports ambiguity.
+
+For Python and TypeScript-family references, only uniquely matched, supported named imports become dependency edges. Unbound, shadowed, missing, or colliding candidates are listed by `scan graph` under `unresolved` with `unresolved_count` and a truncation record when the bounded list overflows. An unresolved reference is not evidence that its target is absent. `analysis.complete` remains a separate statement about discovery coverage.
+
+`context task` tries feasible candidates for distinct matched goal terms before filling remaining slots by rank. When one target cannot fit, it tries later targets; source excerpts can be omitted with explicit truncation records. `budget.used_tokens` charges the finalized JSON packet by Pan's byte-based estimate (`ceil(encoded bytes / 4)`), not an exact model tokenizer.
 
 `pan <command> --help` is the supported way to inspect a command's current arguments and side effects.

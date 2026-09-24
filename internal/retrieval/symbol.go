@@ -124,35 +124,54 @@ func symbolSpan(symbol analyze.Symbol) int {
 	return 1
 }
 
-// symbolCallers derives lexical callers from the snapshot's call edges:
-// call sites whose callee name equals the symbol name. Bare-name matching
-// cannot distinguish same-named symbols in other packages, so every caller
-// carries the lexical confidence label.
+// symbolCallers keeps resolved calls on their exact declaration. Lexical
+// fallback belongs to a symbol only when its name is unique in the snapshot.
 func symbolCallers(snap analyze.Snapshot, match SymbolMatch, includeTests bool, limit int) []Caller {
+	uniqueName := true
+	for _, symbol := range snap.Symbols {
+		if symbol.Name == match.Symbol.Name && (symbol.Location != match.Symbol.Location || symbol.Kind != match.Symbol.Kind) {
+			uniqueName = false
+			break
+		}
+	}
 	seen := make(map[string]struct{})
 	var callers []Caller
 	for _, edge := range snap.Edges {
 		if edge.Kind != edgeKindCalls || edge.To != match.Symbol.Name {
 			continue
 		}
-		if edge.From == match.Symbol.Name && edge.Location.Path == match.File {
+		confidence := analyze.ConfidenceLexical
+		switch {
+		case edge.Target != nil:
+			if edge.Confidence != analyze.ConfidenceConfirmed || !edge.CallsSymbol(match.Symbol) {
+				continue
+			}
+			confidence = analyze.ConfidenceConfirmed
+		case !uniqueName || edge.Confidence != analyze.ConfidenceLexical:
+			continue
+		}
+		if edge.From == match.Symbol.Name && edge.Location.Path == match.File && edge.Location.Line >= match.Symbol.Location.Line &&
+			(match.Symbol.EndLine < match.Symbol.Location.Line || edge.Location.Line <= match.Symbol.EndLine) {
 			continue // direct recursion is not caller evidence
 		}
 		if !includeTests && strings.Contains(edge.Location.Path, "_test.go") {
 			continue
 		}
-		key := edge.From + "\x00" + edge.Location.Path + "\x00" + strconv.Itoa(edge.Location.Line)
+		key := edge.From + "\x00" + edge.Location.Path + "\x00" + strconv.Itoa(edge.Location.Line) + ":" + strconv.Itoa(edge.Location.Column)
 		if _, dup := seen[key]; dup {
 			continue
 		}
 		seen[key] = struct{}{}
-		callers = append(callers, Caller{Symbol: edge.From, Location: edge.Location, Confidence: analyze.ConfidenceLexical})
+		callers = append(callers, Caller{Symbol: edge.From, Location: edge.Location, Confidence: confidence})
 	}
 	slices.SortFunc(callers, func(a, b Caller) int {
 		if a.Location.Path != b.Location.Path {
 			return compare(a.Location.Path, b.Location.Path)
 		}
-		return a.Location.Line - b.Location.Line
+		if a.Location.Line != b.Location.Line {
+			return a.Location.Line - b.Location.Line
+		}
+		return a.Location.Column - b.Location.Column
 	})
 	if limit == 0 {
 		return callers

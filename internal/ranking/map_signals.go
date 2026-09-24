@@ -93,7 +93,7 @@ func applyReferenceBonuses(ranked []RankedFile, refs map[string]map[string]struc
 // ApplyCallEdgeBonus promotes files with bounded call evidence.
 func ApplyCallEdgeBonus(ranked []RankedFile, edges []analyze.Edge, threshold int, includeTests bool) {
 	targets := edgeTargets(ranked, max(0, threshold))
-	callers := edgeCallers(len(ranked), edges, targets, includeTests)
+	callers := edgeCallers(ranked, edges, targets, includeTests)
 	applyCallerBonuses(ranked, callers)
 	sortRanked(ranked)
 }
@@ -113,13 +113,23 @@ func edgeTargets(ranked []RankedFile, threshold int) map[string][]int {
 	return targets
 }
 
-func edgeCallers(size int, edges []analyze.Edge, targets map[string][]int, includeTests bool) []map[string]struct{} {
-	callers := make([]map[string]struct{}, size)
+func edgeCallers(ranked []RankedFile, edges []analyze.Edge, targets map[string][]int, includeTests bool) []map[string]struct{} {
+	callers := make([]map[string]struct{}, len(ranked))
 	for _, edge := range edges {
-		if edge.Kind != edgeCalls || edge.Confidence != analyze.ConfidenceConfirmed || (!includeTests && strings.HasSuffix(edge.Location.Path, "_test.go")) {
+		if edge.Kind != edgeCalls || edge.Confidence != analyze.ConfidenceConfirmed || edge.Target == nil || (!includeTests && strings.HasSuffix(edge.Location.Path, "_test.go")) {
 			continue
 		}
 		for _, index := range targets[edge.To] {
+			resolved := false
+			for _, symbol := range ranked[index].Symbols {
+				if edge.CallsSymbol(symbol) {
+					resolved = true
+					break
+				}
+			}
+			if !resolved {
+				continue
+			}
 			if callers[index] == nil {
 				callers[index] = make(map[string]struct{})
 			}
