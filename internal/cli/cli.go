@@ -78,6 +78,7 @@ type Root struct {
 type Deps struct {
 	App                app.Service
 	Out                io.Writer
+	Err                io.Writer
 	In                 io.Reader
 	LoadConfig         func() (config.Config, error)
 	LoadReadOnlyConfig func() (config.Config, error)
@@ -85,6 +86,9 @@ type Deps struct {
 
 // Run parses args against the taxonomy and executes the selected command.
 func Run(ctx context.Context, args []string, deps Deps) error {
+	if deps.Err == nil {
+		deps.Err = os.Stderr
+	}
 	root := &Root{}
 	var exitCode *int
 	parser, err := kong.New(root,
@@ -92,7 +96,7 @@ func Run(ctx context.Context, args []string, deps Deps) error {
 		kong.Description("Repository evidence and guarded improvement workflows for coding agents."),
 		kong.UsageOnError(),
 		kong.Help(panHelpPrinter),
-		kong.Writers(deps.Out, deps.Out),
+		kong.Writers(deps.Out, deps.Err),
 		kong.Exit(func(code int) {
 			exitCode = &code
 		}),
@@ -111,6 +115,9 @@ func Run(ctx context.Context, args []string, deps Deps) error {
 	}
 	if err != nil {
 		return err
+	}
+	if root.Artifact == "-" {
+		return fmt.Errorf("artifact must name a file; stdout is unsupported")
 	}
 	if requiresRepositoryBoundary(commandPath(kctx)) {
 		if err := prepareRepositoryTarget(root, args, os.Getenv("PAN_REPO")); err != nil {

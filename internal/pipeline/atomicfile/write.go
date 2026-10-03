@@ -13,21 +13,54 @@ import (
 // Write replaces path atomically. It preserves an existing file's mode and
 // uses mode for a new file.
 func Write(path string, data []byte, mode os.FileMode) error {
-	return writeFile(path, data, mode, os.Rename)
+	return writeFile(path, data, mode, replaceFile)
 }
 
 // WriteNew publishes path only when it does not already exist. It avoids the
 // check-then-replace race by linking the completed temporary file into place.
 func WriteNew(path string, data []byte, mode os.FileMode) error {
-	return writeFile(path, data, mode, func(tmp, dest string) error {
-		if err := os.Link(tmp, dest); err != nil {
-			return err
-		}
-		return os.Remove(tmp)
-	})
+	return writeFile(path, data, mode, publishNew)
 }
 
 func writeFile(path string, data []byte, mode os.FileMode, publish func(string, string) error) error {
+	return streamFile(path, mode, publish, func(w io.Writer) error {
+		_, err := io.Copy(w, bytes.NewReader(data))
+		return err
+	})
+}
+
+// StreamNew streams a complete file into private staging and publishes exclusively.
+func StreamNew(path string, mode os.FileMode, write func(io.Writer) error) error {
+	return streamFile(path, mode, publishNew, write)
+}
+
+// PublishedError means the complete destination exists, but durability failed.
+// Callers must retain it and must not treat it as an unpublished temporary file.
+type PublishedError struct{ Err error }
+
+func (e *PublishedError) Error() string { return "output published: " + e.Err.Error() }
+func (e *PublishedError) Unwrap() error { return e.Err }
+
+type stagedFile interface {
+	io.Writer
+	Name() string
+	Chmod(os.FileMode) error
+	Sync() error
+	Close() error
+}
+type fileOps struct {
+	create  func(string, string) (stagedFile, error)
+	syncDir func(string) error
+}
+
+func streamFile(path string, mode os.FileMode, publish func(string, string) error, write func(io.Writer) error) error {
+	return streamFileWith(path, mode, publish, write, fileOps{
+		create:  func(dir, pattern string) (stagedFile, error) { return os.CreateTemp(dir, pattern) },
+		syncDir: syncDir,
+	})
+}
+
+func streamFileWith(path string, mode os.FileMode, publish func(string, string) error, write func(io.Writer) error, ops fileOps) error {
 	effectiveMode, err := outputMode(path, mode)
 	if err != nil {
 		return err
@@ -36,14 +69,14 @@ func writeFile(path string, data []byte, mode os.FileMode, publish func(string, 
 	if mkdirErr := os.MkdirAll(dir, 0o750); mkdirErr != nil {
 		return fmt.Errorf("create output directory: %w", mkdirErr)
 	}
-	tmp, err := os.CreateTemp(dir, ".pan-*.tmp")
+	tmp, err := ops.create(dir, ".pan-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temporary output: %w", err)
 	}
 	tmpName := tmp.Name()
 	defer func() { _ = os.Remove(tmpName) }()
 
-	if _, err := io.Copy(tmp, bytes.NewReader(data)); err != nil {
+	if err := write(tmp); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("write temporary output: %w", err)
 	}
@@ -61,17 +94,17 @@ func writeFile(path string, data []byte, mode os.FileMode, publish func(string, 
 	if err := publish(tmpName, path); err != nil {
 		return fmt.Errorf("publish output: %w", err)
 	}
-	if err := syncDir(dir); err != nil {
-		return err
+	if err := ops.syncDir(dir); err != nil {
+		return &PublishedError{Err: err}
 	}
 	return nil
 }
 
 func outputMode(path string, mode os.FileMode) (os.FileMode, error) {
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	if err == nil {
-		if info.IsDir() {
-			return 0, errors.New("output path is a directory")
+		if !info.Mode().IsRegular() {
+			return 0, errors.New("output path is not a regular file")
 		}
 		return info.Mode().Perm(), nil
 	}
@@ -79,16 +112,4 @@ func outputMode(path string, mode os.FileMode) (os.FileMode, error) {
 		return 0, fmt.Errorf("stat output: %w", err)
 	}
 	return mode, nil
-}
-
-func syncDir(dir string) error {
-	handle, err := os.Open(dir)
-	if err != nil {
-		return fmt.Errorf("open output directory: %w", err)
-	}
-	defer func() { _ = handle.Close() }()
-	if err := handle.Sync(); err != nil {
-		return fmt.Errorf("sync output directory: %w", err)
-	}
-	return nil
 }

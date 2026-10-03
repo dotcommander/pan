@@ -1,8 +1,7 @@
 package ranking
 
 import (
-	"os"
-	"path/filepath"
+	"fmt"
 	"slices"
 	"strings"
 	"unicode"
@@ -17,14 +16,19 @@ const (
 
 // ApplySymbolReferenceBonus adds bounded lexical cross-file references for
 // exported non-Go names. The contribution remains separately explainable.
-func ApplySymbolReferenceBonus(root string, ranked []RankedFile) {
+func ApplySymbolReferenceBonus(snap analyze.Snapshot, ranked []RankedFile) error {
 	byName := referenceTargets(ranked)
 	if len(byName) == 0 {
-		return
+		return nil
 	}
 	removeCommonTargets(byName, len(ranked))
-	applyReferenceBonuses(ranked, findReferences(root, ranked, byName))
+	refs, err := findReferences(snap, ranked, byName)
+	if err != nil {
+		return err
+	}
+	applyReferenceBonuses(ranked, refs)
 	sortRanked(ranked)
+	return nil
 }
 
 type referenceTarget struct{ path string }
@@ -56,13 +60,14 @@ func removeCommonTargets(byName map[string][]referenceTarget, files int) {
 	}
 }
 
-func findReferences(root string, ranked []RankedFile, byName map[string][]referenceTarget) map[string]map[string]struct{} {
+func findReferences(snap analyze.Snapshot, ranked []RankedFile, byName map[string][]referenceTarget) (map[string]map[string]struct{}, error) {
 	refs := make(map[string]map[string]struct{})
 	for _, file := range ranked {
-		words, ok := identifierSet(filepath.Join(root, file.Path))
+		data, ok := snap.Source(file.Path)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("captured source unavailable for reference scoring: %s", file.Path)
 		}
+		words := identifierSet(data)
 		for word := range words {
 			for _, target := range byName[word] {
 				if target.path == file.Path {
@@ -75,7 +80,7 @@ func findReferences(root string, ranked []RankedFile, byName map[string][]refere
 			}
 		}
 	}
-	return refs
+	return refs, nil
 }
 
 func applyReferenceBonuses(ranked []RankedFile, refs map[string]map[string]struct{}) {
@@ -168,11 +173,7 @@ func referenceNameOK(name string) bool {
 	return true
 }
 
-func identifierSet(name string) (map[string]struct{}, bool) {
-	data, err := os.ReadFile(name)
-	if err != nil || len(data) > 1<<20 {
-		return nil, false
-	}
+func identifierSet(data []byte) map[string]struct{} {
 	words := make(map[string]struct{})
 	var word strings.Builder
 	flush := func() {
@@ -189,5 +190,5 @@ func identifierSet(name string) (map[string]struct{}, bool) {
 		}
 	}
 	flush()
-	return words, true
+	return words
 }

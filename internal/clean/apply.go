@@ -90,6 +90,10 @@ type Manifest struct {
 // into a tar.gz archive, executes the actions in order (stopping at the
 // first failure), and writes the JSON manifest beside the backup.
 func Apply(ctx context.Context, opts Options, actions []Action, confirm bool) (ApplyResult, error) {
+	return applyWithManifest(ctx, opts, actions, confirm, writeManifest)
+}
+
+func applyWithManifest(ctx context.Context, opts Options, actions []Action, confirm bool, persist func(Options, time.Time, string, int, ApplyResult) (string, error)) (ApplyResult, error) {
 	opts, err := opts.Resolved()
 	if err != nil {
 		return ApplyResult{}, err
@@ -108,27 +112,30 @@ func Apply(ctx context.Context, opts Options, actions []Action, confirm bool) (A
 		return result, ctxErr
 	}
 
+	if err := validateActions(opts.Root, actions); err != nil {
+		return result, fmt.Errorf("backup failed, nothing was changed: %w", err)
+	}
 	now := opts.now()
 	targets := CollectTargets(actions)
 	backup, backedUp, err := CreateBackup(opts.Root, slashClean(opts.Rules.ArchiveDir), targets, now)
+	result.Backup, result.BackedUp = backup, backedUp
 	if err != nil {
 		return result, fmt.Errorf("backup failed, nothing was changed: %w", err)
 	}
-	result.Backup, result.BackedUp = backup, backedUp
 	cancelErr := executeAll(ctx, &result, opts.Root, actions)
 
-	manifestPath, err := writeManifest(opts, now, backup, backedUp, result)
-	if err != nil {
-		return result, fmt.Errorf("write manifest: %w", err)
-	}
+	manifestPath, manifestErr := persist(opts, now, backup, backedUp, result)
 	result.Manifest = manifestPath
-	if cancelErr != nil {
-		return result, cancelErr
+	var actionErr error
+	for _, action := range result.Actions {
+		if action.Status == statusFailed {
+			actionErr = errors.Join(actionErr, errors.New(action.Error))
+		}
 	}
-	if result.Counts.Failed > 0 {
-		return result, fmt.Errorf("%d cleanup action(s) failed; remaining actions were not run", result.Counts.Failed)
+	if manifestErr != nil {
+		manifestErr = fmt.Errorf("write manifest: %w", manifestErr)
 	}
-	return result, nil
+	return result, errors.Join(actionErr, cancelErr, ctx.Err(), manifestErr)
 }
 
 // planDryRun records every action as planned (or skipped for manual-review
@@ -247,8 +254,8 @@ func executeAction(ctx context.Context, root string, a Action) error {
 		// the actual destination; routing one here would lose that result.
 		return errors.New("move actions execute through executeMove")
 	case KindGit:
-		if len(a.Argv) < 2 {
-			return errors.New("git action has no arguments")
+		if err := validateGitAction(root, a); err != nil {
+			return err
 		}
 		if _, gitErr := gitRun(ctx, root, a.Argv[1:]...); gitErr != nil {
 			return gitErr
@@ -319,8 +326,13 @@ func writeManifest(opts Options, now time.Time, backup string, backedUp int, res
 		return "", fmt.Errorf("manifest path: %w", err)
 	}
 	absManifest = uniquePath(absManifest)
-	if writeErr := atomicfile.Write(absManifest, append(data, '\n'), filePerm); writeErr != nil {
-		return "", fmt.Errorf("write manifest: %w", writeErr)
+	rel, relErr := filepath.Rel(opts.Root, absManifest)
+	if relErr != nil {
+		return "", relErr
+	}
+	manifestRel = filepath.ToSlash(rel)
+	if writeErr := atomicfile.WriteNew(absManifest, append(data, '\n'), filePerm); writeErr != nil {
+		return manifestRel, fmt.Errorf("write manifest: %w", writeErr)
 	}
 	if rel, relErr := filepath.Rel(opts.Root, absManifest); relErr == nil {
 		return filepath.ToSlash(rel), nil
@@ -335,14 +347,27 @@ func safeJoin(root, rel string) (string, error) {
 	if rel == "" {
 		return "", errors.New("empty path")
 	}
-	cleaned := path.Clean(rel)
-	if path.IsAbs(cleaned) || cleaned == parentDir || strings.HasPrefix(cleaned, parentDir+"/") {
+	// Reject foreign-platform delimiters too, so plans remain safe when moved
+	// between hosts. Validate the native result independently after joining.
+	normalized := strings.ReplaceAll(rel, "\\", "/")
+	cleaned := filepath.Clean(filepath.FromSlash(normalized))
+	if cleaned == "." || filepath.IsAbs(cleaned) || filepath.VolumeName(cleaned) != "" || strings.Contains(normalized, ":") || strings.HasPrefix(normalized, "/") {
+		return "", fmt.Errorf("path %q escapes or targets the scan root", rel)
+	}
+	for _, component := range strings.Split(normalized, "/") {
+		if component == parentDir {
+			return "", fmt.Errorf("path %q traverses a parent directory", rel)
+		}
+	}
+	joined := filepath.Join(root, cleaned)
+	contained, err := filepath.Rel(root, joined)
+	if err != nil || contained == "." || contained == parentDir || strings.HasPrefix(contained, parentDir+string(filepath.Separator)) || filepath.IsAbs(contained) {
 		return "", fmt.Errorf("path %q escapes the scan root", rel)
 	}
 	parts := strings.Split(filepath.ToSlash(cleaned), "/")
 	current := root
 	for i, component := range parts {
-		if component == gitDirName {
+		if strings.EqualFold(component, gitDirName) {
 			return "", fmt.Errorf("path %q touches the git directory", rel)
 		}
 		current = filepath.Join(current, filepath.FromSlash(component))

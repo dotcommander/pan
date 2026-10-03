@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ const (
 	reasonOversized = "oversized"
 	reasonStatError = "stat-error"
 	reasonWalkError = "walk-error"
+	reasonReadError = "read-error"
 )
 
 // Limit reasons recorded in Status.Limits when a bound truncates discovery.
@@ -72,8 +74,20 @@ func Build(ctx context.Context, root string, cfg config.Config) (Snapshot, error
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if changedStamps(before, after) {
+	for path := range b.readSkipped {
+		delete(before, path)
+	}
+	comparison := make(map[string]FileStamp, len(after))
+	for path, stamp := range after {
+		if !b.readSkipped[path] {
+			comparison[path] = stamp
+		}
+	}
+	if changedStamps(before, comparison) {
 		return Snapshot{}, errors.New("repository_changed_during_capture")
+	}
+	if err := ctx.Err(); err != nil {
+		return Snapshot{}, err
 	}
 	out.CapturedStamps = after
 	return out, nil
@@ -95,18 +109,19 @@ func changedStamps(a, b map[string]FileStamp) bool {
 // builder accumulates one analysis pass. It is confined to Build and its
 // methods; only the finalized Snapshot escapes.
 type builder struct {
-	ctx        context.Context
-	cfg        config.Config
-	snap       Snapshot
-	total      int64
-	nodes      int
-	complete   bool
-	limits     []string
-	skipped    []string
-	diags      []Diagnostic
-	references map[string][]sourceReference
-	bindings   map[string][]sourceBinding
-	shadows    map[string]map[string]bool
+	ctx         context.Context
+	cfg         config.Config
+	snap        Snapshot
+	total       int64
+	nodes       int
+	complete    bool
+	limits      []string
+	skipped     []string
+	diags       []Diagnostic
+	references  map[string][]sourceReference
+	bindings    map[string][]sourceBinding
+	shadows     map[string]map[string]bool
+	readSkipped map[string]bool
 }
 
 func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
@@ -131,21 +146,30 @@ func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
 	if excluded(slashRel, b.cfg.Exclude) {
 		return b.visitExcluded(slashRel, d)
 	}
-	info, admitted, walkAction := b.admitEntry(slashRel, d)
+	_, admitted, walkAction := b.admitEntry(slashRel, d)
 	if walkAction != nil {
 		return walkAction
 	}
 	if !admitted {
 		return nil
 	}
-	b.total += info.Size()
-	file := File{Path: slashRel, Language: LanguageForPath(rel), Size: info.Size(), Generated: generated(path)}
-	b.snap.Files = append(b.snap.Files, file)
-	contents, readErr := os.ReadFile(path)
-	if readErr != nil {
-		return fmt.Errorf("read %s: %w", slashRel, readErr)
+	contents, readErr := readCapture(path, min(b.cfg.MaxFileBytes, b.cfg.MaxTotalBytes-b.total))
+	if err := b.ctx.Err(); err != nil {
+		return err
 	}
-	b.snap.Captured[file.Path] = append([]byte(nil), contents...)
+	if readErr != nil {
+		b.skip(slashRel, reasonReadError)
+		if b.readSkipped == nil {
+			b.readSkipped = make(map[string]bool)
+		}
+		b.readSkipped[slashRel] = true
+		b.diag(Diagnostic{Level: diagnosticWarning, Message: fmt.Sprintf("read %s: %v", slashRel, readErr), Location: &Location{Path: slashRel}})
+		return nil
+	}
+	b.total += int64(len(contents))
+	file := File{Path: slashRel, Language: LanguageForPath(rel), Size: int64(len(contents)), Generated: generated(path)}
+	b.snap.Files = append(b.snap.Files, file)
+	b.snap.Captured[file.Path] = contents
 	b.parseSource(file, contents)
 	return nil
 }
@@ -204,7 +228,12 @@ func (b *builder) parseSource(file File, contents []byte) {
 		return
 	}
 	parsed, err := parseTreeSitterBytes(contents, file.Path, file.Language)
+	b.admitParsedSource(file, parsed, err)
+}
+
+func (b *builder) admitParsedSource(file File, parsed parsedSource, err error) {
 	if err != nil {
+		b.complete = false
 		b.diag(Diagnostic{Level: diagnosticWarning, Message: err.Error(), Location: &Location{Path: file.Path}})
 		return
 	}
@@ -305,7 +334,7 @@ func (b *builder) nodeFull() bool {
 
 func (b *builder) skip(rel, reason string) {
 	b.skipped = append(b.skipped, rel+" ("+reason+")")
-	if reason == reasonWalkError || reason == reasonStatError {
+	if reason == reasonWalkError || reason == reasonStatError || reason == reasonReadError {
 		b.complete = false
 	}
 }
@@ -686,4 +715,21 @@ func LanguageForPath(path string) string {
 
 func generated(path string) bool {
 	return strings.HasSuffix(path, ".gen.go") || strings.HasSuffix(path, "_generated.go")
+}
+
+// readCapture bounds allocation even if a file grows after admission.
+func readCapture(path string, limit int64) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	data, readErr := io.ReadAll(io.LimitReader(file, limit+1))
+	closeErr := file.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, errors.New("capture byte limit exceeded")
+	}
+	return data, nil
 }

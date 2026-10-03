@@ -3,7 +3,6 @@ package scan
 import (
 	"context"
 	"fmt"
-	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -392,7 +391,7 @@ func addStructuralRisk(root, rel string, table riskTable, risk *FileRisk, add fu
 // addContentRisk scores bounded content patterns and reports whether the
 // read hit the line bound.
 func addContentRisk(ctx context.Context, root, rel string, patterns []riskPattern, add func(points int, lane, reason string, line int, text string, counted bool)) (bool, error) {
-	lines, truncated, err := readLines(ctx, path.Join(root, filepathFromSlash(rel)))
+	lines, truncated, err := readLines(ctx, filepath.Join(root, filepathFromSlash(rel)))
 	if err != nil {
 		return false, fmt.Errorf("scan risk source %s: %w", rel, err)
 	}

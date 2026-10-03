@@ -27,17 +27,20 @@ var defaults []byte
 // values mean "use the embedded default" so a partially populated user
 // config file stays valid; Normalized fills them in.
 type Config struct {
-	MaxFiles        int           `yaml:"max_files" json:"max_files"`
-	MaxFileBytes    int64         `yaml:"max_file_bytes" json:"max_file_bytes"`
-	MaxTotalBytes   int64         `yaml:"max_total_bytes" json:"max_total_bytes"`
-	MaxNodes        int           `yaml:"max_nodes" json:"max_nodes"`
-	MaxInstructions int           `yaml:"max_instructions" json:"max_instructions"`
-	CommandTimeout  time.Duration `yaml:"command_timeout" json:"command_timeout"`
-	OutputBudget    int           `yaml:"output_budget" json:"output_budget"`
-	Exclude         []string      `yaml:"exclude" json:"exclude"`
-	Improve         ImproveRules  `yaml:"improve" json:"improve"`
-	Lsp             LspRules      `yaml:"lsp" json:"lsp"`
-	Clean           CleanRules    `yaml:"clean" json:"clean"`
+	ReviewModelPrompt string           `yaml:"review_model_prompt" json:"review_model_prompt"`
+	MaxFiles          int              `yaml:"max_files" json:"max_files"`
+	MaxFileBytes      int64            `yaml:"max_file_bytes" json:"max_file_bytes"`
+	MaxTotalBytes     int64            `yaml:"max_total_bytes" json:"max_total_bytes"`
+	MaxNodes          int              `yaml:"max_nodes" json:"max_nodes"`
+	MaxInstructions   int              `yaml:"max_instructions" json:"max_instructions"`
+	CommandTimeout    time.Duration    `yaml:"command_timeout" json:"command_timeout"`
+	OutputBudget      int              `yaml:"output_budget" json:"output_budget"`
+	Exclude           []string         `yaml:"exclude" json:"exclude"`
+	Improve           ImproveRules     `yaml:"improve" json:"improve"`
+	Lsp               LspRules         `yaml:"lsp" json:"lsp"`
+	CommandHelp       CommandHelpRules `yaml:"command_help" json:"command_help"`
+	OutgoingGit       OutgoingGitRules `yaml:"outgoing_git" json:"outgoing_git"`
+	Clean             CleanRules       `yaml:"clean" json:"clean"`
 
 	// cleanExplicit records clean keys present in the Pan config source. It is
 	// intentionally not serialized: it only resolves compatibility precedence
@@ -52,9 +55,13 @@ type Config struct {
 // "use the embedded default" so a partially populated user file stays
 // valid.
 type LspRules struct {
-	StatusMaxDepth int           `yaml:"status_max_depth" json:"status_max_depth"`
-	Timeout        time.Duration `yaml:"timeout" json:"timeout"`
-	Languages      []LspLanguage `yaml:"languages" json:"languages"`
+	MaxFrameBytes      int           `yaml:"max_frame_bytes" json:"max_frame_bytes"`
+	MaxHeaderLineBytes int           `yaml:"max_header_line_bytes" json:"max_header_line_bytes"`
+	MaxHeaderBytes     int           `yaml:"max_header_bytes" json:"max_header_bytes"`
+	MaxHeaders         int           `yaml:"max_headers" json:"max_headers"`
+	StatusMaxDepth     int           `yaml:"status_max_depth" json:"status_max_depth"`
+	Timeout            time.Duration `yaml:"timeout" json:"timeout"`
+	Languages          []LspLanguage `yaml:"languages" json:"languages"`
 }
 
 // LspLanguage is one language-server mapping: which file types and root
@@ -75,6 +82,8 @@ type LspLanguage struct {
 // "use the embedded default" so a partially populated user file stays
 // valid.
 type ImproveRules struct {
+	MaxStdoutBytes     int           `yaml:"max_stdout_bytes" json:"max_stdout_bytes"`
+	MaxStderrBytes     int           `yaml:"max_stderr_bytes" json:"max_stderr_bytes"`
 	CoverageFloor      float64       `yaml:"coverage_floor" json:"coverage_floor"`
 	TestTimeout        time.Duration `yaml:"test_timeout" json:"test_timeout"`
 	BranchPrefix       string        `yaml:"branch_prefix" json:"branch_prefix"`
@@ -248,6 +257,9 @@ func (c Config) validate() error {
 	if err := c.Lsp.validate(); err != nil {
 		return err
 	}
+	if err := c.validateProcessLimits(); err != nil {
+		return err
+	}
 	return c.Clean.validate()
 }
 
@@ -290,6 +302,18 @@ func (r LspRules) validate() error {
 // defaults without aliasing the default language table.
 func (r LspRules) Normalized() LspRules {
 	d := Default().Lsp
+	if r.MaxFrameBytes == 0 {
+		r.MaxFrameBytes = d.MaxFrameBytes
+	}
+	if r.MaxHeaderLineBytes == 0 {
+		r.MaxHeaderLineBytes = d.MaxHeaderLineBytes
+	}
+	if r.MaxHeaderBytes == 0 {
+		r.MaxHeaderBytes = d.MaxHeaderBytes
+	}
+	if r.MaxHeaders == 0 {
+		r.MaxHeaders = d.MaxHeaders
+	}
 	if r.StatusMaxDepth == 0 {
 		r.StatusMaxDepth = d.StatusMaxDepth
 	}
@@ -375,6 +399,9 @@ func (r CleanRules) validate() error {
 // canonicalizes Exclude without aliasing the input slice.
 func (c Config) Normalized() Config {
 	d := Default()
+	if c.ReviewModelPrompt == "" {
+		c.ReviewModelPrompt = d.ReviewModelPrompt
+	}
 	if c.MaxFiles == 0 {
 		c.MaxFiles = d.MaxFiles
 	}
@@ -403,6 +430,8 @@ func (c Config) Normalized() Config {
 	c.Improve = c.Improve.Normalized()
 	c.Lsp = c.Lsp.Normalized()
 	c.Clean = c.Clean.Normalized()
+	c.CommandHelp = c.CommandHelp.Normalized()
+	c.OutgoingGit = c.OutgoingGit.Normalized()
 	return c
 }
 
@@ -410,6 +439,12 @@ func (c Config) Normalized() Config {
 // defaults.
 func (r ImproveRules) Normalized() ImproveRules {
 	d := Default().Improve
+	if r.MaxStdoutBytes == 0 {
+		r.MaxStdoutBytes = d.MaxStdoutBytes
+	}
+	if r.MaxStderrBytes == 0 {
+		r.MaxStderrBytes = d.MaxStderrBytes
+	}
 	if r.CoverageFloor == 0 {
 		r.CoverageFloor = d.CoverageFloor
 	}

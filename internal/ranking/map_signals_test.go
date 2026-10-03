@@ -18,7 +18,9 @@ func TestApplySymbolReferenceBonusPromotesReferencedNonGoSymbol(t *testing.T) {
 		t.Fatal(err)
 	}
 	ranked := []RankedFile{{Path: "model.ts", Language: "typescript", Symbols: []analyze.Symbol{{Name: "Widget", Exported: true}}, Components: map[string]int{}}, {Path: "use.ts", Language: "typescript", Components: map[string]int{}}}
-	ApplySymbolReferenceBonus(root, ranked)
+	if err := ApplySymbolReferenceBonus(analyze.Snapshot{Captured: map[string][]byte{"model.ts": []byte("export class Widget {}"), "use.ts": []byte("new Widget()")}}, ranked); err != nil {
+		t.Fatal(err)
+	}
 	if ranked[0].Path != "model.ts" || ranked[0].Components["symbol_refs"] == 0 {
 		t.Fatalf("ranked = %#v", ranked)
 	}

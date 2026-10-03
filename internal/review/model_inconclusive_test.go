@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"slices"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -35,7 +33,7 @@ func TestScoreBatchMarksAbstentionsInconclusive(t *testing.T) {
 	if err := o.scoreBatch(context.Background(), client, rows, &cache); err != nil {
 		t.Fatal(err)
 	}
-	if rows[0].Score != 5 || !slices.Contains(rows[0].Why, "model:score") {
+	if rows[0].Score != 7 || rows[0].ModelVerdict == nil || rows[0].ModelVerdict.Status != "success" || rows[0].ModelVerdict.Score != 5 {
 		t.Fatalf("decisive row not applied: %#v", rows[0])
 	}
 	abstentions := []struct {
@@ -51,13 +49,10 @@ func TestScoreBatchMarksAbstentionsInconclusive(t *testing.T) {
 		if row.Score != want.score {
 			t.Errorf("%s deterministic score = %d, want %d", row.Path, row.Score, want.score)
 		}
-		reason := "model_inconclusive:" + want.detail
-		if !slices.Contains(row.Why, reason) {
-			t.Errorf("%s missing reason %q: %#v", row.Path, reason, row.Why)
+		if row.ModelVerdict == nil || row.ModelVerdict.Status != "inconclusive" || row.ModelVerdict.Detail != want.detail {
+			t.Errorf("%s verdict = %#v", row.Path, row.ModelVerdict)
 		}
-		if slices.ContainsFunc(row.Why, func(s string) bool { return strings.HasPrefix(s, "model_error") }) {
-			t.Errorf("%s abstention must not be model_error: %#v", row.Path, row.Why)
-		}
+
 	}
 	if len(cache.entries) != 1 {
 		t.Fatalf("abstentions must not be cached, entries = %d", len(cache.entries))
@@ -86,10 +81,7 @@ func TestScoreBatchDegradesProviderFailureAsModelError(t *testing.T) {
 	if rows[0].Score != 6 {
 		t.Fatalf("deterministic score = %d, want 6", rows[0].Score)
 	}
-	if !slices.ContainsFunc(rows[0].Why, func(s string) bool { return strings.HasPrefix(s, "model_error:") }) {
-		t.Fatalf("missing model_error reason: %#v", rows[0].Why)
-	}
-	if slices.ContainsFunc(rows[0].Why, func(s string) bool { return strings.HasPrefix(s, "model_inconclusive:") }) {
-		t.Fatalf("provider failure must not be model_inconclusive: %#v", rows[0].Why)
+	if rows[0].ModelVerdict == nil || rows[0].ModelVerdict.Status != "error" {
+		t.Fatalf("missing error verdict: %#v", rows[0])
 	}
 }

@@ -2,8 +2,11 @@ package clean
 
 import (
 	"archive/tar"
+	"errors"
+
 	"compress/gzip"
 	"fmt"
+	"github.com/dotcommander/pan/internal/pipeline/atomicfile"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,7 +63,10 @@ func CreateBackup(root, archiveDir string, targets []string, now time.Time) (str
 	tarPath := uniquePath(filepath.Join(absArchive, backupPrefix+ts+".tar.gz"))
 	relPath, err := writeBackupArchive(root, tarPath, existing)
 	if err != nil {
-		return "", 0, err
+		if relPath == "" {
+			return "", 0, err
+		}
+		return relPath, len(existing), err
 	}
 	return relPath, len(existing), nil
 }
@@ -76,6 +82,8 @@ func existingTargets(root string, targets []string) ([]string, error) {
 		}
 		if _, statErr := os.Lstat(abs); statErr == nil {
 			existing = append(existing, target)
+		} else if !os.IsNotExist(statErr) {
+			return nil, fmt.Errorf("inspect backup target %q: %w", target, statErr)
 		}
 	}
 	return existing, nil
@@ -111,42 +119,25 @@ func writeBackupArchive(root, tarPath string, existing []string) (string, error)
 	}
 	defer func() { _ = rootFS.Close() }()
 
-	out, createErr := os.Create(tarPath)
-	if createErr != nil {
-		return "", fmt.Errorf("create backup: %w", createErr)
-	}
-	gz := gzip.NewWriter(out)
-	tw := tar.NewWriter(gz)
-	writer := backupWriter{tw: tw, rootFS: rootFS, root: root}
-	for _, name := range existing {
-		if addErr := writer.addPath(name); addErr != nil {
-			_ = tw.Close()
-			_ = gz.Close()
-			_ = out.Close()
-			return "", addErr
-		}
-	}
-	if closeErr := tw.Close(); closeErr != nil {
-		return "", fmt.Errorf("finish backup tar: %w", closeErr)
-	}
-	if closeErr := gz.Close(); closeErr != nil {
-		return "", fmt.Errorf("finish backup gzip: %w", closeErr)
-	}
-	if closeErr := out.Close(); closeErr != nil {
-		return "", fmt.Errorf("close backup: %w", closeErr)
+	err := atomicfile.StreamNew(tarPath, filePerm, func(out io.Writer) error {
+		return writeArchivePayload(rootFS, root, existing, out, defaultArchiveLayers)
+	})
+	var published *atomicfile.PublishedError
+	if err != nil && !errors.As(err, &published) {
+		return "", err
 	}
 	rel, relErr := filepath.Rel(root, tarPath)
 	if relErr != nil {
 		return "", fmt.Errorf("resolve backup path: %w", relErr)
 	}
-	return filepath.ToSlash(rel), nil
+	return filepath.ToSlash(rel), err
 }
 
 // backupWriter bundles the archive writer with the root-scoped
 // filesystem and scan root so the per-entry helpers stay within the
 // argument limit.
 type backupWriter struct {
-	tw     *tar.Writer
+	tw     tarSink
 	rootFS *os.Root
 	root   string
 }
@@ -226,4 +217,28 @@ func uniquePath(p string) string {
 		}
 	}
 	return p
+}
+
+// Archive seams are per call so failure fixtures do not mutate shared state.
+type tarSink interface {
+	io.Writer
+	WriteHeader(*tar.Header) error
+	Close() error
+}
+type archiveLayers func(io.Writer) (tarSink, io.WriteCloser)
+
+func defaultArchiveLayers(out io.Writer) (tarSink, io.WriteCloser) {
+	gz := gzip.NewWriter(out)
+	return tar.NewWriter(gz), gz
+}
+func writeArchivePayload(rootFS *os.Root, root string, existing []string, out io.Writer, layers archiveLayers) error {
+	tw, gz := layers(out)
+	writer := backupWriter{tw: tw, rootFS: rootFS, root: root}
+	var addErr error
+	for _, name := range existing {
+		if addErr = writer.addPath(name); addErr != nil {
+			break
+		}
+	}
+	return errors.Join(addErr, tw.Close(), gz.Close())
 }

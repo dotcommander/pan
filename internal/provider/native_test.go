@@ -55,7 +55,7 @@ func TestGeminiNativeToolResultAndThinkingWire(t *testing.T) {
 	client, err := New(Config{
 		Provider: "gemini", APIKey: "fixture-key", Model: "gemini-fixture",
 		HTTPClient: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			if request.URL.Path != "/v1beta/models/gemini-fixture:generateContent" || request.URL.Query().Get("key") != "fixture-key" || request.Header.Get("Authorization") != "" {
+			if request.URL.Path != "/v1beta/models/gemini-fixture:generateContent" || request.URL.RawQuery != "" || request.Header.Get("X-Goog-Api-Key") != "fixture-key" || request.Header.Get("Authorization") != "" {
 				t.Errorf("unexpected Gemini endpoint: %s", request.URL)
 			}
 			var payload map[string]any

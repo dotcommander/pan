@@ -194,7 +194,7 @@ func TestProviderReaderJinnCancellationWinsOverResponse(t *testing.T) {
 	reader.jinnBin = bin
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	result, err := reader.call(ctx, providerReadFile, `{"path":"source.go"}`)
+	result, err := reader.call(ctx, providerLSPQuery, `{"action":"diagnostics","path":"source.go"}`)
 	if !errors.Is(err, context.DeadlineExceeded) || result != "" {
 		t.Fatalf("cancelled jinn result = %q, %v", result, err)
 	}

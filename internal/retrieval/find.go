@@ -119,7 +119,9 @@ func ParseFindQuery(query string) FindQuery {
 			return parsed
 		}
 	}
-	parsed.Name = parts[0]
+	if len(parts) != 0 {
+		parsed.Name = parts[0]
+	}
 	return parsed
 }
 

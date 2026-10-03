@@ -28,7 +28,7 @@ type FlowStoryboardCmd struct {
 	View           string        `name:"view" default:"summary" help:"Storyboard view: summary, full, stores, or command=NAME."`
 	Review         string        `name:"review" help:"Pipeline spec to review against."`
 	Compare        string        `name:"compare" help:"Pipeline spec to compare against."`
-	CommandHelp    string        `name:"command-help" default:"off" enum:"off,static,execute" help:"Command help mode; execute runs the target binary."`
+	CommandHelp    string        `name:"command-help" default:"off" enum:"off,static,execute" help:"Command help mode; execute runs trusted project code without a sandbox."`
 	AuditJSON      bool          `name:"audit-json" help:"Emit an audit packet as JSON."`
 	AuditMarkdown  bool          `name:"audit-markdown" help:"Emit an audit packet as Markdown."`
 	RefreshSpec    bool          `name:"refresh-spec" help:"Refresh the cached scan spec when stale."`

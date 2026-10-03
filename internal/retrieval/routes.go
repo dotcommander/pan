@@ -2,10 +2,9 @@ package retrieval
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -72,7 +71,11 @@ func Routes(ctx context.Context, snap analyze.Snapshot) ([]RouteRegistration, er
 		if file.Language != analyze.LanguageGo || isTestFile(file.Path) {
 			continue
 		}
-		registrations, err := extractRoutes(ctx, snap.Root, file.Path, detectors)
+		data, ok := snap.Source(file.Path)
+		if !ok {
+			return nil, fmt.Errorf("captured source unavailable for routes: %s", file.Path)
+		}
+		registrations, err := extractRoutes(ctx, data, file.Path, detectors)
 		if err != nil {
 			return nil, err
 		}
@@ -81,14 +84,9 @@ func Routes(ctx context.Context, snap analyze.Snapshot) ([]RouteRegistration, er
 	return out, nil
 }
 
-func extractRoutes(ctx context.Context, root, rel string, detectors []routeDetector) ([]RouteRegistration, error) {
-	file, err := os.Open(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		return nil, fmt.Errorf("read %s for routes: %w", rel, err)
-	}
-	defer func() { _ = file.Close() }()
+func extractRoutes(ctx context.Context, data []byte, rel string, detectors []routeDetector) ([]RouteRegistration, error) {
 	var out []RouteRegistration
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(make([]byte, 0, 64*1024), maxSourceLineBytes)
 	lineNo := 0
 	for scanner.Scan() {
@@ -154,7 +152,7 @@ func matchRoutes(routes []RouteRegistration, query string) []RouteRegistration {
 	for _, route := range routes {
 		canonical := route.Method + " " + route.Pattern
 		switch {
-		case canonical == query || route.Pattern == query:
+		case canonical == query || route.Pattern == query || matchesAnyRoute(route, query):
 			exact = append(exact, route)
 		case query != "" && strings.Contains(canonical, query):
 			partial = append(partial, route)
@@ -164,4 +162,11 @@ func matchRoutes(routes []RouteRegistration, query string) []RouteRegistration {
 		return exact
 	}
 	return partial
+}
+
+// Methodless registrations are candidates for explicit methods; this does not
+// assert which registration a framework will select at runtime.
+func matchesAnyRoute(route RouteRegistration, query string) bool {
+	method, pattern, ok := strings.Cut(query, " ")
+	return ok && method != "" && route.Method == "ANY" && route.Pattern == pattern
 }

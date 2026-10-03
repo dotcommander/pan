@@ -3,7 +3,9 @@ package improve
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -23,9 +25,16 @@ func (t Toolchain) RunPackage(ctx context.Context, dir, sourceFile string) (Test
 	cmd := exec.CommandContext(ctx, cmdGo)
 	cmd.Args = []string{cmdGo, goTestSubcommand, "-json", "-count=1", "-timeout", timeout.String(), "."}
 	cmd.Dir = pkg
-	output, err := cmd.CombinedOutput()
+	captured, err := captureImproveCommand(ctx, cmd)
+	output := append(captured.Stdout, captured.Stderr...)
+	if captured.StderrTruncated {
+		output = append(output, []byte("\n[stderr truncated]\n")...)
+	}
 	if ctx.Err() != nil {
 		return TestResult{}, ctx.Err()
+	}
+	if errors.Is(err, ownedprocess.ErrOutputLimit) {
+		return TestResult{}, err
 	}
 	result, events := parseTestStream(bytes.NewReader(output), maxTestOutputBytes)
 	result.AllPassed = result.AllPassed && err == nil

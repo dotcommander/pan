@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 type jinnRequest struct {
@@ -83,28 +83,15 @@ type providerCommand struct {
 }
 
 func runProviderCommand(ctx context.Context, input providerCommand) error {
-	if err := ctx.Err(); err != nil {
-		return err
+	cmd := &exec.Cmd{Path: input.path, Args: input.args, Dir: input.dir, Stdin: input.stdin}
+	captured, err := ownedprocess.Run(ctx, cmd, ownedprocess.Limits{StdoutBytes: input.stdout.limit, StderrBytes: input.stderr.limit})
+	_, _ = input.stdout.Write(captured.Stdout)
+	_, _ = input.stderr.Write(captured.Stderr)
+	input.stderr.truncated = input.stderr.truncated || captured.StderrTruncated
+	if errors.Is(err, ownedprocess.ErrOutputLimit) {
+		input.stdout.truncated = true
 	}
-	cmd := &exec.Cmd{Path: input.path, Args: input.args, Dir: input.dir, Stdin: input.stdin, Stdout: input.stdout, Stderr: input.stderr, WaitDelay: 2 * time.Second}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		select {
-		case <-done:
-		case <-time.After(cmd.WaitDelay):
-		}
-		return ctx.Err()
-	}
+	return err
 }
 
 func filterJinnResult(tool, result string) string {

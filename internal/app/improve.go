@@ -194,6 +194,7 @@ func (s Service) ImprovePrepWithOptions(ctx context.Context, root string, live b
 		floor = command.Floor
 	}
 	return improve.RunPrep(ctx, improve.PrepOptions{
+		OutputLimits:      rules,
 		RepoPath:          root,
 		StateDir:          stateDir,
 		Floor:             floor,
@@ -260,6 +261,7 @@ func (s Service) ImproveRefactorWithPolicy(ctx context.Context, root string, pol
 		runner = improve.CommandMutationRunner{Path: policy.MutationRunner}
 	}
 	return improve.RunRefactor(ctx, improve.RefactorOptions{
+		OutputLimits:        rules,
 		RepoPath:            root,
 		MinBaselineCoverage: rules.CoverageFloor,
 		StateDir:            stateDir,

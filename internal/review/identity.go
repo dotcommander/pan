@@ -48,6 +48,23 @@ func EvidenceIdentity(item ReadItem) string {
 // identities with their scores. Rank is implied by row order, so reordering
 // or rescoring changes the identity while pure presentation edits do not.
 func reportIdentity(doc Document) string {
+	if doc.Schema == DocumentSchemaV2 {
+		type row struct {
+			EvidenceID string        `json:"evidence_id"`
+			Score      int           `json:"score"`
+			Lane       string        `json:"lane"`
+			Verdict    *ModelVerdict `json:"model_verdict,omitempty"`
+		}
+		rows := make([]row, len(doc.ReadQueue))
+		for i, item := range doc.ReadQueue {
+			rows[i] = row{item.EvidenceID, item.Score, item.Lane, item.ModelVerdict}
+		}
+		return sha256Identity("pan.report/v2", struct {
+			Schema string `json:"schema"`
+			Rows   []row  `json:"rows"`
+		}{doc.Schema, rows})
+	}
+
 	type reportRow struct {
 		EvidenceID string `json:"evidence_id"`
 		Score      int    `json:"score"`

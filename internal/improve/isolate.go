@@ -1,8 +1,8 @@
 package improve
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,9 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-// maxGitOutputBytes bounds every git plumbing read.
-const maxGitOutputBytes = 1 << 20
 
 // cmdGit is the constant git binary name; every argument arrives through
 // cmd.Args so git always runs as one direct argv process, never through a
@@ -105,19 +102,21 @@ func gitOutput(ctx context.Context, dir string, args ...string) (string, error) 
 	cmd := exec.CommandContext(ctx, cmdGit)
 	cmd.Dir = dir
 	cmd.Args = append(cmd.Args, args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	result, err := captureImproveCommand(ctx, cmd)
+	if err != nil {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
-		return "", fmt.Errorf("git %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
+		diagnostic := strings.TrimSpace(string(result.Stderr))
+		if result.StderrTruncated {
+			diagnostic += " [stderr truncated]"
+		}
+		return "", fmt.Errorf("git %s: %w: %s", args[0], err, diagnostic)
 	}
-	if stdout.Len() > maxGitOutputBytes {
-		return "", fmt.Errorf("git %s: output exceeds %d bytes", args[0], maxGitOutputBytes)
+	if result.StderrTruncated {
+		return "", fmt.Errorf("git %s: stderr truncated after %d bytes", args[0], improveOutputLimits(ctx).StderrBytes)
 	}
-	return stdout.String(), nil
+	return string(result.Stdout), nil
 }
 
 // CopyTree copies src's work tree into dst, which must not exist. The
@@ -222,8 +221,13 @@ func IsolateWorkTree(root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create isolated copy: %w", err)
 	}
+	if err := recordWorktreeOwnership(dir, root, "", false); err != nil {
+		_ = os.Remove(dir)
+		return "", err
+	}
 	if err := CopyTree(dir, root); err != nil {
-		_ = os.RemoveAll(dir)
+		cleanupErr := removeOwnedCopy(dir)
+		err = errors.Join(err, cleanupErr)
 		return "", fmt.Errorf("copy work tree: %w", err)
 	}
 	return dir, nil

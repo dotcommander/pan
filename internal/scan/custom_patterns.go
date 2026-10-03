@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -232,7 +232,7 @@ func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules,
 		risk.Reasons = capReasons(risk.Reasons)
 		return nil
 	}
-	lines, _, err := readLines(ctx, path.Join(root, filepathFromSlash(rel)))
+	lines, _, err := readLines(ctx, filepath.Join(root, filepathFromSlash(rel)))
 	if err != nil {
 		return fmt.Errorf("read custom pattern source %s: %w", rel, err)
 	}

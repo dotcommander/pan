@@ -14,6 +14,7 @@ import (
 
 // DocumentSchema is the schema stamped on every review report document.
 const DocumentSchema = "pan.review-report/v1"
+const DocumentSchemaV2 = "pan.review-report/v2"
 
 // Document is the deterministic report contract: content identities for
 // every row plus the parameters that shaped the queue. ReportID is derived
@@ -39,6 +40,12 @@ func NewDocument(top int, report Report) Document {
 	}
 	if doc.ReadQueue == nil {
 		doc.ReadQueue = []ReadItem{}
+	}
+	for _, row := range doc.ReadQueue {
+		if row.ModelVerdict != nil {
+			doc.Schema = DocumentSchemaV2
+			break
+		}
 	}
 	doc.ReportID = reportIdentity(doc)
 	return doc
@@ -89,6 +96,22 @@ func ParseDocument(data []byte) (Document, error) {
 	}
 	if err := requireDocumentFields(fields); err != nil {
 		return Document{}, err
+	}
+	var rawRows []map[string]json.RawMessage
+	if err := json.Unmarshal(fields["read_queue"], &rawRows); err != nil {
+		return Document{}, errors.New("read_queue must be an array")
+	}
+	var schema string
+	_ = json.Unmarshal(fields["schema"], &schema)
+	for _, row := range rawRows {
+		if value, exists := row["model_verdict"]; exists {
+			if schema == DocumentSchema {
+				return Document{}, errors.New("v1 does not permit model_verdict")
+			}
+			if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+				return Document{}, errors.New("model_verdict must be an object")
+			}
+		}
 	}
 	doc, err := decodeDocument(data)
 	if err != nil {
@@ -141,7 +164,7 @@ func decodeDocument(data []byte) (Document, error) {
 // validateDocumentShape checks the schema, identities, and non-negative
 // parameters of one decoded document.
 func validateDocumentShape(doc Document) error {
-	if doc.Schema != DocumentSchema {
+	if doc.Schema != DocumentSchema && doc.Schema != DocumentSchemaV2 {
 		return fmt.Errorf("unsupported schema %q", doc.Schema)
 	}
 	if !ValidIdentity(doc.ReportID) {
@@ -158,6 +181,15 @@ func validateDocumentShape(doc Document) error {
 func validateReadQueue(doc Document) error {
 	seen := make(map[string]bool, len(doc.ReadQueue))
 	for i, item := range doc.ReadQueue {
+		if doc.Schema == DocumentSchema && item.ModelVerdict != nil {
+			return errors.New("v1 does not permit model_verdict")
+		}
+		if item.ModelVerdict != nil && item.Lane != LaneKept {
+			return errors.New("model verdict requires kept lane")
+		}
+		if err := validateModelVerdict(item.ModelVerdict); err != nil {
+			return err
+		}
 		if err := validateReadItem(item, i, seen); err != nil {
 			return err
 		}

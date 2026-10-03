@@ -19,7 +19,7 @@ func TestBuildFormatsCarryDistinctContent(t *testing.T) {
 	ranked := []ranking.RankedFile{{Path: "a.go", Language: "go", ImportedBy: 2, DetailLevel: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Kind: "function", Exported: true, Signature: "()", Doc: "Alpha doc", Location: analyze.Location{Line: 3}}, {Name: "beta", Kind: "function", Location: analyze.Location{Line: 4}}}, Components: map[string]int{"symbols": 4}}}
 	verbose := Build(ranked, Options{Mode: ModeVerbose, Root: root}).Text
 	detail := Build(ranked, Options{Mode: ModeDetail, Root: root}).Text
-	lines := Build(ranked, Options{Mode: ModeLines, Root: root}).Text
+	lines := Build(ranked, Options{Mode: ModeLines, Root: root, Captured: map[string][]byte{"a.go": []byte("package p\n// Alpha doc\nfunc Alpha() {}\nfunc beta() {}\n")}}).Text
 	xml := Build(ranked, Options{Mode: ModeXML, Root: root}).Text
 	if strings.Contains(verbose, "Alpha doc") {
 		t.Fatalf("verbose should list symbols without docs: %q", verbose)

@@ -2,9 +2,11 @@
 package gitworktree
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/config"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -54,6 +55,33 @@ type CommandResult struct {
 
 // Build returns a JSON-compatible manifest and its documented exit code.
 func Build(options Options) (map[string]any, int) {
+	return BuildContext(context.Background(), options, config.OutgoingGitRules{})
+}
+
+type inspector struct {
+	ctx      context.Context
+	rules    config.OutgoingGitRules
+	failures *[]error
+}
+
+func BuildContext(ctx context.Context, options Options, rules config.OutgoingGitRules) (map[string]any, int) {
+	rules = rules.Normalized()
+	ctx, cancel := context.WithTimeout(ctx, rules.Timeout)
+	defer cancel()
+	if rules.Timeout < 0 || rules.MaxLogBytes < 0 || rules.MaxHeaderBytes < 0 || rules.MaxStderrBytes < 0 {
+		return errorManifest(options.Path, "negative Git inspection limit"), 2
+	}
+	failures := []error{}
+	i := inspector{ctx: ctx, rules: rules, failures: &failures}
+	report, code := i.build(options)
+	if len(failures) > 0 {
+		report["ok"] = false
+		report["error"] = errors.Join(failures...).Error()
+		code = 1
+	}
+	return report, code
+}
+func (i inspector) build(options Options) (map[string]any, int) {
 	path, err := absolutePath(options.Path)
 	if err != nil {
 		return errorManifest(options.Path, "path is not a directory"), 2
@@ -66,7 +94,7 @@ func Build(options Options) (map[string]any, int) {
 		return errorManifest(path, "git is not installed"), 1
 	}
 
-	rootText := gitText(path, "rev-parse", "--show-toplevel")
+	rootText := i.gitText(path, "rev-parse", "--show-toplevel")
 	if rootText == "" {
 		return errorManifest(path, "not a Git repository"), 1
 	}
@@ -74,7 +102,7 @@ func Build(options Options) (map[string]any, int) {
 	if err != nil {
 		return errorManifest(path, "not a Git repository"), 1
 	}
-	statusResult := runGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	statusResult := i.runGit(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if statusResult.Code != 0 {
 		return map[string]any{
 			"path": path, "repository_root": root, "ok": false,
@@ -84,11 +112,11 @@ func Build(options Options) (map[string]any, int) {
 	}
 
 	status := parseStatus(statusResult.Stdout, options.MaxItems)
-	branch := gitText(root, "symbolic-ref", "--quiet", "--short", "HEAD")
-	headOID := verifyCommit(root, "HEAD")
-	upstream := gitText(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
-	upstreamOID := verifyCommit(root, upstream)
-	defaultBranch := defaultBranch(root)
+	branch := i.gitText(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+	headOID := i.verifyCommit(root, "HEAD")
+	upstream := i.gitText(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+	upstreamOID := i.verifyCommit(root, upstream)
+	defaultBranch := i.defaultBranch(root)
 	baseRef := options.Base
 	if baseRef == "" {
 		baseRef = defaultBranch
@@ -96,7 +124,7 @@ func Build(options Options) (map[string]any, int) {
 	if baseRef == "" {
 		baseRef = upstream
 	}
-	baseOID := verifyCommit(root, baseRef)
+	baseOID := i.verifyCommit(root, baseRef)
 	notes := []string{}
 	skipped := []string{"remote freshness not checked; helper never fetches"}
 	if options.Base != "" && baseOID == "" {
@@ -110,7 +138,7 @@ func Build(options Options) (map[string]any, int) {
 
 	var ahead, behind any
 	if upstream != "" {
-		counts := strings.Fields(gitText(root, "rev-list", "--left-right", "--count", "--end-of-options", "HEAD..."+upstream))
+		counts := strings.Fields(i.gitText(root, "rev-list", "--left-right", "--count", "--end-of-options", "HEAD..."+upstream))
 		if len(counts) == 2 {
 			a, aErr := strconv.Atoi(counts[0])
 			b, bErr := strconv.Atoi(counts[1])
@@ -120,7 +148,7 @@ func Build(options Options) (map[string]any, int) {
 		}
 	}
 
-	committedFiles, committedTruncated, committedErr := nameOnly(root, diffRange, options.MaxItems)
+	committedFiles, committedTruncated, committedErr := i.nameOnly(root, diffRange, options.MaxItems)
 	allPathsSet := map[string]struct{}{}
 	for _, name := range committedFiles {
 		allPathsSet[name] = struct{}{}
@@ -131,7 +159,7 @@ func Build(options Options) (map[string]any, int) {
 	allPaths := sortedKeys(allPathsSet)
 	largeFiles := []map[string]any{}
 	for _, relative := range allPaths {
-		if size, ok := fileSize(root, relative); ok && size > options.LargeFileBytes {
+		if size, ok := i.fileSize(root, relative); ok && size > options.LargeFileBytes {
 			largeFiles = append(largeFiles, map[string]any{"path": relative, "size_bytes": size})
 		}
 	}
@@ -144,7 +172,7 @@ func Build(options Options) (map[string]any, int) {
 	})
 
 	scanners := detectScanners(root)
-	findings, scanErrors := secretFindings(root, diffRange, status.Untracked, options.MaxItems)
+	findings, scanErrors := i.secretFindings(root, diffRange, status.Untracked, options.MaxItems)
 	artifactPaths := artifactFlags(allPaths)
 	secretScanTruncated := len(findings) >= options.MaxItems || status.UntrackedCount > len(status.Untracked)
 	if len(scanners) == 0 {
@@ -206,6 +234,10 @@ func Build(options Options) (map[string]any, int) {
 		"skipped_checks":     skipped,
 		"mutation_performed": false,
 	}
+	if i.ctx.Err() != nil {
+		requiredErrors = append(requiredErrors, i.ctx.Err().Error())
+		data["ok"] = false
+	}
 	if len(requiredErrors) > 0 {
 		data["error"] = strings.Join(requiredErrors, "; ")
 		return data, 1
@@ -231,40 +263,37 @@ func absolutePath(path string) (string, error) {
 	return filepath.Clean(abs), nil
 }
 
-func runGit(path string, args ...string) CommandResult {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", args...)
+func (i inspector) runGit(path string, args ...string) CommandResult {
+	cmd := exec.Command("git", args...)
 	cmd.Dir = path
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if ctx.Err() == context.DeadlineExceeded {
-		return CommandResult{Code: 124, Stderr: "git " + strings.Join(args, " ") + " timed out"}
+	result, err := ownedprocess.Run(i.ctx, cmd, ownedprocess.Limits{StdoutBytes: i.rules.MaxLogBytes, StderrBytes: i.rules.MaxStderrBytes})
+	if i.failures != nil && (errors.Is(err, ownedprocess.ErrOutputLimit) || i.ctx.Err() != nil) {
+		*i.failures = append(*i.failures, err)
+	}
+	stderr := strings.TrimSpace(string(result.Stderr))
+	if result.StderrTruncated {
+		stderr += " [stderr truncated]"
 	}
 	if err != nil {
-		if _, ok := err.(*exec.Error); ok {
-			return CommandResult{Code: 127, Stderr: "git is not installed"}
+		code := 1
+		if i.ctx.Err() != nil {
+			code = 124
 		}
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return CommandResult{Code: exitErr.ExitCode(), Stdout: stdout.String(), Stderr: strings.TrimSpace(stderr.String())}
-		}
-		return CommandResult{Code: 1, Stdout: stdout.String(), Stderr: strings.TrimSpace(stderr.String())}
+		return CommandResult{Code: code, Stdout: string(result.Stdout), Stderr: fmt.Sprintf("%s: %v", stderr, err)}
 	}
-	return CommandResult{Code: 0, Stdout: stdout.String(), Stderr: strings.TrimSpace(stderr.String())}
+	return CommandResult{Stdout: string(result.Stdout), Stderr: stderr}
 }
 
-func gitText(path string, args ...string) string {
-	result := runGit(path, args...)
+func (i inspector) gitText(path string, args ...string) string {
+	result := i.runGit(path, args...)
 	if result.Code != 0 {
 		return ""
 	}
 	return strings.TrimSpace(result.Stdout)
 }
 
-func defaultBranch(path string) string {
-	if symbolic := gitText(path, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); symbolic != "" {
+func (i inspector) defaultBranch(path string) string {
+	if symbolic := i.gitText(path, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); symbolic != "" {
 		return symbolic
 	}
 	for _, candidate := range []struct {
@@ -276,27 +305,27 @@ func defaultBranch(path string) string {
 		{name: "main", ref: "refs/heads/main"},
 		{name: "master", ref: "refs/heads/master"},
 	} {
-		if runGit(path, "show-ref", "--verify", "--quiet", candidate.ref).Code == 0 {
+		if i.runGit(path, "show-ref", "--verify", "--quiet", candidate.ref).Code == 0 {
 			return candidate.name
 		}
 	}
 	return ""
 }
 
-func verifyCommit(path, ref string) string {
+func (i inspector) verifyCommit(path, ref string) string {
 	if ref == "" {
 		return ""
 	}
-	return gitText(path, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}")
+	return i.gitText(path, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}")
 }
 
-func nameOnly(path, diffRange string, maxItems int) ([]string, bool, string) {
+func (i inspector) nameOnly(path, diffRange string, maxItems int) ([]string, bool, string) {
 	if diffRange == "" {
 		return []string{}, false, ""
 	}
 	args := append([]string{"diff"}, StableDiffOptions...)
 	args = append(args, "--name-only", "-z", diffRange, "--")
-	result := runGit(path, args...)
+	result := i.runGit(path, args...)
 	if result.Code != 0 {
 		return []string{}, false, orUnknown(result.Stderr, "committed-range diff failed")
 	}
@@ -423,13 +452,13 @@ func safeRepoFile(root, relative string) (string, string) {
 	return canonical, ""
 }
 
-func fileSize(root, relative string) (int64, bool) {
+func (i inspector) fileSize(root, relative string) (int64, bool) {
 	if target, _ := safeRepoFile(root, relative); target != "" {
 		if info, err := os.Lstat(target); err == nil {
 			return info.Size(), true
 		}
 	}
-	value := gitText(root, "cat-file", "-s", "HEAD:"+relative)
+	value := i.gitText(root, "cat-file", "-s", "HEAD:"+relative)
 	size, err := strconv.ParseInt(value, 10, 64)
 	return size, err == nil
 }
@@ -537,7 +566,7 @@ func scanUntracked(root string, paths []string, findings map[string]map[string]a
 	return failures
 }
 
-func secretFindings(root, diffRange string, untracked []string, maxItems int) ([]map[string]any, []string) {
+func (i inspector) secretFindings(root, diffRange string, untracked []string, maxItems int) ([]map[string]any, []string) {
 	findings := map[string]map[string]any{}
 	failures := []string{}
 	commands := []struct {
@@ -554,7 +583,7 @@ func secretFindings(root, diffRange string, untracked []string, maxItems int) ([
 		}{"committed-range", append(append([]string{"diff"}, StableDiffOptions...), "--unified=0", "--no-color", diffRange)})
 	}
 	for _, command := range commands {
-		result := runGit(root, command.args...)
+		result := i.runGit(root, command.args...)
 		if result.Code == 0 {
 			scanAddedLines(result.Stdout, command.source, findings, maxItems)
 		} else {
@@ -711,4 +740,53 @@ func joinOrNone(values []string) string {
 		return "none detected"
 	}
 	return strings.Join(values, ", ")
+}
+
+func runGit(path string, args ...string) CommandResult {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).runGit(path, args...)
+}
+
+func gitText(path string, args ...string) string {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).gitText(path, args...)
+}
+
+func defaultBranch(path string) string {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).defaultBranch(path)
+}
+
+func verifyCommit(path, ref string) string {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).verifyCommit(path, ref)
+}
+
+func nameOnly(path, diffRange string, maxItems int) ([]string, bool, string) {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).nameOnly(path, diffRange, maxItems)
+}
+
+func fileSize(root, relative string) (int64, bool) {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).fileSize(root, relative)
+}
+
+func secretFindings(root, diffRange string, untracked []string, maxItems int) ([]map[string]any, []string) {
+	rules := config.Default().OutgoingGit
+	ctx, cancel := context.WithTimeout(context.Background(), rules.Timeout)
+	defer cancel()
+	return (inspector{ctx: ctx, rules: rules}).secretFindings(root, diffRange, untracked, maxItems)
 }

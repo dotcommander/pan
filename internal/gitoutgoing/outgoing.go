@@ -3,8 +3,10 @@ package gitoutgoing
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/dotcommander/pan/internal/config"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,8 +40,11 @@ type Report struct {
 // scan examines every change record in the revision through one git log
 // stream, one --batch-check size pass, and one --batch sample pass.
 func scan(root, revision string, maxBlobBytes int64) (Report, error) {
+	return Inspect(revision, root, maxBlobBytes)
+}
+func scanContext(ctx context.Context, root, revision string, maxBlobBytes int64, rules config.OutgoingGitRules) (Report, error) {
 	report := Report{Revision: revision, MaxBlobBytes: maxBlobBytes, Paths: []PathEvidence{}, Findings: []Finding{}}
-	commits, err := rawLog(root, revision)
+	commits, err := rawLogContext(ctx, root, revision, rules)
 	if err != nil {
 		return report, err
 	}
@@ -65,7 +70,7 @@ func scan(root, revision string, maxBlobBytes int64) (Report, error) {
 		}
 	}
 
-	sizes, err := blobSizes(root, blobOrder)
+	sizes, err := blobSizesContext(ctx, root, blobOrder, rules)
 	if err != nil {
 		return report, err
 	}
@@ -75,7 +80,7 @@ func scan(root, revision string, maxBlobBytes int64) (Report, error) {
 			sampleOrder = append(sampleOrder, oid)
 		}
 	}
-	formats, err := blobFormats(root, sampleOrder)
+	formats, err := blobFormatsExpectedContext(ctx, root, sampleOrder, rules, sizes)
 	if err != nil {
 		return report, err
 	}

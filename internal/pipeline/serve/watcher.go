@@ -76,19 +76,34 @@ func desiredRefs(plans []collectionPlan) (map[string]specRef, map[string]bool) {
 func refreshedFiles(plan collectionPlan, preserve map[string]bool) ([]specFile, bool) {
 	info, err := os.Stat(plan.sourcePath)
 	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			preserve[plan.name] = true
+		}
 		return nil, false
 	}
 	if !info.IsDir() {
 		return plan.specs, true
 	}
-	candidate, err := directoryPlan(plan.sourcePath)
-	if err == nil {
-		return candidate.specs, true
+	paths, err := yamlFiles(plan.sourcePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			preserve[plan.name] = true
+		}
+		return nil, false
 	}
-	if errors.Is(err, errSpecCollision) {
-		preserve[plan.name] = true
+	// A successful empty listing confirms absence; a discovery error does not.
+	files := make([]specFile, 0, len(paths))
+	seen := make(map[string]bool)
+	for _, path := range paths {
+		name := basename(path)
+		if seen[name] {
+			preserve[plan.name] = true
+			return nil, false
+		}
+		seen[name] = true
+		files = append(files, specFile{basename: name, path: path})
 	}
-	return nil, false
+	return files, true
 }
 
 func removeMissing(set *collectionSet, states map[string]fileState, wanted map[string]specRef, preserve map[string]bool) {

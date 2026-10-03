@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -66,7 +66,7 @@ type Effect struct {
 // EffectFile groups effect leads by source file.
 type EffectFile struct {
 	ID            string   `json:"id,omitempty"`
-	Path          string   `json:"path"`
+	Path          string   `json:"path/filepath"`
 	Score         int      `json:"score,omitempty"`
 	EvidenceClass string   `json:"evidence_class,omitempty"`
 	Confidence    string   `json:"confidence,omitempty"`
@@ -212,7 +212,7 @@ func scanEffectsFile(ctx context.Context, root string, file analyze.File, option
 	if file.Language == analyze.LanguageUnknown || isTestPath(file.Path) || (options.Language != "" && file.Language != options.Language) {
 		return scannedEffectsFile{}, nil
 	}
-	lines, truncated, err := readLines(ctx, path.Join(root, filepathFromSlash(file.Path)))
+	lines, truncated, err := readLines(ctx, filepath.Join(root, filepathFromSlash(file.Path)))
 	if err != nil {
 		return scannedEffectsFile{}, fmt.Errorf("scan effects source %s: %w", file.Path, err)
 	}

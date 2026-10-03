@@ -180,11 +180,11 @@ func providerContextGitOutput(ctx context.Context, args ...string) string {
 	// #nosec G204 -- the executable is fixed and arguments are generated locally.
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.WaitDelay = 2 * time.Second
-	output, err := cmd.Output()
+	output, err := captureImproveCommand(ctx, cmd)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(output))
+	return strings.TrimSpace(string(output.Stdout))
 }
 
 func providerContextGitLines(ctx context.Context, args ...string) []string {

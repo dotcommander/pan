@@ -278,11 +278,12 @@ func (s Service) ReviewReportWithOptions(ctx context.Context, root string, optio
 		return analyze.Snapshot{}, review.Report{}, err
 	}
 	report := inputs.report
-	report, err = inputs.options.Model.Score(ctx, report)
+	report, err = review.ApplyOptions(report, inputs.options.Review)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
-	report, err = review.ApplyOptions(report, inputs.options.Review)
+	inputs.options.Model.Prompt = s.deps.Config.ReviewModelPrompt
+	report, err = inputs.options.Model.Score(ctx, report)
 	if err != nil {
 		return analyze.Snapshot{}, review.Report{}, err
 	}
@@ -338,7 +339,7 @@ func (s Service) collectReviewReport(ctx context.Context, root string, options R
 		return reviewReportInputs{}, err
 	}
 	if reviewModelConfigured(options.Model) {
-		options.Model.ContentHashes = review.ContentHashes(snap.Root, snap.Files)
+		options.Model.ContentHashes = review.CapturedContentHashes(snap)
 	}
 	patterns, err := loadReviewPatterns(options.Patterns)
 	if err != nil {

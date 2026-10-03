@@ -13,7 +13,7 @@ const SchemaVersion = "pan/v1"
 // AnalyzerRevision changes when compiled evidence semantics change without a
 // public envelope schema change. Cache entries must match this value before
 // their stored snapshot can be reused.
-const AnalyzerRevision = "resolved-calls-and-references/v2"
+const AnalyzerRevision = "resolved-calls-and-references/v3"
 
 const (
 	LanguageGo        = "go"
@@ -56,7 +56,7 @@ type Diagnostic struct {
 
 // Status reports how complete a bounded analysis pass was.
 // Complete is false only when a bound truncated discovery or a filesystem
-// error skipped content; deliberate scope skips (excluded directories,
+// error skipped content or source extraction failed; deliberate scope skips (excluded directories,
 // symlinks, irregular files) are recorded in Skipped without flipping
 // Complete.
 type Status struct {

@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"io"
 	"math"
 	"os"
@@ -92,25 +94,15 @@ func (t Toolchain) RunTests(ctx context.Context, dir string) (TestResult, error)
 	cmd := exec.CommandContext(ctx, cmdGo)
 	cmd.Dir = dir
 	cmd.Args = append(cmd.Args, args...)
-	// Stream stdout and stderr through one pipe so unbounded test output is
-	// never buffered whole in memory; the parser caps what it retains.
-	pipeReader, pipeWriter := io.Pipe()
-	cmd.Stdout = pipeWriter
-	cmd.Stderr = pipeWriter
-	if startErr := cmd.Start(); startErr != nil {
-		_ = pipeReader.Close()
-		_ = pipeWriter.Close()
-		return TestResult{}, fmt.Errorf("start go test: %w", startErr)
+	captured, runErr := captureImproveCommand(ctx, cmd)
+	if errors.Is(runErr, ownedprocess.ErrOutputLimit) || (runErr != nil && captured.Stdout == nil) {
+		return TestResult{}, runErr
 	}
-	waitErr := make(chan error, 1)
-	go func() {
-		// Producer: run to completion, then close the writer so the reader
-		// observes EOF and terminates.
-		waitErr <- cmd.Wait()
-		_ = pipeWriter.Close()
-	}()
-	result, events := parseTestStream(pipeReader, maxTestOutputBytes)
-	runErr := <-waitErr
+	output := append(captured.Stdout, captured.Stderr...)
+	if captured.StderrTruncated {
+		output = append(output, []byte("\n[stderr truncated]\n")...)
+	}
+	result, events := parseTestStream(bytes.NewReader(output), improveOutputLimits(ctx).StdoutBytes)
 	if ctx.Err() != nil {
 		return TestResult{}, ctx.Err()
 	}
@@ -148,14 +140,19 @@ func (t Toolchain) Vet(ctx context.Context, dir string, packages []string) error
 	cmd := exec.CommandContext(ctx, cmdGo)
 	cmd.Dir = dir
 	cmd.Args = append(cmd.Args, args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
+	captured, err := captureImproveCommand(ctx, cmd)
+	if captured.StderrTruncated && err == nil {
+		return fmt.Errorf("go vet: stderr truncated after %d bytes", improveOutputLimits(ctx).StderrBytes)
+	}
+	if err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		return fmt.Errorf("go vet: %w\n%s", err, strings.TrimSpace(out.String()))
+		output := string(captured.Stdout) + string(captured.Stderr)
+		if captured.StderrTruncated {
+			output += " [stderr truncated]"
+		}
+		return fmt.Errorf("go vet: %w\n%s", err, strings.TrimSpace(output))
 	}
 	return nil
 }
@@ -176,9 +173,19 @@ func (t Toolchain) Staticcheck(ctx context.Context, dir string, packages, files 
 	cmd := exec.CommandContext(ctx, cmdStaticcheck)
 	cmd.Dir = dir
 	cmd.Args = append(cmd.Args, packages...)
-	output, err := cmd.CombinedOutput()
+	captured, err := captureImproveCommand(ctx, cmd)
+	output := append(captured.Stdout, captured.Stderr...)
+	if captured.StderrTruncated {
+		output = append(output, []byte("\n[stderr truncated]\n")...)
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
+	}
+	if errors.Is(err, ownedprocess.ErrOutputLimit) {
+		return err
+	}
+	if captured.StderrTruncated {
+		return fmt.Errorf("staticcheck: stderr truncated after %d bytes", improveOutputLimits(ctx).StderrBytes)
 	}
 	if err == nil || !staticcheckTouchesChangedFile(string(output), files) {
 		return nil

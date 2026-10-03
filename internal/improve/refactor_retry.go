@@ -119,7 +119,7 @@ func prepareRefactorAttempt(ctx context.Context, in refactorPrepareInput) (prepa
 		report, stopErr := in.run.stop(OutcomeValidation, fmt.Sprintf("proposal rejected before apply: %v", validErr), in.baselineTests, in.baselineTests)
 		return preparedRefactorAttempt{report: report, stop: true}, stopErr
 	}
-	tx, err := BeginBranchTx(ctx, GitVCS{Dir: in.copyDir}, in.baseline, fmt.Sprintf("%s-%s-r%d", in.prefix, in.head, in.attempt))
+	tx, err := BeginBranchTx(ctx, GitVCS{Dir: in.copyDir}, in.baseline, uniqueAttemptBranch(fmt.Sprintf("%s-%s-r%d", in.prefix, in.head, in.attempt)))
 	if err != nil {
 		return preparedRefactorAttempt{}, err
 	}

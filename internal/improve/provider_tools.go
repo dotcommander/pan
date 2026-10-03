@@ -163,6 +163,9 @@ func (r *providerReader) path(rel string) (full, slash string, err error) {
 	}
 	if resolved, resolveErr := filepath.EvalSymlinks(full); resolveErr == nil {
 		check, err = filepath.Rel(r.root, resolved)
+		if err == nil && deniedProviderPath(filepath.ToSlash(check)) {
+			return "", "", errors.New("path resolves to excluded content")
+		}
 		if err != nil || check == parentDir || strings.HasPrefix(check, parentDir+string(filepath.Separator)) {
 			return "", "", errors.New("path escapes repository through symlink")
 		}
@@ -173,7 +176,7 @@ func (r *providerReader) path(rel string) (full, slash string, err error) {
 func deniedProviderPath(path string) bool {
 	for _, part := range strings.Split(path, "/") {
 		lower := strings.ToLower(part)
-		if part == gitDirName || part == "vendor" || part == "node_modules" || part == "testdata" || strings.HasPrefix(part, ".env") || strings.Contains(lower, "credential") || strings.Contains(lower, "secret") {
+		if lower == ".work" || lower == ".claude" || lower == ".agent-browser-state" || lower == "auth" || lower == ".auth" || lower == "auth.json" || lower == "auth.yaml" || lower == "auth.yml" || lower == "auth.toml" || strings.HasPrefix(lower, "auth-state") || strings.HasPrefix(lower, "auth_state") || strings.Contains(lower, "cookie") || strings.HasPrefix(lower, "storage-state") || strings.HasPrefix(lower, "storage_state") || part == gitDirName || part == "vendor" || part == "node_modules" || part == "testdata" || strings.HasPrefix(part, ".env") || strings.Contains(lower, "credential") || strings.Contains(lower, "secret") {
 			return true
 		}
 	}
@@ -243,6 +246,9 @@ func (r *providerReader) bundle(limit int) (string, error) {
 }
 
 func (r *providerReader) call(ctx context.Context, name, raw string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	var args map[string]any
 	if err := json.Unmarshal([]byte(raw), &args); err != nil {
 		return "", fmt.Errorf("decode %s arguments: %w", name, err)
@@ -250,7 +256,7 @@ func (r *providerReader) call(ctx context.Context, name, raw string) (string, er
 	if !isProviderExplorationTool(name) {
 		return "", fmt.Errorf("unsupported read-only tool %q", name)
 	}
-	if r.jinnBin != "" && name != providerRepoContext && len(r.exclude) == 0 {
+	if r.jinnBin != "" && name == providerLSPQuery && len(r.exclude) == 0 {
 		result, err := r.jinnCall(ctx, name, args)
 		return r.cap(result), err
 	}

@@ -1,8 +1,10 @@
 package gitoutgoing
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +16,23 @@ func Check(revision, repositoryRoot string, maxBlobBytes int64) ([]Finding, erro
 	return report.Findings, err
 }
 
+func CheckContext(ctx context.Context, revision, repositoryRoot string, maxBlobBytes int64, rules config.OutgoingGitRules) ([]Finding, error) {
+	report, err := InspectContext(ctx, revision, repositoryRoot, maxBlobBytes, rules)
+	return report.Findings, err
+}
+
 // Inspect returns typed evidence for every outgoing path and generic safety finding.
 func Inspect(revision, repositoryRoot string, maxBlobBytes int64) (Report, error) {
+	return InspectContext(context.Background(), revision, repositoryRoot, maxBlobBytes, config.OutgoingGitRules{})
+}
+
+func InspectContext(ctx context.Context, revision, repositoryRoot string, maxBlobBytes int64, rules config.OutgoingGitRules) (Report, error) {
+	rules = rules.Normalized()
+	if rules.Timeout < 0 || rules.MaxLogBytes < 0 || rules.MaxHeaderBytes < 0 || rules.MaxStderrBytes < 0 {
+		return Report{}, errors.New("negative outgoing Git limit")
+	}
+	ctx, cancel := context.WithTimeout(ctx, rules.Timeout)
+	defer cancel()
 	if maxBlobBytes < 0 {
 		return Report{}, errors.New("maximum blob size must not be negative")
 	}
@@ -27,7 +44,10 @@ func Inspect(revision, repositoryRoot string, maxBlobBytes int64) (Report, error
 	if err != nil || !info.IsDir() {
 		return Report{}, fmt.Errorf("repository root is not a directory: %q", root)
 	}
-	return scan(root, revision, maxBlobBytes)
+	// Transport cancellation may surface as a closed-pipe error; retain both
+	// that diagnostic and the operation cancellation identity at the public boundary.
+	report, err := scanContext(ctx, root, revision, maxBlobBytes, rules)
+	return report, errors.Join(err, ctx.Err())
 }
 
 // Emit writes the legacy diagnostic format and reports whether the result blocks pushing.

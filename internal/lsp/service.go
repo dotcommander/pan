@@ -105,7 +105,7 @@ func NewService(rules config.LspRules, excludes []string) *Service {
 	}
 	s.lookPath = exec.LookPath
 	s.dial = func(ctx context.Context, command string) (*Client, error) {
-		return Start(ctx, command)
+		return StartWithOptions(ctx, command, transportOptions(s.rules))
 	}
 	return s
 }
@@ -328,7 +328,8 @@ func boundHover(hover *HoverResult) *HoverDetail {
 
 // boundSymbols flattens the document symbol tree depth-first and caps it.
 func boundSymbols(symbols []DocumentSymbol) ([]SymbolRow, []analyze.Truncation) {
-	rows := make([]SymbolRow, 0, min(countSymbols(symbols), MaxSymbols))
+	total := countSymbols(symbols)
+	rows := make([]SymbolRow, 0, min(total, MaxSymbols))
 	var walk func(symbols []DocumentSymbol, depth int)
 	walk = func(symbols []DocumentSymbol, depth int) {
 		for _, symbol := range symbols {
@@ -350,7 +351,7 @@ func boundSymbols(symbols []DocumentSymbol) ([]SymbolRow, []analyze.Truncation) 
 	}
 	walk(symbols, 0)
 	var truncations []analyze.Truncation
-	if total := countSymbols(symbols); total > MaxSymbols {
+	if total > MaxSymbols {
 		truncations = append(truncations, analyze.Truncation{
 			Field: "symbols", Shown: MaxSymbols, Total: total, Reason: "symbol cap",
 		})

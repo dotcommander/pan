@@ -18,12 +18,13 @@ const maxReadQueue = 100
 // ReadItem is one deterministic read recommendation with its rank, content
 // identity, score, cull lane, and reasons.
 type ReadItem struct {
-	Rank       int      `json:"rank"`
-	EvidenceID string   `json:"evidence_id"`
-	Path       string   `json:"path"`
-	Score      int      `json:"score"`
-	Lane       string   `json:"lane"`
-	Why        []string `json:"why"`
+	Rank         int           `json:"rank"`
+	EvidenceID   string        `json:"evidence_id"`
+	Path         string        `json:"path"`
+	Score        int           `json:"score"`
+	Lane         string        `json:"lane"`
+	Why          []string      `json:"why"`
+	ModelVerdict *ModelVerdict `json:"model_verdict,omitempty"`
 }
 
 // Report is the full deterministic audit report: every scan packet plus a

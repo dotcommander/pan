@@ -9,10 +9,6 @@ import (
 	"strings"
 )
 
-// maxFrameBytes bounds one decoded server frame so a misbehaving server
-// cannot make pan allocate without limit.
-const maxFrameBytes = 32 << 20
-
 // jsonRPCVersion is the protocol version every LSP message carries.
 const jsonRPCVersion = "2.0"
 
@@ -82,7 +78,7 @@ func (c *Client) callRaw(ctx context.Context, method string, params any) (json.R
 		c.mu.Unlock()
 	}()
 
-	if err := c.send(rpcRequest{JSONRPC: jsonRPCVersion, ID: id, Method: method, Params: params}); err != nil {
+	if err := c.send(ctx, rpcRequest{JSONRPC: jsonRPCVersion, ID: id, Method: method, Params: params}); err != nil {
 		return nil, fmt.Errorf("lsp: send %s: %w", method, err)
 	}
 	select {
@@ -91,6 +87,7 @@ func (c *Client) callRaw(ctx context.Context, method string, params any) (json.R
 	case <-c.done:
 		return nil, ErrServerDied
 	case <-ctx.Done():
+		c.closeTransport()
 		return nil, ctx.Err()
 	}
 }
@@ -100,52 +97,96 @@ func (c *Client) notify(ctx context.Context, method string, params any) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return c.send(rpcRequest{JSONRPC: jsonRPCVersion, Method: method, Params: params})
+	return c.send(ctx, rpcRequest{JSONRPC: jsonRPCVersion, Method: method, Params: params})
 }
 
 // send frames one message with Content-Length headers and writes it.
-func (c *Client) send(msg any) error {
+func (c *Client) send(ctx context.Context, msg any) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(data))
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
-	if _, writeErr := io.WriteString(c.writer, header); writeErr != nil {
-		return writeErr
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.done:
+		return ErrServerDied
+	case <-c.writeGate:
 	}
-	_, err = c.writer.Write(data)
-	return err
+	defer func() { c.writeGate <- struct{}{} }()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	finished := make(chan error, 1)
+	go func() {
+		// Closing the owned transport interrupts this worker's writes.
+		frame := append([]byte(fmt.Sprintf("Content-Length: %d\r\n\r\n", len(data))), data...)
+		n, err := c.writer.Write(frame)
+		if err == nil && n != len(frame) {
+			err = io.ErrShortWrite
+		}
+		finished <- err
+	}()
+	select {
+	case err := <-finished:
+		if err != nil {
+			c.closeTransport()
+		}
+		return err
+	case <-ctx.Done():
+		c.closeTransport()
+		<-finished
+		return ctx.Err()
+	case <-c.done:
+		c.closeTransport()
+		<-finished
+		return ErrServerDied
+	}
 }
 
-// readAnswer reads one Content-Length framed server message.
+// readAnswer preserves the default-policy test and alternative-transport API.
 func readAnswer(reader io.Reader) ([]byte, error) {
-	var contentLength int
+	return readAnswerWithOptions(reader, TransportOptions{}.normalized())
+}
+
+func readAnswerWithOptions(reader io.Reader, options TransportOptions) ([]byte, error) {
+	contentLength := -1
+	total, headers := 0, 0
 	for {
-		line, err := readLine(reader)
+		line, size, err := readHeaderLine(reader, min(options.MaxHeaderLineBytes, options.MaxHeaderBytes-total))
 		if err != nil {
 			return nil, err
 		}
+		total += size
 		line = strings.TrimSpace(line)
 		if line == "" {
 			break
 		}
+		headers++
+		if headers > options.MaxHeaders {
+			return nil, fmt.Errorf("lsp: header count exceeds cap")
+		}
 		name, value, found := strings.Cut(line, ":")
-		if !found || !strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
+		if !found {
+			return nil, fmt.Errorf("lsp: malformed header")
+		}
+		if !strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
 			continue
+		}
+		if contentLength >= 0 {
+			return nil, fmt.Errorf("lsp: duplicate Content-Length")
 		}
 		length, err := strconv.Atoi(strings.TrimSpace(value))
 		if err != nil || length < 0 {
-			return nil, fmt.Errorf("lsp: invalid Content-Length %q", line)
+			return nil, fmt.Errorf("lsp: invalid Content-Length")
 		}
 		contentLength = length
 	}
-	if contentLength == 0 {
-		return nil, nil
+	if contentLength < 0 {
+		return nil, fmt.Errorf("lsp: missing Content-Length")
 	}
-	if contentLength > maxFrameBytes {
-		return nil, fmt.Errorf("lsp: frame of %d bytes exceeds the %d byte cap", contentLength, maxFrameBytes)
+	if contentLength > options.MaxFrameBytes {
+		return nil, fmt.Errorf("lsp: frame exceeds byte cap")
 	}
 	body := make([]byte, contentLength)
 	if _, err := io.ReadFull(reader, body); err != nil {
@@ -154,20 +195,29 @@ func readAnswer(reader io.Reader) ([]byte, error) {
 	return body, nil
 }
 
-// readLine reads one \n-terminated header line, tolerating \r\n.
 func readLine(reader io.Reader) (string, error) {
+	line, _, err := readHeaderLine(reader, TransportOptions{}.normalized().MaxHeaderLineBytes)
+	return line, err
+}
+
+// The cap includes CR/LF delimiters and is checked before every append.
+func readHeaderLine(reader io.Reader, limit int) (string, int, error) {
 	var builder strings.Builder
-	buf := make([]byte, 1)
-	for {
-		n, err := reader.Read(buf)
+	var buf [1]byte
+	for size := 0; ; {
+		if size >= limit {
+			return "", size, fmt.Errorf("lsp: headers exceed byte cap")
+		}
+		n, err := reader.Read(buf[:])
 		if n > 0 {
+			size++
 			if buf[0] == '\n' {
-				return builder.String(), nil
+				return builder.String(), size, nil
 			}
 			builder.WriteByte(buf[0])
 		}
 		if err != nil {
-			return builder.String(), err
+			return "", size, err
 		}
 	}
 }
@@ -178,8 +228,9 @@ func readLine(reader io.Reader) (string, error) {
 // to their pending caller. It closes done exactly once on exit.
 func (c *Client) readLoop() {
 	defer close(c.done)
+	defer c.closeTransport()
 	for {
-		body, err := readAnswer(c.reader)
+		body, err := readAnswerWithOptions(c.reader, c.options)
 		if err != nil {
 			return
 		}
@@ -187,18 +238,23 @@ func (c *Client) readLoop() {
 			continue
 		}
 		var resp rpcResponse
-		if json.Unmarshal(body, &resp) != nil {
-			continue
+		if json.Unmarshal(body, &resp) != nil || resp.JSONRPC != jsonRPCVersion {
+			return
 		}
 		if resp.ID == nil {
 			continue
 		}
 		if resp.Method != "" {
-			_ = c.send(struct {
+			ctx, cancel := context.WithTimeout(c.ctx, shutdownWait)
+			err := c.send(ctx, struct {
 				JSONRPC string          `json:"jsonrpc"`
 				ID      int64           `json:"id"`
 				Result  json.RawMessage `json:"result"`
 			}{JSONRPC: jsonRPCVersion, ID: *resp.ID, Result: json.RawMessage(jsonNull)})
+			cancel()
+			if err != nil {
+				return
+			}
 			continue
 		}
 		c.mu.Lock()
@@ -208,9 +264,15 @@ func (c *Client) readLoop() {
 			continue
 		}
 		if resp.Error != nil {
-			ch <- rpcResult{Err: resp.Error}
+			select {
+			case ch <- rpcResult{Err: resp.Error}:
+			default:
+			}
 			continue
 		}
-		ch <- rpcResult{Data: resp.Result}
+		select {
+		case ch <- rpcResult{Data: resp.Result}:
+		default:
+		}
 	}
 }

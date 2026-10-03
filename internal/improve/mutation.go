@@ -1,11 +1,11 @@
 package improve
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -35,33 +35,25 @@ func (r CommandMutationRunner) Run(ctx context.Context, dir string, packages []s
 	args := append([]string{"--repo", dir}, "--packages")
 	args = append(args, packages...)
 	cmd := &exec.Cmd{Path: executable, Args: append([]string{executable}, args...), Dir: dir}
-	var out bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &out
-	if err := runMutationCommand(ctx, cmd); err != nil {
-		return 0, fmt.Errorf("mutation runner: %w: %s", err, strings.TrimSpace(out.String()))
+	captured, err := captureImproveCommand(ctx, cmd)
+	if err != nil {
+		return 0, fmt.Errorf("mutation runner: %w: %s", err, strings.TrimSpace(string(captured.Stderr)))
 	}
-	return parseMutationScore(out.String())
+	return parseMutationScore(string(captured.Stdout))
 }
 
+// runMutationCommand preserves the cancellation seam for callers supplying
+// their own writers while retaining tree ownership and one process waiter.
 func runMutationCommand(ctx context.Context, cmd *exec.Cmd) error {
-	if err := ctx.Err(); err != nil {
+	process, err := ownedprocess.Start(ctx, cmd)
+	if err != nil {
 		return err
 	}
-	if err := cmd.Start(); err != nil {
-		return err
+	err = process.Wait()
+	if ctx.Err() != nil {
+		return errors.Join(ctx.Err(), err)
 	}
-	wait := make(chan error, 1)
-	go func() { wait <- cmd.Wait() }()
-	select {
-	case err := <-wait:
-		return err
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		<-wait
-		return ctx.Err()
-	}
+	return err
 }
 
 func parseMutationScore(output string) (float64, error) {

@@ -150,7 +150,7 @@ func splitNUL(out string) []string {
 }
 
 func isSourcePath(path string) bool {
-	return strings.HasSuffix(path, ".go")
+	return analyze.LanguageForPath(path) != "unknown"
 }
 
 func sourcePaths(paths []string) []string {

@@ -12,6 +12,10 @@ func TestWriteReplacesCompleteOutputAndPreservesMode(t *testing.T) {
 	if err := Write(path, []byte("old"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	originalInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := Write(path, []byte("complete replacement"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -26,8 +30,8 @@ func TestWriteReplacesCompleteOutputAndPreservesMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gotMode := info.Mode().Perm(); gotMode != 0o600 {
-		t.Fatalf("mode = %v, want 0600", gotMode)
+	if gotMode := info.Mode().Perm(); gotMode != originalInfo.Mode().Perm() {
+		t.Fatalf("mode = %v, want preserved %v", gotMode, originalInfo.Mode().Perm())
 	}
 	assertNoTemps(t, path)
 }

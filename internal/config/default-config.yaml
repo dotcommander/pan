@@ -11,6 +11,8 @@ exclude:
   - node_modules
   - .pan-cache
 improve:
+  max_stdout_bytes: 1048576
+  max_stderr_bytes: 4096
   coverage_floor: 0.70
   test_timeout: 5m
   branch_prefix: "pan/improve"
@@ -18,6 +20,10 @@ improve:
   recent_window: 10
   state_dir: ""
 lsp:
+  max_frame_bytes: 33554432
+  max_header_line_bytes: 8192
+  max_header_bytes: 16384
+  max_headers: 64
   status_max_depth: 3
   timeout: 20s
   languages:
@@ -93,3 +99,19 @@ clean:
       why: "no security policy — vulnerability reporting process is undefined"
   ci_patterns: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".gitlab-ci.yml", "Jenkinsfile", ".circleci/config.yml", ".travis.yml", "bitbucket-pipelines.yml"]
   build_patterns: ["Makefile", "Taskfile.yml", "Taskfile.yaml", "justfile", "build.gradle", "build.gradle.kts", "pom.xml", "CMakeLists.txt", "meson.build"]
+
+outgoing_git:
+  timeout: 30s
+  max_log_bytes: 16777216
+  max_header_bytes: 4096
+  max_stderr_bytes: 4096
+command_help:
+  invocation_timeout: 10s
+  timeout: 60s
+  max_invocations: 128
+  max_depth: 8
+  max_output_bytes: 1048576
+  max_total_output_bytes: 8388608
+
+review_model_prompt: |-
+  Evaluate the immutable candidate evidence. Return only a JSON array with one verdict for each request-local candidate index. Each object must have index (integer), score (integer from 1 to 5), summary (string), and reasons (array of strings). Do not change candidate evidence or deterministic scores. Candidates:

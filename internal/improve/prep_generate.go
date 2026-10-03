@@ -135,7 +135,7 @@ func beginPrepTransaction(ctx context.Context, dir, branchBase, prefix string) (
 	if prefix == "" {
 		prefix = "pan-improve"
 	}
-	return BeginBranchTx(ctx, GitVCS{Dir: dir}, branchBase, prefix+"-prep")
+	return BeginBranchTx(ctx, GitVCS{Dir: dir}, branchBase, uniqueAttemptBranch(prefix+"-prep"))
 }
 
 func newGeneratedPrepState(dir, branchBase string, baseline TestResult, opts PrepOptions) *generatedPrepState {

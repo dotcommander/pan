@@ -2,7 +2,9 @@ package improve
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/config"
 	"os"
 	"sort"
 	"time"
@@ -15,6 +17,7 @@ const PrepSchema = "pan.improve-prep/v1"
 // configured default; zero MaxTargets disables the worklist bound; nil
 // Now uses time.Now.
 type PrepOptions struct {
+	OutputLimits      config.ImproveRules
 	RepoPath          string
 	StateDir          string
 	Floor             float64 // fraction in [0,1]
@@ -66,6 +69,8 @@ type PrepTarget struct {
 // test-only changes in an isolated copy and can settle accepted changes in a
 // live run after the configured gates pass.
 type PrepReport struct {
+	RetainedWorktree  string              `json:"retained_worktree,omitempty"`
+	OwnershipRecord   string              `json:"ownership_record,omitempty"`
 	Schema            string              `json:"schema"`
 	RunType           string              `json:"run_type"`
 	RepoPath          string              `json:"repo_path"`
@@ -94,7 +99,8 @@ type PrepReport struct {
 // baseline suite with coverage inside an isolated copy, then report an
 // already-sufficient result, a ranked worklist, or guarded generated tests.
 // The run appends one ledger record.
-func RunPrep(ctx context.Context, opts PrepOptions) (PrepReport, error) {
+func RunPrep(ctx context.Context, opts PrepOptions) (report PrepReport, retErr error) {
+	ctx = withOutputLimits(ctx, opts.OutputLimits)
 	run := newPrepRun(opts)
 	opts = run.opts
 	tree, err := CheckWorkTree(ctx, opts.RepoPath)
@@ -112,7 +118,13 @@ func RunPrep(ctx context.Context, opts PrepOptions) (PrepReport, error) {
 	if workspace.Err != nil {
 		return run.report, workspace.Err
 	}
-	defer func() { _ = workspace.Cleanup() }()
+	defer func() {
+		if cleanupErr := workspace.Cleanup(); cleanupErr != nil {
+			report.RetainedWorktree = workspace.Dir
+			report.OwnershipRecord = ownershipPath(workspace.Dir)
+			retErr = errors.Join(retErr, cleanupErr)
+		}
+	}()
 	baseline := runPrepBaseline(ctx, workspace.Dir, workspace.Options)
 	if baseline.Err != nil {
 		return run.report, baseline.Err
@@ -187,7 +199,7 @@ func preparePrepWorkspace(ctx context.Context, opts PrepOptions, head string) pr
 		if err != nil {
 			return prepWorkspace{Err: err}
 		}
-		return prepWorkspace{Dir: dir, Options: prepScopedGenerator(opts, dir), Cleanup: func() error { removeTree(dir); return nil }}
+		return prepWorkspace{Dir: dir, Options: prepScopedGenerator(opts, dir), Cleanup: func() error { return removeOwnedCopy(dir) }}
 	}
 	dir, cleanup, err := IsolateLinkedWorkTree(ctx, opts.RepoPath, head)
 	if err != nil {

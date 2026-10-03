@@ -18,7 +18,7 @@ func RenderMarkdown(root string, report Report) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Pan Review Report\n\n")
 	fmt.Fprintf(&b, "- Repository: %s\n", markdownCell(root))
-	fmt.Fprintf(&b, "- Scoring: deterministic fallback\n")
+	fmt.Fprintf(&b, "- Scoring: deterministic; model ranking: %s\n", modelRankingStatus(report.ReadQueue))
 	fmt.Fprintf(&b, "- Files: `%d`; symbols: `%d`; edges: `%d`\n", report.Overview.Files, report.Overview.Symbols, report.Overview.Edges)
 	fmt.Fprintf(&b, "- Read queue: `%d` rows", len(report.ReadQueue))
 	if report.Changes.GitAvailable {
@@ -122,4 +122,26 @@ func writeCullLedgerMarkdown(b *strings.Builder, ledger CullLedger) {
 // markdownCell renders one table cell as inline code, neutralizing backticks.
 func markdownCell(value string) string {
 	return "`" + strings.ReplaceAll(value, "`", "'") + "`"
+}
+
+func modelRankingStatus(rows []ReadItem) string {
+	total, success := 0, 0
+	for _, row := range rows {
+		if row.ModelVerdict != nil {
+			total++
+			if row.ModelVerdict.Status == "success" {
+				success++
+			}
+		}
+	}
+	if total == 0 {
+		return "disabled"
+	}
+	if success == 0 {
+		return "unavailable"
+	}
+	if success < total {
+		return "partial"
+	}
+	return "successful"
 }

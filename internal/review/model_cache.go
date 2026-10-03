@@ -48,22 +48,22 @@ func ContentHashes(root string, files []analyze.File) map[string]string {
 func cacheKey(o ModelOptions, row ReadItem) string {
 	contentHash := o.ContentHashes[row.Path]
 	data, _ := json.Marshal(struct {
-		Model, BaseURL, Path, ContentHash string
-		Score                             int
-		Why                               []string
-	}{o.Model, o.BaseURL, row.Path, contentHash, row.Score, row.Why})
+		Contract, Model, BaseURL, Path, ContentHash, Lane, Prompt string
+		Score                                                     int
+		Why                                                       []string
+	}{"pan.model-ranking/v2", o.Model, o.BaseURL, row.Path, contentHash, row.Lane, o.Prompt, row.Score, row.Why})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
 
 func loadModelScore(o ModelOptions, cache *modelScoreCache, row ReadItem) (cachedModelScore, bool) {
-	if o.NoCache {
+	if o.NoCache || (o.ContentHashes != nil && o.ContentHashes[row.Path] == "") {
 		return cachedModelScore{}, false
 	}
 	cache.Lock()
 	defer cache.Unlock()
 	score, ok := cache.entries[cacheKey(o, row)]
-	return score, ok
+	return score, ok && score.Score >= minModelScore && score.Score <= maxModelScore
 }
 func storeModelScore(o ModelOptions, cache *modelScoreCache, key string, score cachedModelScore) {
 	if o.NoCache {
@@ -75,7 +75,7 @@ func storeModelScore(o ModelOptions, cache *modelScoreCache, key string, score c
 		cache.entries[key] = score
 	}
 }
-func cachePath(o ModelOptions) string { return filepath.Join(o.CacheDir, "scores.json") }
+func cachePath(o ModelOptions) string { return filepath.Join(o.CacheDir, "verdicts-v2.json") }
 func loadDiskCache(o ModelOptions, cache *modelScoreCache) {
 	data, err := os.ReadFile(cachePath(o))
 	if err != nil || len(data) > 8<<20 {
@@ -104,4 +104,15 @@ func persistDiskCache(o ModelOptions, cache *modelScoreCache) {
 		return
 	}
 	_ = atomicfile.Write(cachePath(o), data, 0o600)
+}
+
+// CapturedContentHashes binds model cache reuse to the bytes admitted by the
+// snapshot, independent of subsequent live-file changes.
+func CapturedContentHashes(snap analyze.Snapshot) map[string]string {
+	hashes := make(map[string]string, len(snap.Captured))
+	for path, data := range snap.Captured {
+		sum := sha256.Sum256(data)
+		hashes[path] = hex.EncodeToString(sum[:])
+	}
+	return hashes
 }

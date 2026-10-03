@@ -153,7 +153,10 @@ func answerServeRecord(ctx context.Context, output io.Writer, line []byte, eof b
 		}
 		return true, ctxErr
 	}
-	return eof, answer(ctx, output, req, backend)
+	if err := answer(ctx, output, req, backend); err != nil {
+		return true, err
+	}
+	return eof, nil
 }
 
 // serveFailureID echoes the request id when validation got far enough to
@@ -265,11 +268,11 @@ func decodeServeHeader(req *serveRequest) *serveFailure {
 	if !ok {
 		return &serveFailure{code: ServeCodeInvalidRequest, message: "id is required"}
 	}
-	req.hasID = true
-	req.ID = raw
 	if !validServeID(raw) {
 		return &serveFailure{code: ServeCodeInvalidRequest, message: "id must be a string or number"}
 	}
+	req.hasID = true
+	req.ID = raw
 	return nil
 }
 

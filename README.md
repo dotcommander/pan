@@ -79,6 +79,13 @@ Read the cleanup plan before any write:
 
 `improve recommend` and `improve probe` do not apply a change. Guarded improvement preparation and refactoring use an isolated copy by default. Provider-enabled improvement commands can send selected source context to a configured OpenAI-compatible endpoint; configure a provider only when that disclosure is acceptable.
 
+Improvement Git and toolchain commands capture output while enforcing `improve.max_stdout_bytes` (default 1 MiB) and retaining `improve.max_stderr_bytes` (default 4 KiB). Stdout overflow terminates the owned process tree and fails the operation; excess stderr is drained with explicit truncation evidence. Provider filesystem exploration excludes `.work`, `.claude`, browser state, authentication state, cookies, credentials, and secrets before reading or searching.
+
+Each disposable improvement tree has a private sibling ownership record named `<tree-path>.pan-owner.json`, created before use. Retry rollback removes tracked changes and all generated untracked or ignored files only inside that owned tree. Attempt branch names include a unique token. Successful live attempt branches remain available for review.
+
+If cleanup fails, the report's `retained_worktree` and `ownership_record` identify the exact retained tree and recovery record; the command also returns the cleanup error. After a crash, inspect the sibling record's `directory`, `repository`, `baseline`, and `linked` fields, plus the tree's status and attempt branch, before discarding anything. Preserve desired changes first. For a linked tree, manually run `git -C <recorded-repository> worktree remove --force <recorded-directory>` against that exact identity; for a copied tree, remove only the recorded disposable directory. Delete its ownership record only after removal succeeds. Do not globally prune worktrees or replay a proposal to recover cleanup.
+
+
 ## Verification and contribution
 
 The `justfile` defines focused test and vet commands plus full-suite targets. These commands are source-checked, not executed in this documentation update:

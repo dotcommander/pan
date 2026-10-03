@@ -116,3 +116,36 @@ func TestRunServeRefreshesBackendForEveryNDJSONRequest(t *testing.T) {
 		t.Fatalf("calls=%d responses=%q", backend.calls, output.String())
 	}
 }
+
+type failingServeWriter struct{ calls int }
+
+func (w *failingServeWriter) Write([]byte) (int, error) {
+	w.calls++
+	return 0, fmt.Errorf("fixture output closed")
+}
+
+func TestRunServeStopsAfterResponseWriteFailure(t *testing.T) {
+	t.Parallel()
+	writer := &failingServeWriter{}
+	backend := &changingServeBackend{}
+	input := strings.Repeat("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"map/status\"}\n", 3)
+	if err := RunServe(context.Background(), bufio.NewReader(strings.NewReader(input)), writer, backend); err == nil {
+		t.Fatal("ignored write error")
+	}
+	if writer.calls != 1 || backend.calls != 1 {
+		t.Fatalf("writes=%d dispatches=%d", writer.calls, backend.calls)
+	}
+}
+
+func TestMalformedServeIDsAreNotEchoed(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{"null", "true", "[]", "{}"} {
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+			req, failure := decodeServeRequest([]byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"method":"pan/status"}`, id)))
+			if failure == nil || string(serveFailureID(req)) != "null" {
+				t.Fatalf("id=%s failure=%v echoed=%s", id, failure, serveFailureID(req))
+			}
+		})
+	}
+}

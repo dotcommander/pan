@@ -1,18 +1,20 @@
 package storyboard
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/dotcommander/pan/internal/config"
+	"github.com/dotcommander/pan/internal/ownedprocess"
 	"github.com/dotcommander/pan/internal/pipeline/atomicfile"
 	"github.com/dotcommander/pan/internal/pipeline/scan"
 	"github.com/dotcommander/pan/internal/pipeline/spec"
@@ -23,15 +25,20 @@ import (
 // target binary (go run <target> --help); "off" and "static" never execute
 // target code.
 func ResolveCommandHelp(ctx context.Context, mode, root string) ([]Command, string, error) {
+	return ResolveCommandHelpWithOptions(ctx, mode, root, config.CommandHelpRules{})
+}
+
+func ResolveCommandHelpWithOptions(ctx context.Context, mode, root string, rules config.CommandHelpRules) ([]Command, string, error) {
+	rules = rules.Normalized()
 	switch mode {
 	case "off":
 		return nil, "skipped (off)", nil
 	case "static":
 		return nil, "static-unsupported", nil
 	case "execute":
-		commands, err := collectProjectCommandHelp(ctx, root)
+		commands, err := collectProjectCommandHelpOptions(ctx, root, rules)
 		if err != nil {
-			return nil, "failed", err
+			return commands, "incomplete (execution failed)", err
 		}
 		if len(commands) == 0 {
 			return nil, "skipped (no command entry)", nil
@@ -108,6 +115,15 @@ func refreshSpecAt(ctx context.Context, root, output string, config scan.Config,
 }
 
 func collectProjectCommandHelp(ctx context.Context, root string) ([]Command, error) {
+	return collectProjectCommandHelpOptions(ctx, root, config.CommandHelpRules{})
+}
+func collectProjectCommandHelpOptions(ctx context.Context, root string, rules config.CommandHelpRules) ([]Command, error) {
+	rules = rules.Normalized()
+	if rules.Timeout < 0 || rules.InvocationTimeout < 0 || rules.MaxDepth < 0 || rules.MaxInvocations < 0 || rules.MaxOutputBytes < 0 || rules.MaxTotalOutputBytes < 0 {
+		return nil, fmt.Errorf("negative command-help limit")
+	}
+	ctx, cancel := context.WithTimeout(ctx, rules.Timeout)
+	defer cancel()
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -117,29 +133,48 @@ func collectProjectCommandHelp(ctx context.Context, root string) ([]Command, err
 		return nil, nil
 	}
 
-	collector := commandHelpCollector{ctx: ctx, root: absRoot, entry: entry, seen: map[string]bool{}}
+	collector := commandHelpCollector{ctx: ctx, root: absRoot, entry: entry, seen: map[string]bool{}, rules: rules}
 	if err := collector.collect(nil); err != nil {
-		return nil, err
+		return collector.commands, err
 	}
 	sort.SliceStable(collector.commands, func(i, j int) bool { return collector.commands[i].Path < collector.commands[j].Path })
 	return collector.commands, nil
 }
 
 type commandHelpCollector struct {
-	ctx      context.Context
-	root     string
-	entry    string
-	rootName string
-	seen     map[string]bool
-	commands []Command
+	rules       config.CommandHelpRules
+	invocations int
+	totalOutput int
+	ctx         context.Context
+	root        string
+	entry       string
+	rootName    string
+	seen        map[string]bool
+	commands    []Command
 }
 
 func (c *commandHelpCollector) collect(args []string) error {
+	if err := c.ctx.Err(); err != nil {
+		return err
+	}
+	if len(args) > c.rules.MaxDepth {
+		return fmt.Errorf("command-help depth limit exceeded")
+	}
+	if c.invocations >= c.rules.MaxInvocations {
+		return fmt.Errorf("command-help invocation limit exceeded")
+	}
 	if c.seen[strings.Join(args, "\x00")] {
 		return nil
 	}
 	c.seen[strings.Join(args, "\x00")] = true
-	help, err := runProjectCommandHelp(c.ctx, c.root, c.entry, args)
+	c.invocations++
+	remaining := c.rules.MaxTotalOutputBytes - c.totalOutput
+	if remaining <= 0 {
+		return fmt.Errorf("command-help total output limit exceeded")
+	}
+	limit := min(remaining, c.rules.MaxOutputBytes)
+	help, err := runProjectCommandHelpOptions(c.ctx, c.root, c.entry, args, c.rules.InvocationTimeout, limit)
+	c.totalOutput += len(help)
 	if err != nil {
 		return err
 	}
@@ -228,7 +263,11 @@ func rootHasMainPackage(root string) bool {
 }
 
 func runProjectCommandHelp(ctx context.Context, root, entry string, args []string) (string, error) {
-	runCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	rules := config.Default().CommandHelp
+	return runProjectCommandHelpOptions(ctx, root, entry, args, rules.InvocationTimeout, rules.MaxOutputBytes)
+}
+func runProjectCommandHelpOptions(ctx context.Context, root, entry string, args []string, timeout time.Duration, limit int) (string, error) {
+	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	runTarget := "./cmd/" + entry
@@ -247,7 +286,12 @@ func runProjectCommandHelp(ctx context.Context, root, entry string, args []strin
 		Dir:  root,
 		Env:  goHelpEnv(),
 	}
-	out, err := combinedOutputContext(runCtx, cmd)
+	if factory, ok := ctx.Value(commandHelpCommandKey{}).(func([]string) *exec.Cmd); ok {
+		cmd = factory(cmdArgs)
+		cmd.Dir = root
+	}
+	result, err := ownedprocess.Run(runCtx, cmd, ownedprocess.Limits{CombinedBytes: limit})
+	out := append(result.Stdout, result.Stderr...)
 	if err != nil {
 		return "", fmt.Errorf("go %s: %w\n%s", strings.Join(cmdArgs, " "), err, strings.TrimSpace(string(out)))
 	}
@@ -255,28 +299,12 @@ func runProjectCommandHelp(ctx context.Context, root, entry string, args []strin
 }
 
 func combinedOutputContext(ctx context.Context, cmd *exec.Cmd) ([]byte, error) {
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	cmd.Stderr = &output
-	if err := cmd.Start(); err != nil {
-		return output.Bytes(), err
-	}
-	wait := make(chan error, 1)
-	go func() {
-		wait <- cmd.Wait()
-	}()
-	select {
-	case err := <-wait:
-		return output.Bytes(), err
-	case <-ctx.Done():
-		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
-		}
-		<-wait
-		return output.Bytes(), ctx.Err()
-	}
+	rules := config.Default().CommandHelp
+	result, err := ownedprocess.Run(ctx, cmd, ownedprocess.Limits{CombinedBytes: rules.MaxOutputBytes})
+	return append(result.Stdout, result.Stderr...), err
 }
 
-func goHelpEnv() []string {
-	return append(os.Environ(), "GOWORK=off")
-}
+func goHelpEnv() []string { return commandHelpEnvironment(os.Environ(), runtime.GOOS) }
+
+// commandHelpCommandKey scopes executable fixtures to one help traversal.
+type commandHelpCommandKey struct{}

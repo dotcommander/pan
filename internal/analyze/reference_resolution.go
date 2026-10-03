@@ -155,7 +155,7 @@ func modulePaths(from, module string) []string {
 		return []string{base}
 	}
 	var paths []string
-	for _, ext := range []string{".ts", ".tsx", ".js", ".jsx"} {
+	for _, ext := range []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"} {
 		paths = append(paths, base+ext, path.Join(base, "index"+ext))
 	}
 	return paths

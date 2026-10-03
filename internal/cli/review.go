@@ -40,7 +40,7 @@ type ReviewReportCmd struct {
 	NoCache   bool     `name:"no-cache" help:"Bypass the bounded persisted model score cache."`
 	CacheDir  string   `name:"cache-dir" type:"path" help:"Directory for persisted model score cache."`
 	Markdown  bool     `name:"markdown" help:"Emit the report body as Markdown instead of the envelope."`
-	JSON      bool     `name:"json" help:"Emit the bare pan.review-report/v1 document instead of the envelope."`
+	JSON      bool     `name:"json" help:"Emit the bare pan.review-report/v1 or v2 document instead of the envelope."`
 	Summary   bool     `name:"summary" help:"Emit the compact summary format."`
 	Cull      bool     `name:"cull" help:"Append the deterministic cull ledger separating production rows from test, docs, generated, and low-signal lanes."`
 	Output    string   `name:"output" short:"o" aliases:"out" default:"-" help:"Write the report body to this path; - writes stdout."`

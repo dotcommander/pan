@@ -35,7 +35,9 @@ type Options struct {
 	// Intent orients file ranking toward a task (see ranking.Options).
 	Intent string
 	// Consumed are repo-relative paths already in the agent's context.
-	Consumed          []string
+	Consumed []string
+	// Captured is the immutable source generation used by line rendering.
+	Captured          map[string][]byte
 	Root              string
 	Calls             bool
 	CallsThreshold    int
@@ -92,7 +94,7 @@ func Build(ranked []ranking.RankedFile, opts Options) Result {
 	case ModeDetail:
 		body = renderVerbose(ranked, true, opts.ExplainScores, calls)
 	case ModeLines:
-		body = renderLines(ranked, opts.Root, opts.Tokens)
+		body = renderLines(ranked, opts.Captured, opts.Tokens)
 	case ModeXML:
 		body = renderXML(ranked)
 	default:

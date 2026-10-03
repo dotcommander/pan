@@ -137,6 +137,7 @@ func BuildStructured(snap analyze.Snapshot, ranked []ranking.RankedFile, opts Op
 	working := slices.DeleteFunc(slices.Clone(ranked), func(file ranking.RankedFile) bool {
 		return file.Language == analyze.LanguageUnknown
 	})
+	opts.Captured = snap.Captured
 	result := Build(working, opts)
 	selected := selectedFiles(working)
 	files := make([]StructuredFile, 0, len(selected))

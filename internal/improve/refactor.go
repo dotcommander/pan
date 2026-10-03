@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dotcommander/pan/internal/config"
 	"time"
 )
 
@@ -13,9 +14,10 @@ const RefactorSchema = "pan.improve-refactor/v1"
 // RefactorOptions configures one guarded refactor run. Zero TestTimeout
 // selects the toolchain default; nil Now uses time.Now.
 type RefactorOptions struct {
-	RepoPath    string
-	StateDir    string
-	TestTimeout time.Duration
+	OutputLimits config.ImproveRules
+	RepoPath     string
+	StateDir     string
+	TestTimeout  time.Duration
 	// MinBaselineCoverage is the required baseline statement coverage as a
 	// fraction in [0,1]. Zero preserves the low-level caller default of no
 	// coverage-floor refusal.
@@ -46,6 +48,8 @@ type RefactorOptions struct {
 // gates. Dry-runs use a temporary copy; explicit live runs settle only after
 // the attempt branch commits successfully.
 type RefactorReport struct {
+	RetainedWorktree   string        `json:"retained_worktree,omitempty"`
+	OwnershipRecord    string        `json:"ownership_record,omitempty"`
 	Schema             string        `json:"schema"`
 	RunType            string        `json:"run_type"`
 	RepoPath           string        `json:"repo_path"`
@@ -85,7 +89,8 @@ const isolatedDryRun = "dry-run; applied only on a disposable branch and rolled 
 // and post-test rejections may request a bounded corrective proposal after
 // rollback. Dry-runs use an isolated copy; live runs commit only after every
 // gate passes.
-func RunRefactor(ctx context.Context, opts RefactorOptions) (RefactorReport, error) {
+func RunRefactor(ctx context.Context, opts RefactorOptions) (report RefactorReport, retErr error) {
+	ctx = withOutputLimits(ctx, opts.OutputLimits)
 	run := newRefactorRun(opts)
 	tree, err := CheckWorkTree(ctx, opts.RepoPath)
 	if err != nil {
@@ -110,14 +115,26 @@ func RunRefactor(ctx context.Context, opts RefactorOptions) (RefactorReport, err
 		if err != nil {
 			return run.report, err
 		}
-		defer removeTree(copyDir)
+		defer func() {
+			if cleanupErr := removeOwnedCopy(copyDir); cleanupErr != nil {
+				report.RetainedWorktree = copyDir
+				report.OwnershipRecord = ownershipPath(copyDir)
+				retErr = errors.Join(retErr, cleanupErr)
+			}
+		}()
 	} else {
 		var cleanup func() error
 		copyDir, cleanup, err = IsolateLinkedWorkTree(ctx, opts.RepoPath, tree.Head)
 		if err != nil {
 			return run.report, err
 		}
-		defer func() { _ = cleanup() }()
+		defer func() {
+			if cleanupErr := cleanup(); cleanupErr != nil {
+				report.RetainedWorktree = copyDir
+				report.OwnershipRecord = ownershipPath(copyDir)
+				retErr = errors.Join(retErr, cleanupErr)
+			}
+		}()
 	}
 	toolchain := Toolchain{TestTimeout: opts.TestTimeout}
 	run.report.Audit = BuildAuditContext(ctx, copyDir, opts.Exclude)

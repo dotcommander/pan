@@ -13,13 +13,22 @@ type GitVCS struct{ Dir string }
 
 // CreateBranch creates and checks out an attempt branch.
 func (g GitVCS) CreateBranch(ctx context.Context, branch string) error {
+	if err := requireOwnedWorktree(g.Dir); err != nil {
+		return err
+	}
 	return gitRun(ctx, g.Dir, "switch", "--create", branch)
 }
 
 // Revert restores the snapshot and detaches HEAD so the attempt branch can be
 // removed even after a failed apply or test gate.
 func (g GitVCS) Revert(ctx context.Context, baseline string) error {
+	if err := requireOwnedWorktree(g.Dir); err != nil {
+		return err
+	}
 	if err := gitRun(ctx, g.Dir, "reset", "--hard", baseline); err != nil {
+		return err
+	}
+	if err := gitRun(ctx, g.Dir, "clean", "--force", "-d", "-x"); err != nil {
 		return err
 	}
 	return gitRun(ctx, g.Dir, "switch", "--detach", baseline)
@@ -27,11 +36,17 @@ func (g GitVCS) Revert(ctx context.Context, baseline string) error {
 
 // Cleanup deletes an attempt branch after Revert detached HEAD from it.
 func (g GitVCS) Cleanup(ctx context.Context, branch string) error {
+	if err := requireOwnedWorktree(g.Dir); err != nil {
+		return err
+	}
 	return gitRun(ctx, g.Dir, "branch", "--delete", "--force", branch)
 }
 
 // Commit records a successfully gated proposal on the current attempt branch.
 func (g GitVCS) Commit(ctx context.Context, message string) error {
+	if err := requireOwnedWorktree(g.Dir); err != nil {
+		return err
+	}
 	if err := gitRun(ctx, g.Dir, "add", "--all"); err != nil {
 		return err
 	}
@@ -40,15 +55,23 @@ func (g GitVCS) Commit(ctx context.Context, message string) error {
 
 // ResetAttempt clears generated trial files while retaining the attempt branch.
 func (g GitVCS) ResetAttempt(ctx context.Context, baseline string) error {
+	if err := requireOwnedWorktree(g.Dir); err != nil {
+		return err
+	}
 	if err := gitRun(ctx, g.Dir, "reset", "--hard", baseline); err != nil {
 		return err
 	}
-	return gitRun(ctx, g.Dir, "clean", "--force", "-d")
+	return gitRun(ctx, g.Dir, "clean", "--force", "-d", "-x")
 }
 
 // InitIsolatedRepository creates a throwaway repository for guarded branch
 // mechanics. It never touches the source work tree copied into dir.
 func InitIsolatedRepository(ctx context.Context, dir string) (string, error) {
+	if err := requireOwnedWorktree(dir); err != nil {
+		if err := recordWorktreeOwnership(dir, dir, "", false); err != nil {
+			return "", err
+		}
+	}
 	for _, args := range [][]string{
 		{"init", "--quiet"},
 		{"config", "user.name", "Pan Improve"},

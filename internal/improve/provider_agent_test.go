@@ -140,8 +140,11 @@ func TestGeminiPayloadSerializesCompleteProviderToolSchemas(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "demo.go", "package demo\n\nfunc Keep() string { return \"ok\" }\n")
 	transport := improveRoundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.Query().Get("key") != "fixture-key" {
-			t.Error("Gemini API key query was not set")
+		if request.Header.Get("X-Goog-Api-Key") != "fixture-key" {
+			t.Error("Gemini API key header was not set")
+		}
+		if request.URL.Query().Has("key") || strings.Contains(request.URL.RawQuery, "fixture-key") {
+			t.Error("Gemini credential appeared in request URL")
 		}
 		var payload map[string]any
 		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {

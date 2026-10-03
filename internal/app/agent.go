@@ -78,7 +78,7 @@ func (a *AgentServeState) AgentMapRender(ctx context.Context, format string) (st
 	if mode == "" {
 		return "", errors.New("unknown format")
 	}
-	result := codemap.Build(ranked, codemap.Options{Mode: mode, Root: snap.Root, IncludeTests: true})
+	result := codemap.Build(ranked, codemap.Options{Mode: mode, Root: snap.Root, IncludeTests: true, Captured: snap.Captured})
 	if format == "structured" {
 		data, err := json.Marshal(result)
 		return string(data), err

@@ -9,6 +9,9 @@ import (
 // writeContextArtifact atomically replaces a regular output file. It refuses
 // symlinks so an explicit CLI artifact cannot be redirected unexpectedly.
 func writeContextArtifact(path string, data []byte) error {
+	if path == "-" {
+		return fmt.Errorf("artifact must name a file; stdout is unsupported")
+	}
 	mode := os.FileMode(0o644)
 	if info, err := os.Lstat(path); err == nil {
 		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {

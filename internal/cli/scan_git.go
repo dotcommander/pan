@@ -35,10 +35,10 @@ func (c WorktreeScanCmd) Validate() error {
 	return nil
 }
 
-func (c WorktreeScanCmd) Run(kctx *kong.Context, root *Root, deps Deps, _ context.Context) error {
-	report, code := gitworktree.Build(gitworktree.Options{
+func (c WorktreeScanCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
+	report, code := gitworktree.BuildContext(ctx, gitworktree.Options{
 		Path: root.Repo, Base: c.Base, MaxItems: c.MaxItems, LargeFileBytes: c.LargeFileBytes,
-	})
+	}, deps.App.EffectiveConfig().Config.OutgoingGit)
 	if code != 0 {
 		return fmt.Errorf("git worktree scan failed: %v", report["error"])
 	}
@@ -66,8 +66,8 @@ func (c OutgoingScanCmd) Validate() error {
 	return nil
 }
 
-func (c OutgoingScanCmd) Run(kctx *kong.Context, root *Root, deps Deps, _ context.Context) error {
-	report, err := gitoutgoing.Inspect(c.Revision, root.Repo, c.MaxBlobBytes)
+func (c OutgoingScanCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
+	report, err := gitoutgoing.InspectContext(ctx, c.Revision, root.Repo, c.MaxBlobBytes, deps.App.EffectiveConfig().Config.OutgoingGit)
 	if err != nil {
 		return fmt.Errorf("inspect outgoing content: %w", err)
 	}

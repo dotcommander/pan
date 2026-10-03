@@ -3,8 +3,6 @@ package codemap
 import (
 	"encoding/xml"
 	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -168,14 +166,16 @@ func scoreComponents(file ranking.RankedFile) string {
 	return strings.Join(parts, ",")
 }
 
-func renderLines(ranked []ranking.RankedFile, root string, tokens int) string {
+func renderLines(ranked []ranking.RankedFile, captured map[string][]byte, tokens int) string {
 	var b strings.Builder
 	limit := tokens * 4
 	for _, file := range ranked {
 		var block strings.Builder
 		block.WriteString(formatHeader(file))
-		data, err := os.ReadFile(filepath.Join(root, file.Path))
-		if err == nil {
+		data, ok := captured[file.Path]
+		if !ok {
+			block.WriteString("| [captured source unavailable; lines omitted]\n")
+		} else {
 			lines := strings.Split(string(data), "\n")
 			for _, symbol := range file.Symbols {
 				if !symbol.Exported || symbol.Location.Line < 1 || symbol.Location.Line > len(lines) {

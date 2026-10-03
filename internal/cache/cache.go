@@ -94,17 +94,19 @@ func DirFor(base, root string) string {
 func Fingerprint(cfg config.Config) string {
 	normalized := cfg.Normalized()
 	data, err := json.Marshal(struct {
-		MaxFiles      int      `json:"max_files"`
-		MaxFileBytes  int64    `json:"max_file_bytes"`
-		MaxTotalBytes int64    `json:"max_total_bytes"`
-		MaxNodes      int      `json:"max_nodes"`
-		Exclude       []string `json:"exclude"`
+		MaxFiles        int      `json:"max_files"`
+		MaxFileBytes    int64    `json:"max_file_bytes"`
+		MaxTotalBytes   int64    `json:"max_total_bytes"`
+		MaxNodes        int      `json:"max_nodes"`
+		MaxInstructions int      `json:"max_instructions"`
+		Exclude         []string `json:"exclude"`
 	}{
-		MaxFiles:      normalized.MaxFiles,
-		MaxFileBytes:  normalized.MaxFileBytes,
-		MaxTotalBytes: normalized.MaxTotalBytes,
-		MaxNodes:      normalized.MaxNodes,
-		Exclude:       normalized.Exclude,
+		MaxFiles:        normalized.MaxFiles,
+		MaxFileBytes:    normalized.MaxFileBytes,
+		MaxTotalBytes:   normalized.MaxTotalBytes,
+		MaxNodes:        normalized.MaxNodes,
+		MaxInstructions: normalized.MaxInstructions,
+		Exclude:         normalized.Exclude,
 	})
 	if err != nil {
 		return ""
@@ -132,7 +134,18 @@ func SnapshotID(cfg config.Config, snap analyze.Snapshot, manifest map[string]st
 // Store persists one warm entry for root under dir. It returns the cache
 // file path. The snapshot and stamps must come from the same pass over root.
 func Store(dir, root string, cfg config.Config, snap analyze.Snapshot, stamps map[string]analyze.FileStamp) (string, error) {
+	if snap.Captured == nil {
+		return "", errors.New("store cache: snapshot capture missing")
+	}
 	manifest := analyze.ManifestFromSnapshot(snap)
+	for _, file := range snap.Files {
+		if _, ok := manifest[file.Path]; !ok {
+			return "", errors.New("store cache: snapshot capture incomplete")
+		}
+	}
+	if snap.Status.Snapshot == nil || snap.Status.Snapshot.ID == "" {
+		snap.Status.Snapshot = &analyze.SnapshotInfo{ID: SnapshotID(cfg, snap, manifest)}
+	}
 	if len(manifest) == 0 && len(snap.Files) != 0 {
 		return "", errors.New("store cache: snapshot has no captured source manifest")
 	}
@@ -201,14 +214,6 @@ func LoadValidated(ctx context.Context, root, dir string, cfg config.Config) (an
 	snap := entry.Snapshot
 	snap.Captured = contents
 	snap.CapturedStamps = after
-	if entry.Snapshot.Status.Snapshot == nil || entry.Snapshot.Status.Snapshot.ID == "" {
-		status.Usable, status.Reason = false, "snapshot_identity_missing"
-		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-	}
-	if got := SnapshotID(cfg, entry.Snapshot, entry.Manifest); got != entry.Snapshot.Status.Snapshot.ID {
-		status.Usable, status.Reason = false, "snapshot_identity_mismatch"
-		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
-	}
 	snap.Status.Snapshot = &analyze.SnapshotInfo{ID: entry.Snapshot.Status.Snapshot.ID, Source: "cache", Freshness: "verified_at_start", CheckedAt: time.Now().UTC()}
 	status.Reason = reasonFresh
 	return snap, status, nil
@@ -226,11 +231,26 @@ func entryCompatibilityReason(entry Entry, root string, cfg config.Config) strin
 		return "root_mismatch"
 	case entry.ConfigFingerprint != Fingerprint(cfg):
 		return "config_changed"
-	case len(entry.Manifest) == 0:
+	case entry.Manifest == nil || (len(entry.Manifest) == 0 && len(entry.Snapshot.Files) != 0):
 		return "manifest_missing"
 	default:
-		return ""
+		return entryIdentityReason(entry, cfg)
 	}
+}
+
+func entryIdentityReason(entry Entry, cfg config.Config) string {
+	if entry.Snapshot.Status.Snapshot == nil || entry.Snapshot.Status.Snapshot.ID == "" {
+		return "snapshot_identity_missing"
+	}
+	if SnapshotID(cfg, entry.Snapshot, entry.Manifest) != entry.Snapshot.Status.Snapshot.ID {
+		return "snapshot_identity_mismatch"
+	}
+	for _, file := range entry.Snapshot.Files {
+		if _, ok := entry.Manifest[file.Path]; !ok {
+			return "manifest_missing"
+		}
+	}
+	return ""
 }
 
 func verifiedManifestContents(ctx context.Context, root string, cfg config.Config, entry Entry) (map[string][]byte, map[string]analyze.FileStamp, string) {
@@ -258,20 +278,6 @@ func verifiedManifestContents(ctx context.Context, root string, cfg config.Confi
 		return nil, nil, "repository_changed_during_capture"
 	}
 	return contents, after, ""
-}
-
-func manifestContentReason(root string, manifest map[string]string) string {
-	for path, want := range manifest {
-		data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
-		if readErr != nil {
-			return "content_unavailable"
-		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != want {
-			return reasonContentChanged
-		}
-	}
-	return ""
 }
 
 func analyzeStampsChanged(a, b map[string]analyze.FileStamp) bool {
@@ -307,18 +313,7 @@ func Inspect(ctx context.Context, root, dir string, cfg config.Config) Status {
 		return status
 	}
 	status.Usable = true
-	current, err := analyze.Stamps(ctx, root, cfg)
-	if err != nil {
-		status.Stale = true
-		status.Reason = "stamp_failed"
-		return status
-	}
-	if stale, reason := stampsStale(entry.Stamps, current); stale {
-		status.Stale = true
-		status.Reason = reason
-		return status
-	}
-	if reason := manifestContentReason(root, entry.Manifest); reason != "" {
+	if _, _, reason := verifiedManifestContents(ctx, root, cfg, entry); reason != "" {
 		status.Stale, status.Reason = true, reason
 		return status
 	}
@@ -353,14 +348,14 @@ func stampsStale(recorded, current map[string]analyze.FileStamp) (bool, string) 
 func Clear(dir string) (ClearResult, error) {
 	path := filepath.Join(dir, EntryFile)
 	result := ClearResult{CachePath: path}
-	if _, statErr := os.Stat(path); statErr == nil {
-		if err := os.Remove(path); err != nil {
-			return result, fmt.Errorf("remove cache entry: %w", err)
-		}
+	err := os.Remove(path)
+	if err == nil {
 		result.Removed = []string{path}
 		return result, nil
 	}
-	// A missing entry is an idempotent success, not an error.
+	if !errors.Is(err, os.ErrNotExist) {
+		return result, fmt.Errorf("remove cache entry: %w", err)
+	}
 	result.Reason = reasonMissingCache
 	return result, nil
 }

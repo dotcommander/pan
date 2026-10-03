@@ -153,7 +153,8 @@ func listActiveGoFiles(ctx context.Context, directory string) ([]string, error) 
 	}
 	cmd := exec.CommandContext(ctx, "go", "list", "-e", "-json", ".")
 	cmd.Dir = directory
-	out, err := cmd.CombinedOutput()
+	captured, err := captureImproveCommand(ctx, cmd)
+	out := captured.Stdout
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return nil, ctxErr
 	}

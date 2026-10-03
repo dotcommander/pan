@@ -246,7 +246,6 @@ func referenceGraphWeights(counts, ambiguity map[referenceGraphPair]int, n int) 
 		}
 		weight := math.Sqrt(float64(count)) / math.Sqrt(float64(definitionCount))
 		weights[p] = weight
-		outgoing[p.from] += weight
 	}
 	slices.SortFunc(pairs, func(a, b referenceGraphPair) int {
 		if a.from != b.from {
@@ -254,6 +253,9 @@ func referenceGraphWeights(counts, ambiguity map[referenceGraphPair]int, n int) 
 		}
 		return a.to - b.to
 	})
+	for _, p := range pairs {
+		outgoing[p.from] += weights[p]
+	}
 	return weights, pairs, outgoing
 }
 
@@ -561,13 +563,18 @@ func distributeImportScores(ranked []RankedFile, keys map[string][]int, importer
 
 // resolveSuffix finds the internal directory whose path is the suffix of imp.
 func resolveSuffix(imp string, dirs map[string]struct{}, out *string) bool {
+	best := ""
 	for dir := range dirs {
-		if dir != "." && (imp == dir || strings.HasSuffix(imp, "/"+dir)) {
-			*out = dir
-			return true
+		if dir != "." && (imp == dir || strings.HasSuffix(imp, "/"+dir)) &&
+			(len(dir) > len(best) || (len(dir) == len(best) && dir < best)) {
+			best = dir
 		}
 	}
-	return false
+	if best == "" {
+		return false
+	}
+	*out = best
+	return true
 }
 
 func applyTestSignals(ranked []RankedFile, includeTests bool) {

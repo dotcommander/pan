@@ -128,7 +128,7 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 	return BriefResult{
 		Snapshot:     snap,
 		Entries:      entries,
-		Map:          codemap.Build(selected, codemap.Options{Mode: codemap.ModeEnriched, Tokens: budget, Root: snap.Root, Edges: snap.Edges}),
+		Map:          codemap.Build(selected, codemap.Options{Mode: codemap.ModeEnriched, Tokens: budget, Root: snap.Root, Captured: snap.Captured, Edges: snap.Edges}),
 		Coverage:     coverage,
 		NextCommands: commands,
 		Budget:       BriefBudget{Unit: "bytes", Requested: budget, Used: len(encoded), Scope: "instructions and top_files"},
@@ -228,9 +228,11 @@ func (s Service) mapInputs(ctx context.Context, root string, opts codemap.Option
 	if err != nil {
 		return mapInputResult{}, err
 	}
-	opts.Root, opts.Edges = snap.Root, snap.Edges
+	opts.Root, opts.Edges, opts.Captured = snap.Root, snap.Edges, snap.Captured
 	if opts.SymbolRefs {
-		ranking.ApplySymbolReferenceBonus(snap.Root, ranked)
+		if err := ranking.ApplySymbolReferenceBonus(snap, ranked); err != nil {
+			return mapInputResult{}, err
+		}
 	}
 	if opts.Calls {
 		ranking.ApplyCallEdgeBonus(ranked, snap.Edges, opts.CallsThreshold, opts.CallsIncludeTests)

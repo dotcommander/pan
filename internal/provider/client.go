@@ -165,7 +165,7 @@ func (c *Client) completeOnce(ctx context.Context, request Request) (Response, e
 		if requestCtx.Err() != nil {
 			return Response{}, fmt.Errorf("provider request: %w", requestCtx.Err())
 		}
-		return Response{}, errors.New("provider transport failed; submission outcome unknown")
+		return Response{}, &TransportError{Category: transportCategory(err)}
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
@@ -226,9 +226,7 @@ func (c *Client) setHeaders(req *http.Request) {
 		}
 	}
 	if c.provider == providerGemini && c.apiKey != "" {
-		query := req.URL.Query()
-		query.Set("key", c.apiKey)
-		req.URL.RawQuery = query.Encode()
+		req.Header.Set("X-Goog-Api-Key", c.apiKey)
 	}
 	if c.authorization != "" {
 		req.Header.Set("Authorization", c.authorization)

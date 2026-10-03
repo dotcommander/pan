@@ -49,7 +49,10 @@ func (s Service) PipelineStoryboard(ctx context.Context, root string, opts Story
 		return result, err
 	}
 	sb := storyboard.Build(scanned, absRoot, "")
-	commands, provenance, helpErr := storyboard.ResolveCommandHelp(ctx, opts.CommandHelp, absRoot)
+	commands, provenance, helpErr := storyboard.ResolveCommandHelpWithOptions(ctx, opts.CommandHelp, absRoot, s.deps.Config.CommandHelp)
+	result.HelpProvenance = provenance
+	sb.Commands, sb.CommandHelp = commands, provenance
+	result.Storyboard = sb
 	if helpErr != nil {
 		return result, helpErr
 	}

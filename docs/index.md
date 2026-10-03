@@ -11,3 +11,5 @@ Use Pan to obtain bounded source evidence before you decide where to read or rev
 ## Limits before action
 
 Pan reads source; it does not execute the selected repository. Analysis can be incomplete because of configured bounds, excluded paths, generated code, reflection, dynamic dispatch, parsing, or package-loading limits. `clean apply` is dry-run by default, and provider-enabled improvement commands can disclose selected source context to a configured OpenAI-compatible endpoint.
+
+- [Review report JSON versions and model verdicts](review-report-format.md)

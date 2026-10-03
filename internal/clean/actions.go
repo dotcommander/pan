@@ -94,10 +94,13 @@ func (b *actionBuilder) move(category, src, dst string) {
 
 // gitAction records one direct-argv git command.
 func (b *actionBuilder) gitAction(category string, argv []string) {
-	b.actions = append(b.actions, Action{
-		Category: category, Kind: KindGit, Argv: argv,
-		Display: shellJoin(argv), Source: argv[len(argv)-1],
-	})
+	a := Action{Category: category, Kind: KindGit, Argv: argv, Display: shellJoin(argv)}
+	if len(argv) == 5 && argv[1] == cmdMove {
+		a.Source, a.Target = argv[3], argv[4]
+	} else {
+		a.Source = argv[len(argv)-1]
+	}
+	b.actions = append(b.actions, a)
 }
 
 // remove records one filesystem removal.

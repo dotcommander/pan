@@ -12,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/dotcommander/pan/internal/ownedprocess"
 )
 
 // ErrServerDied reports a language server that exited, or a transport that
@@ -19,7 +21,7 @@ import (
 var ErrServerDied = errors.New("language server died")
 
 // shutdownWait bounds how long Shutdown waits for a server process to exit
-// after the transport closes before killing it.
+// for the protocol handshake before closing the owned process tree.
 const shutdownWait = 2 * time.Second
 
 // Client is one synchronous language-server connection speaking the LSP
@@ -27,16 +29,20 @@ const shutdownWait = 2 * time.Second
 // stream. Queries are sequential; responses are matched by request id. The
 // zero value is not usable: construct through Start or OverIO.
 type Client struct {
+	ctx    context.Context
 	reader *bufio.Reader
 	writer io.Writer
 	closer io.Closer
 	waiter func(ctx context.Context) error // waits for process exit; nil for in-process transports
 
-	nextID  atomic.Int64
-	writeMu sync.Mutex
-	mu      sync.Mutex
-	pending map[int64]chan rpcResult
-	done    chan struct{} // closed when readLoop exits
+	nextID        atomic.Int64
+	writeGate     chan struct{}
+	transportOnce sync.Once
+	options       TransportOptions
+	mu            sync.Mutex
+	pending       map[int64]chan rpcResult
+	watchDone     chan struct{}
+	done          chan struct{} // closed when readLoop exits
 
 	initDone atomic.Bool
 
@@ -46,8 +52,9 @@ type Client struct {
 
 // OverIO connects one client to an in-process duplex transport. It exists
 // for tests and alternative transports; production code uses Start.
+// Close must interrupt both Read and Write so cancellation can join workers.
 func OverIO(conn io.ReadWriteCloser) *Client {
-	return newClient(bufio.NewReaderSize(conn, 64*1024), conn, conn, nil)
+	return OverIOWithOptions(conn, TransportOptions{})
 }
 
 // Start launches one local language-server subprocess and connects a
@@ -57,6 +64,10 @@ func OverIO(conn io.ReadWriteCloser) *Client {
 // explicit LookPath so the launched path is pinned rather than re-resolved
 // through PATH at exec time.
 func Start(ctx context.Context, command string, args ...string) (*Client, error) {
+	return StartWithOptions(ctx, command, TransportOptions{}, args...)
+}
+
+func StartWithOptions(ctx context.Context, command string, options TransportOptions, args ...string) (*Client, error) {
 	resolved, err := exec.LookPath(command)
 	if err != nil {
 		return nil, fmt.Errorf("lsp: resolve server command %s: %w", command, err)
@@ -66,68 +77,81 @@ func Start(ctx context.Context, command string, args ...string) (*Client, error)
 		Args:   append([]string{command}, args...),
 		Stderr: io.Discard,
 	}
-	stdin, err := cmd.StdinPipe()
+	stdinRead, stdin, err := os.Pipe()
 	if err != nil {
 		return nil, fmt.Errorf("lsp: stdin pipe: %w", err)
 	}
-	stdout, err := cmd.StdoutPipe()
+	stdout, stdoutWrite, err := os.Pipe()
 	if err != nil {
+		_ = stdinRead.Close()
+		_ = stdin.Close()
 		return nil, fmt.Errorf("lsp: stdout pipe: %w", err)
 	}
-	if err := cmd.Start(); err != nil {
+	cmd.Stdin, cmd.Stdout = stdinRead, stdoutWrite
+	process, err := ownedprocess.Start(ctx, cmd)
+	_ = stdinRead.Close()
+	_ = stdoutWrite.Close()
+	if err != nil {
+		_ = stdin.Close()
+		_ = stdout.Close()
 		return nil, fmt.Errorf("lsp: start %s: %w", command, err)
 	}
-	// The watcher goroutine exits as soon as ctx is done; until then it
-	// parks on ctx.Done, bounding the server's lifetime by the query
-	// context exactly as a context-bound exec command would.
+	// Exactly one waiter starts immediately; cancellation also owns both pipes.
+	processDone := make(chan struct{})
+	var processErr error
 	go func() {
-		<-ctx.Done()
-		_ = cmd.Process.Kill()
+		processErr = process.Wait()
+		close(processDone)
 	}()
-	return newClient(bufio.NewReaderSize(stdout, 64*1024), stdin, stdin, func(ctx context.Context) error {
-		return waitProcess(ctx, cmd)
-	}), nil
+	closer := closeFunc(func() error {
+		_ = process.Stop()
+		return errors.Join(stdin.Close(), stdout.Close())
+	})
+	c := newClient(ctx, bufio.NewReaderSize(stdout, 64*1024), stdin, closer, func(ctx context.Context) error {
+		select {
+		case <-processDone:
+			return processErr
+		case <-ctx.Done():
+			_ = closer.Close()
+			<-processDone
+			return ctx.Err()
+		}
+	}, options)
+	c.watchDone = make(chan struct{})
+	go func() {
+		defer close(c.watchDone)
+		select {
+		case <-ctx.Done():
+			c.closeTransport()
+		case <-processDone:
+			c.closeTransport()
+		case <-c.done:
+		}
+	}()
+	return c, nil
 }
 
-func newClient(reader *bufio.Reader, writer io.Writer, closer io.Closer, waiter func(context.Context) error) *Client {
+type closeFunc func() error
+
+func (f closeFunc) Close() error { return f() }
+
+func OverIOWithOptions(conn io.ReadWriteCloser, options TransportOptions) *Client {
+	return newClient(context.Background(), bufio.NewReaderSize(conn, 64*1024), conn, conn, nil, options)
+}
+
+func newClient(ctx context.Context, reader *bufio.Reader, writer io.Writer, closer io.Closer, waiter func(context.Context) error, options TransportOptions) *Client {
 	c := &Client{
-		reader:  reader,
-		writer:  writer,
-		closer:  closer,
-		waiter:  waiter,
-		pending: make(map[int64]chan rpcResult),
-		done:    make(chan struct{}),
+		ctx: ctx, reader: reader, writer: writer, closer: closer, waiter: waiter,
+		pending: make(map[int64]chan rpcResult), done: make(chan struct{}),
+		writeGate: make(chan struct{}, 1), options: options.normalized(),
 	}
+	c.writeGate <- struct{}{}
 	go c.readLoop()
 	return c
 }
 
-// waitProcess waits for the server to exit after stdin closes, killing it
-// when the context or the shutdown window expires first.
-func waitProcess(ctx context.Context, cmd *exec.Cmd) error {
-	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
-	timer := time.NewTimer(shutdownWait)
-	defer timer.Stop()
-	select {
-	case err := <-waitCh:
-		if errors.Is(err, os.ErrProcessDone) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-		return killAndWait(cmd, waitCh, ctx.Err())
-	case <-timer.C:
-		return killAndWait(cmd, waitCh, fmt.Errorf("lsp: server did not exit within %s", shutdownWait))
-	}
-}
-
-func killAndWait(cmd *exec.Cmd, waitCh <-chan error, cause error) error {
-	if cmd.Process != nil {
-		_ = cmd.Process.Kill()
-	}
-	<-waitCh
-	return cause
+func (c *Client) closeTransport() {
+	c.transportOnce.Do(func() { _ = c.closer.Close() })
 }
 
 // Initialize performs the initialize/initialized handshake for one
@@ -248,7 +272,7 @@ func (c *Client) Shutdown(ctx context.Context) error {
 func (c *Client) closeSession(ctx context.Context) error {
 	var firstErr error
 	if c.initDone.Load() {
-		qctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownWait)
+		qctx, cancel := context.WithTimeout(ctx, shutdownWait)
 		defer cancel()
 		if err := c.call(qctx, "shutdown", nil, nil); err != nil && !errors.Is(err, ErrServerDied) && firstErr == nil {
 			firstErr = err
@@ -257,8 +281,10 @@ func (c *Client) closeSession(ctx context.Context) error {
 			firstErr = err
 		}
 	}
-	if err := c.closer.Close(); err != nil && firstErr == nil {
-		firstErr = err
+	c.closeTransport()
+	<-c.done
+	if c.watchDone != nil {
+		<-c.watchDone
 	}
 	if c.waiter != nil {
 		if err := c.waiter(ctx); err != nil && firstErr == nil {

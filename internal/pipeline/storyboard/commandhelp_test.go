@@ -1,22 +1,42 @@
 package storyboard
 
 import (
-	"os"
-	"slices"
 	"strings"
 	"testing"
 )
 
-func TestGoHelpEnvOnlyOverridesWorkspaceMode(t *testing.T) {
+func TestGoHelpEnvPolicy(t *testing.T) {
 	t.Parallel()
-
-	want := append(os.Environ(), "GOWORK=off")
-	got := goHelpEnv()
-	if !slices.Equal(got, want) {
-		t.Fatalf("goHelpEnv() = %#v, want the process environment plus GOWORK=off", got)
+	entries := []string{"PATH=/bin", "HOME=/home/test", "GOWORK=/private", "GOFLAGS=-toolexec=secret", "OPENAI_API_KEY=secret", "HTTPS_PROXY=https://user:secret@example.com", "GOPROXY=https://proxy.example,direct", "NO_PROXY=localhost,10.0.0.0/8", "TMPDIR=bad\nvalue"}
+	got := strings.Join(commandHelpEnvironment(entries, "linux"), "\n")
+	for _, want := range []string{"GOENV=off", "GOWORK=off", "GOPROXY=https://proxy.example,direct", "NO_PROXY=localhost,10.0.0.0/8"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %s: %s", want, got)
+		}
 	}
-	if strings.Contains(strings.Join(got, "\n"), "repoflow-go-cache") {
-		t.Fatalf("goHelpEnv() invented a temporary Go cache: %#v", got)
+	for _, forbidden := range []string{"secret", "GOFLAGS", "HTTPS_PROXY", "TMPDIR"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("retained %s", forbidden)
+		}
+	}
+}
+func TestHelpWindowsEnvironment(t *testing.T) {
+	t.Parallel()
+	got := strings.Join(commandHelpEnvironment([]string{"Path=first", "PATH=last", "SystemRoot=C:\\Windows", "Http_Proxy=https://proxy.example"}, "windows"), "\n")
+	if !strings.Contains(got, "PATH=last") || strings.Contains(got, "first") || !strings.Contains(got, "SYSTEMROOT=") {
+		t.Fatalf("unexpected environment: %s", got)
+	}
+}
+func TestHelpNetworkValidation(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"https://user:pass@host", "https://host?q=secret", "https://host#secret", "https:///missing", "javascript://host"} {
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			got := commandHelpEnvironment([]string{"GOPROXY=" + value}, "linux")
+			if strings.Contains(strings.Join(got, "\n"), "GOPROXY=") {
+				t.Fatal("unsafe endpoint admitted")
+			}
+		})
 	}
 }
 
