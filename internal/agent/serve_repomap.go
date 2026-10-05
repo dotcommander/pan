@@ -101,7 +101,7 @@ func answerFileContext(ctx context.Context, output io.Writer, req serveRequest, 
 	return writeServeResult(output, req.ID, result)
 }
 func serverError(output io.Writer, req serveRequest, err error) error {
-	return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
+	return writeServeBackendError(output, req, err)
 }
 func invalidRequiredParam(output io.Writer, req serveRequest, name string) error {
 	return writeServeError(output, req.ID, ServeCodeInvalidParams, name+" must not be empty")

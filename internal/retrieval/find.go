@@ -53,11 +53,14 @@ type FindQuery struct {
 
 // FindReport explains a Find result without changing Find's compatibility
 // output. Outcome describes only the analyzed and filtered snapshot; it never
-// attributes a miss to one skipped input without direct evidence.
+// attributes a miss to one skipped input without direct evidence. Guidance
+// carries bounded, deterministic next steps for a miss so an empty result is
+// never a dead end.
 type FindReport struct {
-	Query   FindQuery     `json:"query"`
-	Matches []SymbolMatch `json:"matches"`
-	Outcome string        `json:"outcome"`
+	Query    FindQuery     `json:"query"`
+	Matches  []SymbolMatch `json:"matches"`
+	Outcome  string        `json:"outcome"`
+	Guidance []string      `json:"guidance,omitempty"`
 }
 
 // EffectiveFindQuery applies explicit filters over positional qualifiers,
@@ -75,17 +78,57 @@ func EffectiveFindQuery(query, kind, file string) FindQuery {
 
 // NewFindReport returns the opt-in explanation form for one Find result.
 func NewFindReport(query FindQuery, matches []SymbolMatch, complete bool) FindReport {
+	status := analyze.Status{Complete: complete}
+	return NewFindReportWithStatus(query, matches, status)
+}
+
+// NewFindReportWithStatus builds the explanation form from the snapshot
+// status so guidance can name the bounds that made the pass incomplete.
+func NewFindReportWithStatus(query FindQuery, matches []SymbolMatch, status analyze.Status) FindReport {
 	if matches == nil {
 		matches = []SymbolMatch{}
 	}
 	outcome := FindOutcomeFound
 	if len(matches) == 0 {
 		outcome = FindOutcomeNoMatchInScope
-		if !complete {
+		if !status.Complete {
 			outcome = FindOutcomeNoMatchInPartial
 		}
 	}
-	return FindReport{Query: query, Matches: matches, Outcome: outcome}
+	return FindReport{Query: query, Matches: matches, Outcome: outcome, Guidance: findGuidance(outcome, query, status)}
+}
+
+// maxFindGuidance bounds the guidance list.
+const maxFindGuidance = 5
+
+// findGuidance derives deterministic next steps for one miss. Under an
+// incomplete snapshot a miss is not evidence of absence, so the active
+// bounds are named first; under a complete snapshot the miss is scoped to
+// the analyzed evidence and the query filters are the first lever.
+func findGuidance(outcome string, query FindQuery, status analyze.Status) []string {
+	if outcome == FindOutcomeFound {
+		return nil
+	}
+	var steps []string
+	if outcome == FindOutcomeNoMatchInPartial {
+		if len(status.Limits) > 0 {
+			steps = append(steps, fmt.Sprintf("analysis is incomplete (limits: %s); an empty result is not proof the symbol is absent", strings.Join(status.Limits, ", ")))
+		} else {
+			steps = append(steps, "analysis is incomplete; an empty result is not proof the symbol is absent")
+		}
+		steps = append(steps, "run `pan scan doctor` to review analyzer coverage and the bounds that truncated this pass")
+	}
+	if query.Kind != "" || query.File != "" {
+		steps = append(steps, fmt.Sprintf("retry without the kind/file filters (effective: kind=%q file=%q)", query.Kind, query.File))
+	}
+	if query.Name != "" && !strings.HasPrefix(query.Name, "symbol:") {
+		steps = append(steps, "search the full symbol inventory with `pan scan symbols`; it lists names independently of ranked retrieval")
+	}
+	steps = append(steps, "check spelling and case; the search matches exact, case-folded, prefix, and substring names")
+	if len(steps) > maxFindGuidance {
+		steps = steps[:maxFindGuidance]
+	}
+	return steps
 }
 
 // ParseFindQuery splits a positional query of the form

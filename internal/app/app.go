@@ -264,6 +264,21 @@ func (s Service) Changes(ctx context.Context, root string, days, top int) (analy
 	return snap, scan.Changes(ctx, snap.Root, days, top, time.Time{}), nil
 }
 
+// StructuralDiff builds the symbol-level change overlay over one git
+// range. The snapshot supplies the standard evidence envelope; the overlay
+// itself comes from parsed hunks and outlined revisions.
+func (s Service) StructuralDiff(ctx context.Context, root, rev string, top int) (analyze.Snapshot, scan.DiffReport, error) {
+	snap, err := s.Snapshot(ctx, root)
+	if err != nil {
+		return analyze.Snapshot{}, scan.DiffReport{}, err
+	}
+	report, err := scan.StructuralDiff(ctx, snap.Root, rev, scan.DiffOptions{Top: top})
+	if err != nil {
+		return analyze.Snapshot{}, scan.DiffReport{}, err
+	}
+	return snap, report, nil
+}
+
 // ReviewReport composes every scan packet into one deterministic audit
 // report with a merged read queue. top > 0 caps the queue.
 func (s Service) ReviewReport(ctx context.Context, root string, top int) (analyze.Snapshot, review.Report, error) {

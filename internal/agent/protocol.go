@@ -9,10 +9,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/eval"
 	"github.com/dotcommander/pan/internal/review"
-	"io"
 )
 
 // Schema is the protocol identifier carried by every request and response.
@@ -37,7 +39,13 @@ const (
 	CodeStaleEvidence     = "stale_evidence"
 	CodeBudgetTooSmall    = "budget_too_small"
 	CodeBudgetTooLarge    = "budget_too_large"
+	CodeRequestTimeout    = "request_timeout"
 )
+
+// ProtocolRequestTimeout bounds one stdio operation. An operation that
+// exceeds it answers one request_timeout response and the session
+// continues; only parent-context cancellation terminates.
+const ProtocolRequestTimeout = 90 * time.Second
 
 // Stdio protocol operations.
 const (
@@ -112,11 +120,17 @@ type Session struct {
 	Context  ContextBuilder
 	Verify   SnapshotVerifier
 	Outcomes OutcomeWriter
+	// Timeout bounds each operation; zero selects ProtocolRequestTimeout.
+	Timeout time.Duration
 }
 
 // RunWithSession serves one protocol session with caller-owned dependencies.
 func RunWithSession(ctx context.Context, input *bufio.Reader, output io.Writer, session Session) error {
 	engine := executor{build: session.Build, context: session.Context, verify: session.Verify, outcomes: session.Outcomes}
+	timeout := session.Timeout
+	if timeout <= 0 {
+		timeout = ProtocolRequestTimeout
+	}
 	for {
 		line, oversized, err := readRecord(input)
 		if err != nil && !errors.Is(err, io.EOF) {
@@ -135,7 +149,7 @@ func RunWithSession(ctx context.Context, input *bufio.Reader, output io.Writer, 
 			}
 			continue
 		}
-		if stop, stopErr := answerRecord(ctx, output, line, eof, engine); stop {
+		if stop, stopErr := answerRecord(ctx, output, line, eof, engine, timeout); stop {
 			return stopErr
 		}
 	}
@@ -143,7 +157,7 @@ func RunWithSession(ctx context.Context, input *bufio.Reader, output io.Writer, 
 
 // answerRecord answers one well-sized request line. It reports whether the
 // session ended and, when it did, the session result.
-func answerRecord(ctx context.Context, output io.Writer, line []byte, eof bool, engine executor) (bool, error) {
+func answerRecord(ctx context.Context, output io.Writer, line []byte, eof bool, engine executor, timeout time.Duration) (bool, error) {
 	req, code := decodeRequest(line)
 	if code != "" {
 		if writeErr := writeError(output, responseSchema(req.Schema), req.ID, code); writeErr != nil {
@@ -157,8 +171,21 @@ func answerRecord(ctx context.Context, output io.Writer, line []byte, eof bool, 
 		}
 		return true, ctxErr
 	}
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	response, opErr := engine.execute(ctx, req)
 	if opErr != nil {
+		if errors.Is(opErr, context.DeadlineExceeded) {
+			// One bounded overrun answers request_timeout without ending
+			// the session; the parent context remains live.
+			if writeErr := writeError(output, responseSchema(req.Schema), req.ID, CodeRequestTimeout); writeErr != nil {
+				return true, writeErr
+			}
+			return eof, nil
+		}
 		if writeErr := writeError(output, responseSchema(req.Schema), req.ID, opErrCode(opErr)); writeErr != nil {
 			return true, writeErr
 		}

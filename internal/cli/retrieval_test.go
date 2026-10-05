@@ -219,6 +219,23 @@ func TestContextFindExplainReportsPartialNoMatch(t *testing.T) {
 	}
 }
 
+func TestContextFindEmptyTextEmitsGuidanceReport(t *testing.T) {
+	t.Parallel()
+	got := runJSON(t, []string{"--repo", basicGoRepo(), "context", "find", "not-present"})
+	for _, want := range []string{
+		`"outcome": "no_match_in_analyzed_scope"`,
+		`"guidance"`,
+		`"check spelling`,
+	} {
+		if !bytes.Contains([]byte(got), []byte(want)) {
+			t.Fatalf("empty text find missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "\nnull\n") {
+		t.Fatalf("empty text find rendered a bare null:\n%s", got)
+	}
+}
+
 func TestContextSymbolIncludesSourceExcerpt(t *testing.T) {
 	t.Parallel()
 	got := runJSON(t, []string{"--repo", basicGoRepo(), "--format", "json", "context", "symbol", "Run", "--lines", "20", "--calls"})

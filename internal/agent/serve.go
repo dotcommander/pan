@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/review"
@@ -53,6 +54,14 @@ const (
 	ServeCodeInvalidParams  = -32602
 	ServeCodeServerError    = -32000
 )
+
+// ServeRequestTimeout bounds one serve request. A request that exceeds it
+// answers one server-error response with the message "request timeout" and
+// the session continues; only parent-context cancellation terminates.
+const ServeRequestTimeout = 90 * time.Second
+
+// messageRequestTimeout is the stable message for a per-request deadline.
+const messageRequestTimeout = "request timeout"
 
 // messageParseError is the stable message for unparseable request lines.
 const messageParseError = "parse error"
@@ -113,6 +122,16 @@ func (f serveFailure) Error() string { return f.message }
 // answer with standard error codes without ending the session; context
 // cancellation answers canceled once and then terminates.
 func RunServe(ctx context.Context, input *bufio.Reader, output io.Writer, backend ServeBackend) error {
+	return RunServeWithTimeout(ctx, input, output, backend, ServeRequestTimeout)
+}
+
+// RunServeWithTimeout is RunServe with an explicit per-request deadline;
+// timeout <= 0 selects ServeRequestTimeout, matching the stdio session
+// convention where zero selects the default.
+func RunServeWithTimeout(ctx context.Context, input *bufio.Reader, output io.Writer, backend ServeBackend, timeout time.Duration) error {
+	if timeout <= 0 {
+		timeout = ServeRequestTimeout
+	}
 	for {
 		line, oversized, err := readRecord(input)
 		if err != nil && !errors.Is(err, io.EOF) {
@@ -131,7 +150,7 @@ func RunServe(ctx context.Context, input *bufio.Reader, output io.Writer, backen
 			}
 			continue
 		}
-		if stop, stopErr := answerServeRecord(ctx, output, line, eof, backend); stop {
+		if stop, stopErr := answerServeRecord(ctx, output, line, eof, backend, timeout); stop {
 			return stopErr
 		}
 	}
@@ -139,7 +158,7 @@ func RunServe(ctx context.Context, input *bufio.Reader, output io.Writer, backen
 
 // answerServeRecord handles one well-sized request line. It reports
 // whether the session ended and, when it did, the session result.
-func answerServeRecord(ctx context.Context, output io.Writer, line []byte, eof bool, backend ServeBackend) (bool, error) {
+func answerServeRecord(ctx context.Context, output io.Writer, line []byte, eof bool, backend ServeBackend, timeout time.Duration) (bool, error) {
 	req, failure := decodeServeRequest(line)
 	if failure != nil {
 		if writeErr := writeServeError(output, serveFailureID(req), failure.code, failure.message); writeErr != nil {
@@ -153,7 +172,7 @@ func answerServeRecord(ctx context.Context, output io.Writer, line []byte, eof b
 		}
 		return true, ctxErr
 	}
-	if err := answer(ctx, output, req, backend); err != nil {
+	if err := answer(ctx, output, req, backend, timeout); err != nil {
 		return true, err
 	}
 	return eof, nil
@@ -168,8 +187,12 @@ func serveFailureID(req serveRequest) json.RawMessage {
 	return json.RawMessage("null")
 }
 
-// answer executes one request and writes its response.
-func answer(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend) error {
+// answer executes one request and writes its response. The per-request
+// deadline bounds every backend call; a deadline answers one server error
+// and leaves the session open.
+func answer(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	var result any
 	switch req.Method {
 	case MethodMapRender, MethodMapStatus, MethodSymbolFind, MethodFileExplain, MethodFileContext:
@@ -177,19 +200,19 @@ func answer(ctx context.Context, output io.Writer, req serveRequest, backend Ser
 	case MethodStatus:
 		summary, err := backend.AgentStatus(ctx)
 		if err != nil {
-			return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
+			return writeServeBackendError(output, req, err)
 		}
 		result = summary
 	case MethodOverview:
 		overview, err := backend.AgentOverview(ctx)
 		if err != nil {
-			return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
+			return writeServeBackendError(output, req, err)
 		}
 		result = overview
 	case MethodReport:
 		document, err := backend.AgentReport(ctx)
 		if err != nil {
-			return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
+			return writeServeBackendError(output, req, err)
 		}
 		result = document
 	case MethodSymbols:
@@ -199,13 +222,23 @@ func answer(ctx context.Context, output io.Writer, req serveRequest, backend Ser
 		}
 		symbols, err := backend.AgentSymbols(ctx, query, top)
 		if err != nil {
-			return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
+			return writeServeBackendError(output, req, err)
 		}
 		result = boundServeSymbols(symbols)
 	default:
 		return writeServeError(output, req.ID, ServeCodeMethodNotFound, "method not found: "+req.Method)
 	}
 	return writeServeResult(output, req.ID, result)
+}
+
+// writeServeBackendError answers one backend failure. A per-request
+// deadline answers the stable "request timeout" message so callers can
+// distinguish a bounded overrun from an analysis failure.
+func writeServeBackendError(output io.Writer, req serveRequest, err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return writeServeError(output, req.ID, ServeCodeServerError, messageRequestTimeout)
+	}
+	return writeServeError(output, req.ID, ServeCodeServerError, boundedMessage(err))
 }
 
 // decodeServeRequest strictly decodes one request line: exactly one JSON

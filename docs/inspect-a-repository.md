@@ -32,6 +32,7 @@ Before an absence claim, run this source-checked, unexecuted variation:
 | A route to trace | `./pan --repo . flow endpoint /route` | Route-to-handler-to-test evidence. |
 | A file whose change impact matters | `./pan --repo . context impact path/to/file.go` | Evidence-backed blast radius for that file. |
 | A review starting point | `./pan --repo . scan risks` | A risk-ranked review queue. |
+| A change's symbol-level shape | `./pan --repo . scan diff [REV]` | Per-symbol added/removed/body/signature/moved overlay over the working tree or a git range. |
 
 These examples are source-checked and unexecuted in this documentation update. `flow calls` requires a positive `--depth`; the default is `2`. `context brief` accepts an approximate byte `--budget` and defaults to the `compact` detail projection. Use `--detail evidence` when a consumer needs the fuller projection, or `--detail paths` for a lightweight path list.
 

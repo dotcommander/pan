@@ -16,7 +16,7 @@ const maxGitErrorBytes = 4 << 10
 // uses one of these.
 func gitReadOnlyCommand(name string) bool {
 	switch name {
-	case "blame", "describe", "diff", "log", "ls-files", "rev-parse", "show":
+	case "blame", "describe", "diff", "log", "ls-files", "ls-tree", "rev-parse", "show":
 		return true
 	}
 	return false

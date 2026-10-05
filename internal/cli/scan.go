@@ -24,6 +24,7 @@ type ScanCmd struct {
 	Effects   EffectsCmd   `cmd:"" help:"Side-effect and trust boundaries."`
 	Hygiene   HygieneCmd   `cmd:"" help:"Git hygiene inventory."`
 	Changes   ChangesCmd   `cmd:"" help:"Change evidence over history."`
+	Diff      DiffCmd      `cmd:"" help:"Symbol-level change overlay over a git range."`
 	Orphans   OrphansCmd   `cmd:"" help:"Lexical zero-reference symbol candidates."`
 	Inventory InventoryCmd `cmd:"" help:"Boundary-owner inventory."`
 	Doctor    DoctorCmd    `cmd:"" help:"Analyzer health check."`
@@ -280,6 +281,26 @@ func (c ChangesCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.C
 		return err
 	}
 	return emit(kctx, root, deps, snap, changes)
+}
+
+// DiffCmd is `pan scan diff`: the symbol-level structural overlay over one
+// git range. No revision selects the working tree against HEAD; "A..B"
+// compares two committed revisions; one other rev R selects R..HEAD.
+type DiffCmd struct {
+	Rev string `arg:"" optional:"" help:"Git range: empty or HEAD diffs the working tree; A..B compares commits; R selects R..HEAD."`
+	Top int    `name:"top" default:"50" help:"Maximum changed files to list; 0 lists all."`
+}
+
+// Validate rejects negative --top values.
+func (c DiffCmd) Validate() error { return validateTop(c.Top) }
+
+// Run executes `pan scan diff`.
+func (c DiffCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
+	snap, report, err := deps.App.StructuralDiff(ctx, root.Repo, c.Rev, c.Top)
+	if err != nil {
+		return err
+	}
+	return emit(kctx, root, deps, snap, report)
 }
 
 // DoctorCmd is `pan scan doctor`: the deterministic local readiness check

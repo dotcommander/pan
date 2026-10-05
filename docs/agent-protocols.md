@@ -36,7 +36,7 @@ The protocol is local and does not contact a provider or mutate the target repos
 
 ## Limits and failures
 
-One stdio or service request line is limited to 1 MiB. The schema documents stable error codes and method parameter shapes; use it instead of assuming a field is accepted. `agent serve` rejects malformed JSON-RPC, unknown methods, and invalid parameters with JSON-RPC error codes.
+One stdio or service request line is limited to 1 MiB. One operation is bounded by a 90-second per-request deadline; exceeding it answers one `request_timeout` error (service: server error with message "request timeout") and the session stays open. The schema documents stable error codes and method parameter shapes; use it instead of assuming a field is accepted. `agent serve` rejects malformed JSON-RPC, unknown methods, and invalid parameters with JSON-RPC error codes.
 
 | Symptom | Cause | Solution | Prevention |
 | --- | --- | --- | --- |
