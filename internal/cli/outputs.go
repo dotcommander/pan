@@ -7,6 +7,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/agent"
+	"github.com/dotcommander/pan/internal/bench"
 	"github.com/dotcommander/pan/internal/checks"
 	"github.com/dotcommander/pan/internal/eval"
 	"github.com/dotcommander/pan/internal/review"
@@ -32,6 +33,10 @@ const (
 	evalTopKLimit     = "top_k fixed at 15"
 	flagReport        = "--report"
 	flagOutcomes      = "--outcomes"
+	flagDataset       = "--dataset"
+	flagMirrors       = "--mirrors"
+	flagRepository    = "--repository"
+	flagLimit         = "--limit"
 )
 
 // agentProtocolErrors returns the stable `agent stdio` error codes.
@@ -156,6 +161,25 @@ func evalSurfaces() []OutputSurface {
 	}
 }
 
+// benchSurfaces returns the benchmark harness output surfaces.
+func benchSurfaces() []OutputSurface {
+	return []OutputSurface{
+		{
+			Name: "retrieval-bench", Producer: "bench retrieval", Schema: bench.ReportSchema,
+			MediaType: jsonEnvelopeMedia, BestFor: "comparing retrieval quality against issue-to-file ground truth",
+			Privacy: "dataset and repository paths plus problem-statement-derived rankings; dataset text is never echoed; no network, mirrors are read-only",
+			Limits: []string{
+				"local mirrors named org__name under --mirrors",
+				"one read-only git archive checkout per instance (1 GiB cap)",
+				"problem statements capped at 64 KiB per case",
+				"detail rows capped by --top-rows",
+			},
+			Flags:         []string{flagDataset, flagMirrors, flagRepository, flagLimit},
+			Compatibility: "pan.retrieval-bench/v1; skip reasons are part of the contract",
+		},
+	}
+}
+
 // agentSurfaces returns the machine-protocol surfaces.
 func agentSurfaces() []OutputSurface {
 	return []OutputSurface{
@@ -250,7 +274,7 @@ func catalogSurface() []OutputSurface {
 func BuildOutputCatalog() OutputCatalog {
 	return OutputCatalog{
 		Schema:   outputCatalogSchema,
-		Surfaces: slices.Concat(reportSurfaces(), evalSurfaces(), agentSurfaces(), integrationSurfaces(), pipelineSurfaces(), catalogSurface()),
+		Surfaces: slices.Concat(reportSurfaces(), evalSurfaces(), agentSurfaces(), benchSurfaces(), integrationSurfaces(), pipelineSurfaces(), catalogSurface()),
 	}
 }
 

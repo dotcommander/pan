@@ -8,6 +8,7 @@ Pan is a local Go CLI that gives coding agents bounded repository evidence: buil
 | Trace execution, dependencies, routes, or pipelines | `flow` |
 | Inspect repository structure, risks, or trusted checks | `scan` |
 | Build an evidence-backed review packet | `review` |
+| Score retrieval against ground truth | `bench retrieval` |
 | Plan cleanup or a guarded improvement | `clean` or `improve` |
 | Integrate Pan with an agent | `agent schema` |
 
@@ -52,6 +53,7 @@ Pan analyzes source; it does not execute the target repository. Bounds, exclusio
 | `flow` | Execution, dependency, route, and pipeline evidence. |
 | `scan` | Repository and symbol inventory, risk signals, public-surface and effect reports, Git evidence, analyzer health, and trusted in-process checks. |
 | `review` | Structured audit packets and reports. |
+| `bench` | Deterministic benchmark harnesses over local datasets; `bench retrieval` scores Pan's retrieval and a BM25 baseline against issue-to-file ground truth. |
 | `clean` | Cleanup planning, findings, completeness gaps, and guarded application. |
 | `improve` | Recommendations, coverage census, proposal probing, guarded preparation and refactoring, history statistics, and JSONL export. |
 | `agent` | A sequential JSONL protocol, a JSON-RPC 2.0 NDJSON service, and a machine-readable schema. |

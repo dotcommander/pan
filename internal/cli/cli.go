@@ -59,6 +59,7 @@ type Root struct {
 	Flow     FlowCmd     `cmd:"" help:"Execution, dependency, route, and pipeline evidence."`
 	Scan     ScanCmd     `cmd:"" help:"Repository inventory, risk, hygiene, and surface discovery."`
 	Review   ReviewCmd   `cmd:"" help:"Structured audit packets and reports."`
+	Bench    BenchCmd    `cmd:"" help:"Deterministic benchmark harnesses over local datasets."`
 	Clean    CleanCmd    `cmd:"" help:"Cleanup planning and confirmed application."`
 	Improve  ImproveCmd  `cmd:"" help:"Guarded test and refactor workflows; dry-run by default."`
 	Agent    AgentCmd    `cmd:"" help:"Machine protocols for coding agents."`

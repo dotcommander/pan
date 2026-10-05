@@ -7,6 +7,7 @@ Use Pan to obtain bounded source evidence before you decide where to read or rev
 | Inspect an unfamiliar repository | [Inspect a repository](inspect-a-repository.md) |
 | Configure Pan or use guarded workflows | [Configuration and guardrails](configuration-and-guardrails.md) |
 | Connect a coding agent over standard input/output | [Agent protocols](agent-protocols.md) |
+| Measure retrieval quality against ground truth | [Retrieval benchmarks](retrieval-benchmark.md) |
 
 ## Limits before action
 

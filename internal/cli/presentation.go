@@ -123,6 +123,7 @@ func writeRootHelp(w io.Writer, style terminalStyle) error {
 	b.WriteString(style.paint(ansiBold, "Evaluate") + "\n")
 	b.WriteString("  scan       Inspect repository structure and risk signals\n")
 	b.WriteString("  review     Build evidence-backed review packets and reports\n")
+	b.WriteString("  bench      Score retrieval against issue-to-file datasets\n")
 	b.WriteString("  scan doctor  Check whether Pan can fully understand this repository\n\n")
 	b.WriteString(style.paint(ansiBold, "Improve") + "\n")
 	b.WriteString("  clean      Plan repository cleanup; apply only with confirmation\n")
