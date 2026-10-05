@@ -2,6 +2,7 @@ package retrieval
 
 import (
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode"
@@ -19,14 +20,31 @@ type taskCandidate struct {
 	fallback      bool
 }
 
+// symbolGoalRE identifies bare-symbol goals: namespace-qualified names,
+// underscore-prefixed identifiers, mixed-case identifiers, or leading
+// capitals. Plain lowercase phrases are natural-language goals.
+var symbolGoalRE = regexp.MustCompile(`^(?:` +
+	`[A-Za-z_][A-Za-z0-9_]*(?:(?:::|\\|->|\.)[A-Za-z_][A-Za-z0-9_]*)+` + // namespace-qualified
+	`|_[A-Za-z0-9_]*` + // leading underscore
+	`|[A-Za-z][A-Za-z0-9]*[A-Z_][A-Za-z0-9_]*` + // contains uppercase or underscore
+	`|[A-Z][A-Za-z0-9]*` + // starts with uppercase
+	`)$`)
+
+// isSymbolGoal reports whether the goal is a bare symbol lookup rather than
+// a natural-language request.
+func isSymbolGoal(goal string) bool {
+	return symbolGoalRE.MatchString(strings.TrimSpace(goal))
+}
+
 // taskCandidates scores every ranked file against the goal. Direct evidence
 // comes before structural owners; no positive evidence falls back to rank.
 func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal string) []taskCandidate {
 	terms := goalTerms(goal)
+	symbolMode := isSymbolGoal(goal)
 	byPath := make(map[string]*taskCandidate, len(ranked))
 	for i := range ranked {
 		file := &ranked[i]
-		evidence, total, score := fieldEvidence(file, terms)
+		evidence, total, score := fieldEvidence(file, terms, symbolMode)
 		if score <= 0 {
 			continue
 		}
@@ -110,28 +128,37 @@ type evidenceField struct {
 }
 
 // fieldEvidence ranks path, package, imports, and symbol surfaces while
-// bounding emitted facts independently of the total matched score.
-func fieldEvidence(file *ranking.RankedFile, terms []string) (evidence []TaskEvidence, total, score int) {
+// bounding emitted facts independently of the total matched score. Exact
+// term-part matches score full weight; prefix-overlap matches score half.
+// Symbol goals raise exact-name evidence (symbols, signatures) and lower
+// path evidence, leaning toward definers over files whose path merely
+// echoes the term.
+func fieldEvidence(file *ranking.RankedFile, terms []string, symbolMode bool) (evidence []TaskEvidence, total, score int) {
 	if len(terms) == 0 {
 		return nil, 0, 0
 	}
+	pathWeight, symbolWeight, signatureWeight := 8, 8, 4
+	if symbolMode {
+		pathWeight, symbolWeight, signatureWeight = 4, 12, 6
+	}
 	values := []evidenceField{
-		{"path", file.Path, 8},
+		{"path", file.Path, pathWeight},
 		{"package", file.Package, 5},
 		{"import", strings.Join(file.Imports, " "), 3},
 	}
 	for _, symbol := range file.Symbols {
 		values = append(values,
-			evidenceField{"symbol", symbol.Name, 8},
-			evidenceField{"signature", symbol.Signature, 4},
+			evidenceField{"symbol", symbol.Name, symbolWeight},
+			evidenceField{"signature", symbol.Signature, signatureWeight},
 			evidenceField{"doc", symbol.Doc, 3},
 		)
 	}
 	seen := make(map[string]struct{})
 	for _, value := range values {
-		lower := strings.ToLower(value.value)
+		parts := evidenceParts(value.field, value.value)
 		for _, term := range terms {
-			if !strings.Contains(lower, term) {
+			matched, exact := ranking.MatchPart(parts, term)
+			if !matched {
 				continue
 			}
 			total++
@@ -142,29 +169,36 @@ func fieldEvidence(file *ranking.RankedFile, terms []string) (evidence []TaskEvi
 					evidence = append(evidence, TaskEvidence{Field: value.field, Value: value.value})
 				}
 			}
-			score += value.weight
+			if exact {
+				score += value.weight
+			} else {
+				score += max(1, value.weight/2)
+			}
 		}
 	}
 	return evidence, total, score
 }
 
-// goalTerms lowercases the goal into distinct non-stopword search terms.
-func goalTerms(goal string) []string {
-	stop := map[string]struct{}{"the": {}, "and": {}, "for": {}, "with": {}, "into": {}, "that": {}, "this": {}, "from": {}, "add": {}, "fix": {}}
-	seen := make(map[string]struct{})
-	var terms []string
-	for _, field := range strings.FieldsFunc(strings.ToLower(goal), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
-		if len(field) < 2 {
-			continue
-		}
-		if _, drop := stop[field]; drop {
-			continue
-		}
-		if _, dup := seen[field]; dup {
-			continue
-		}
-		seen[field] = struct{}{}
-		terms = append(terms, field)
+// evidenceParts returns the term-matching vocabulary of one evidence field.
+// Paths and packages use path-segment sub-tokens; symbol names use
+// identifier sub-tokens; signatures, docs, and import lists are free text.
+func evidenceParts(field, value string) []string {
+	if field == "path" || field == "package" {
+		return ranking.PathTerms(value)
 	}
-	return terms
+	if field == "symbol" {
+		return ranking.SplitIdentifier(value)
+	}
+	var parts []string
+	split := func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }
+	for _, token := range strings.FieldsFunc(strings.ToLower(value), split) {
+		parts = append(parts, ranking.SplitIdentifier(token)...)
+	}
+	return parts
+}
+
+// goalTerms lowercases the goal into distinct non-stopword search terms,
+// expanded with identifier sub-tokens so compound goals match compound names.
+func goalTerms(goal string) []string {
+	return ranking.ExpandTerms(goal, 2, ranking.CommonStopwords)
 }

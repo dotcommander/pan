@@ -11,10 +11,13 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/app"
+	"github.com/dotcommander/pan/internal/cache"
 	"github.com/dotcommander/pan/internal/retrieval"
+	"github.com/dotcommander/pan/internal/retrievalstats"
 )
 
 // ContextCmd groups task-oriented code retrieval and repository context.
@@ -31,12 +34,14 @@ type ContextCmd struct {
 	Preflight ContextPreflightCmd `cmd:"" help:"Resolve applicable repository guidance and purpose."`
 	Init      ContextInitCmd      `cmd:"" help:"Create repository analysis scaffolding and an optional cache hook."`
 	Eval      ContextEvalCmd      `cmd:"" help:"Evaluate retrieval cases."`
+	Savings   ContextSavingsCmd   `cmd:"" help:"Summarize recorded task-packet token savings."`
 }
 
 // ContextEvalCmd is `pan context eval`.
 type ContextEvalCmd struct {
-	Cases  string `name:"cases" type:"path" required:""`
-	Policy string `name:"policy" default:"structural-lexical/v1"`
+	Cases      string `name:"cases" type:"path" required:""`
+	Policy     string `name:"policy" default:"structural-lexical/v1"`
+	Efficiency bool   `name:"efficiency" help:"Add the modeled grep+read baseline and recall-at-budget curves."`
 }
 
 // Run evaluates the configured retrieval cases.
@@ -49,11 +54,33 @@ func (c ContextEvalCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 	if err != nil {
 		return err
 	}
-	report, err := retrieval.Evaluate(snap, cases, c.Policy)
+	report, err := retrieval.Evaluate(snap, cases, c.Policy, retrieval.EvalOptions{Efficiency: c.Efficiency})
 	if err != nil {
 		return err
 	}
 	return emit(kctx, root, deps, snap, report)
+}
+
+// ContextSavingsCmd is `pan context savings`.
+type ContextSavingsCmd struct{}
+
+// Run summarizes the recorded retrieval savings ledger.
+func (c ContextSavingsCmd) Run(kctx *kong.Context, root *Root, deps Deps) error {
+	base, err := cache.DefaultDir()
+	if err != nil {
+		return err
+	}
+	summary, err := retrievalstats.Summarize(retrievalstats.Path(base), time.Now())
+	if err != nil {
+		return err
+	}
+	if root.Format == formatJSON {
+		encoder := json.NewEncoder(deps.Out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(summary)
+	}
+	_, err = fmt.Fprint(deps.Out, retrievalstats.Render(summary))
+	return err
 }
 
 // ContextInitCmd is `pan context init`, compatible with Pan's local

@@ -14,12 +14,12 @@ const taskSelectionWorkCap = 96
 // packTaskTargets tries feasible direct evidence for distinct terms before
 // filling the remainder in normal rank order. Failed candidates do not stop
 // selection or consume the embedded-source cap.
-func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string) error {
+func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, symbolMode bool) error {
 	terms := goalTerms(report.Goal)
 	supported := make(map[string]bool)
 	for _, candidate := range candidates {
 		for _, term := range terms {
-			if candidateMatchesTerm(candidate, term) {
+			if candidateMatchesTerm(candidate, term, symbolMode) {
 				supported[term] = true
 			}
 		}
@@ -31,7 +31,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			return nil
 		}
 		attempted[candidate.file.Path] = true
-		matched := candidateTerms(candidate, terms)
+		matched := candidateTerms(candidate, terms, symbolMode)
 		nextCovered := make(map[string]bool, len(covered)+len(matched))
 		for term := range covered {
 			nextCovered[term] = true
@@ -56,7 +56,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			if len(attempted) >= taskSelectionWorkCap || len(report.Targets) == taskTargetLimit || covered[term] {
 				break
 			}
-			if candidateMatchesTerm(candidate, term) {
+			if candidateMatchesTerm(candidate, term, symbolMode) {
 				if err := try(candidate); err != nil {
 					return err
 				}
@@ -83,18 +83,18 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 	return nil
 }
 
-func candidateMatchesTerm(candidate taskCandidate, term string) bool {
+func candidateMatchesTerm(candidate taskCandidate, term string, symbolMode bool) bool {
 	if candidate.fallback {
 		return false
 	}
-	_, _, score := fieldEvidence(&candidate.file, []string{term})
+	_, _, score := fieldEvidence(&candidate.file, []string{term}, symbolMode)
 	return score > 0
 }
 
-func candidateTerms(candidate taskCandidate, terms []string) []string {
+func candidateTerms(candidate taskCandidate, terms []string, symbolMode bool) []string {
 	var matched []string
 	for _, term := range terms {
-		if candidateMatchesTerm(candidate, term) {
+		if candidateMatchesTerm(candidate, term, symbolMode) {
 			matched = append(matched, term)
 		}
 	}

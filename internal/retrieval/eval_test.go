@@ -32,6 +32,15 @@ func TestReferenceGraphEvaluationCorpusContract(t *testing.T) {
 	if lexical != 25 || nonlexical != 25 {
 		t.Fatalf("lexical = %d, nonlexical = %d", lexical, nonlexical)
 	}
+	// All cases share one snapshot identity; when the analyzer revision
+	// moves, regenerate the pinned id in one pass (see internal/analyze/model.go).
+	ids := make(map[string]struct{})
+	for _, c := range cases {
+		ids[c.SnapshotID] = struct{}{}
+	}
+	if len(ids) != 1 {
+		t.Fatalf("corpus snapshot ids = %d distinct values, want 1", len(ids))
+	}
 }
 
 func TestEvaluateUsesTaskPolicyAndReportsInclusion(t *testing.T) {

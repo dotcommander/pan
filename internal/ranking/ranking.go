@@ -10,7 +10,6 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/fileclass"
@@ -53,6 +52,10 @@ const (
 	ComponentIntent         = "intent"
 	ComponentConsumed       = "consumed"
 	ComponentReferenceGraph = "reference_graph"
+	// ComponentClassDemote records bounded demotions for repository file roles
+	// that rarely own a code task: examples, vendor, generated, docs, compat
+	// and legacy shims, and test-classed files the Go suffix check cannot see.
+	ComponentClassDemote = "class_demote"
 )
 
 // RankedFile is one analyzed file with its importance score decomposition.
@@ -157,6 +160,7 @@ func RankWithStats(snap analyze.Snapshot, modulePath string, opts Options) ([]Ra
 	applyImportScores(ranked, modulePath)
 	applyCallerScores(ranked, snap)
 	applyTestSignals(ranked, opts.IncludeTests)
+	applyClassSignals(ranked, opts.IncludeTests)
 	applyIntentScores(ranked, opts.Intent)
 	applyConsumedBoosts(ranked, opts.Consumed)
 	stats := GraphStats{}
@@ -587,6 +591,72 @@ func applyTestSignals(ranked []RankedFile, includeTests bool) {
 	}
 }
 
+// classDemotion values mirror demotion practice for retrieval: tests,
+// compat shims, and example code are strong noise; generated and vendor
+// files are stronger noise; docs are mild noise for code-oriented ranking.
+const (
+	classDemoteTest     = -10
+	classDemoteCompat   = -12
+	classDemoteExample  = -12
+	classDemoteVendor   = -20
+	classDemoteGenerate = -20
+	classDemoteDocs     = -6
+)
+
+// compatSegments are path segments that mark compatibility or legacy shims.
+var compatSegments = map[string]struct{}{"compat": {}, "_compat": {}, "legacy": {}}
+
+// hasCompatSegment reports whether any slash-delimited path segment names a
+// compatibility or legacy directory.
+func hasCompatSegment(p string) bool {
+	for _, segment := range strings.Split(strings.ReplaceAll(p, `\`, "/"), "/") {
+		if _, ok := compatSegments[segment]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// applyClassSignals demotes non-production file roles after the structural
+// components. includeTests restores full weight for test-classed files.
+func applyClassSignals(ranked []RankedFile, includeTests bool) {
+	for i := range ranked {
+		rf := &ranked[i]
+		demote := 0
+		switch rf.Class {
+		case fileclass.Example:
+			demote += classDemoteExample
+		case fileclass.Vendor:
+			demote += classDemoteVendor
+		case fileclass.Generated:
+			demote += classDemoteGenerate
+		case fileclass.Docs:
+			demote += classDemoteDocs
+		case fileclass.Test:
+			if !includeTests && !rf.TestFile {
+				demote += classDemoteTest
+			}
+		case fileclass.Fixture, fileclass.Data, fileclass.Production, fileclass.Unknown:
+			// no class-based demotion for these roles
+		}
+		if hasCompatSegment(rf.Path) {
+			demote += classDemoteCompat
+		}
+		if demote != 0 {
+			addComponent(rf, ComponentClassDemote, demote)
+		}
+	}
+}
+
+// Intent match weights: exact part matches score full weight, prefix-overlap
+// matches score half weight.
+const (
+	intentPathExact   = 4
+	intentPathPrefix  = 2
+	intentSymbolExact = 2
+	intentSymbolHalf  = 1
+)
+
 func applyIntentScores(ranked []RankedFile, intent string) {
 	terms := intentTerms(intent)
 	if len(terms) == 0 {
@@ -594,31 +664,48 @@ func applyIntentScores(ranked []RankedFile, intent string) {
 	}
 	for i := range ranked {
 		rf := &ranked[i]
-		pathLower := strings.ToLower(rf.Path)
-		boost := 0
-		hitsPath, hitsSymbol := 0, 0
-		for _, term := range terms {
-			if strings.Contains(pathLower, term) {
-				boost += 4
-				hitsPath++
-			}
-			for _, symbol := range rf.Symbols {
-				if strings.Contains(strings.ToLower(symbol.Name), term) {
-					boost += 2
-					hitsSymbol++
-					break
-				}
-			}
+		pathParts := PathTerms(rf.Path)
+		symbolParts := make([][]string, len(rf.Symbols))
+		for j, symbol := range rf.Symbols {
+			symbolParts[j] = SplitIdentifier(symbol.Name)
 		}
-		if boost > 30 {
-			boost = 30
-		}
+		boost, hitsPath, hitsSymbol := intentFileBoost(pathParts, symbolParts, terms)
 		if boost > 0 {
 			addComponent(rf, ComponentIntent, boost)
 			rf.IntentHits = hitsPath + hitsSymbol
 			rf.Confidence = analyze.ConfidenceHeuristic
 		}
 	}
+}
+
+// intentFileBoost scores one file's paths and symbols against the intent
+// terms: exact part matches at full weight, prefix-overlap matches at half.
+func intentFileBoost(pathParts []string, symbolParts [][]string, terms []string) (boost, hitsPath, hitsSymbol int) {
+	for _, term := range terms {
+		if matched, exact := MatchPart(pathParts, term); matched {
+			if exact {
+				boost += intentPathExact
+			} else {
+				boost += intentPathPrefix
+			}
+			hitsPath++
+		}
+		for j := range symbolParts {
+			if matched, exact := MatchPart(symbolParts[j], term); matched {
+				if exact {
+					boost += intentSymbolExact
+				} else {
+					boost += intentSymbolHalf
+				}
+				hitsSymbol++
+				break
+			}
+		}
+	}
+	if boost > 30 {
+		boost = 30
+	}
+	return boost, hitsPath, hitsSymbol
 }
 
 func applyConsumedBoosts(ranked []RankedFile, consumed []string) {
@@ -733,24 +820,8 @@ func kindCounts(symbols []analyze.Symbol) map[string]int {
 	return counts
 }
 
-// intentTerms lowercases an intent string into ranking terms: alphabetic
-// words of three or more characters, minus a small stopword set.
+// intentTerms lowercases an intent string into ranking terms: words of at
+// least three runes minus a stopword set, expanded with identifier sub-tokens.
 func intentTerms(intent string) []string {
-	stop := map[string]struct{}{"the": {}, "and": {}, "for": {}, "with": {}, "into": {}, "that": {}, "this": {}, "from": {}, "add": {}, "fix": {}}
-	var terms []string
-	seen := make(map[string]struct{})
-	for _, field := range strings.FieldsFunc(strings.ToLower(intent), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
-		if len(field) < 3 {
-			continue
-		}
-		if _, drop := stop[field]; drop {
-			continue
-		}
-		if _, dup := seen[field]; dup {
-			continue
-		}
-		seen[field] = struct{}{}
-		terms = append(terms, field)
-	}
-	return terms
+	return ExpandTerms(intent, 3, CommonStopwords)
 }

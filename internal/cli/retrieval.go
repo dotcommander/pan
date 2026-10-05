@@ -10,9 +10,11 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/analyze"
+	"github.com/dotcommander/pan/internal/cache"
 	"github.com/dotcommander/pan/internal/codemap"
 	"github.com/dotcommander/pan/internal/render"
 	"github.com/dotcommander/pan/internal/retrieval"
+	"github.com/dotcommander/pan/internal/retrievalstats"
 )
 
 // requireNonBlank rejects blank required positional selectors before any
@@ -151,9 +153,10 @@ type mapJSONSelection struct {
 // ContextTaskCmd is `pan context task`: the bounded goal-oriented context
 // packet with target selection, evidence, and source excerpts.
 type ContextTaskCmd struct {
-	Goal     string   `arg:"" help:"Implementation goal orienting the packet."`
-	Tokens   int      `name:"tokens" default:"4096" help:"Approximate token budget; 0 uses the default."`
-	Consumed []string `name:"consumed" sep:"," help:"Comma-separated repo-relative paths already in context."`
+	Goal          string   `arg:"" help:"Implementation goal orienting the packet."`
+	Tokens        int      `name:"tokens" default:"4096" help:"Approximate token budget; 0 uses the default."`
+	Consumed      []string `name:"consumed" sep:"," help:"Comma-separated repo-relative paths already in context."`
+	RecordSavings bool     `name:"record-savings" help:"Append a token-savings record for this packet to the pan cache directory."`
 }
 
 // Validate rejects a blank goal or negative token budget.
@@ -173,7 +176,44 @@ func (c ContextTaskCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 	if err != nil {
 		return err
 	}
+	if c.RecordSavings {
+		if err := recordTaskSavings(snap, report); err != nil {
+			return err
+		}
+	}
 	return emit(kctx, root, deps, snap, report)
+}
+
+// recordTaskSavings appends one ledger record comparing the encoded packet
+// against the full-read size of the unread files it covers. Failures to
+// resolve the cache directory are returned; missing captured source simply
+// contributes zero file characters.
+func recordTaskSavings(snap analyze.Snapshot, report retrieval.TaskReport) error {
+	base, err := cache.DefaultDir()
+	if err != nil {
+		return err
+	}
+	fileChars := 0
+	counted := make(map[string]struct{})
+	for _, target := range report.Targets {
+		if target.Consumed {
+			continue
+		}
+		if _, dup := counted[target.Path]; dup {
+			continue
+		}
+		counted[target.Path] = struct{}{}
+		if source, ok := snap.Source(target.Path); ok {
+			fileChars += len(source)
+		}
+	}
+	return retrievalstats.Append(base, retrievalstats.Record{
+		Root:        snap.Root,
+		Goal:        report.Goal,
+		Targets:     len(report.Targets),
+		PacketChars: report.Budget.UsedTokens * 4,
+		FileChars:   fileChars,
+	})
 }
 
 // ContextFindCmd is `pan context find`: ranked symbol search with optional
@@ -214,7 +254,7 @@ func (c ContextFindCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 	matches = limitMatches(matches, limit)
 	if c.Explain {
 		query := retrieval.EffectiveFindQuery(c.Query, c.Kind, c.File)
-		return emit(kctx, root, deps, snap, retrieval.NewFindReport(query, matches, snap.Status.Complete))
+		return emit(kctx, root, deps, snap, retrieval.NewFindReportWithStatus(query, matches, snap.Status))
 	}
 	// Pan's find --format json is a raw array, including [] when there
 	// are no matches. Root's global format flag provides that compatibility
@@ -226,6 +266,13 @@ func (c ContextFindCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx conte
 		encoder := json.NewEncoder(deps.Out)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(matches)
+	}
+	// A miss in text mode emits the explanation form with outcome and
+	// guidance instead of a bare null, so an empty result names its bounds
+	// and next steps.
+	if len(matches) == 0 {
+		query := retrieval.EffectiveFindQuery(c.Query, c.Kind, c.File)
+		return emit(kctx, root, deps, snap, retrieval.NewFindReportWithStatus(query, matches, snap.Status))
 	}
 	return emit(kctx, root, deps, snap, matches)
 }

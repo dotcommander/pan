@@ -130,7 +130,7 @@ func Task(snap analyze.Snapshot, ranked []ranking.RankedFile, goal string, opts 
 		Rules:     snap.Instructions,
 	}
 	candidates := taskCandidates(ranked, snap, goal)
-	if err := packTaskTargets(&report, candidates, snap, ranked, consumed); err != nil {
+	if err := packTaskTargets(&report, candidates, snap, ranked, consumed, isSymbolGoal(goal)); err != nil {
 		return TaskReport{}, err
 	}
 	if err := finalizeTaskReport(&report); err != nil {
