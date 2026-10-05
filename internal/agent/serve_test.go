@@ -18,6 +18,9 @@ type serveTestBackend struct{}
 func (serveTestBackend) AgentStatus(context.Context) (StatusSummary, error) {
 	return StatusSummary{Repository: "/fixture", Schema: analyze.SchemaVersion}, nil
 }
+func (serveTestBackend) AgentSnapshotStatus(context.Context) (SnapshotStatus, error) {
+	return SnapshotStatus{Ready: true, Root: "/fixture", Source: "live", SnapshotID: "snap-1", Rebuilds: 1, Complete: true}, nil
+}
 func (serveTestBackend) AgentOverview(context.Context) (scan.OverviewReport, error) {
 	return scan.OverviewReport{}, nil
 }
@@ -80,6 +83,9 @@ type changingServeBackend struct{ calls int }
 func (b *changingServeBackend) AgentStatus(context.Context) (StatusSummary, error) {
 	return StatusSummary{}, nil
 }
+func (b *changingServeBackend) AgentSnapshotStatus(context.Context) (SnapshotStatus, error) {
+	return SnapshotStatus{}, nil
+}
 func (b *changingServeBackend) AgentOverview(context.Context) (scan.OverviewReport, error) {
 	return scan.OverviewReport{}, nil
 }
@@ -122,6 +128,30 @@ type failingServeWriter struct{ calls int }
 func (w *failingServeWriter) Write([]byte) (int, error) {
 	w.calls++
 	return 0, fmt.Errorf("fixture output closed")
+}
+
+func TestRunServeAnswersSnapshotStatus(t *testing.T) {
+	t.Parallel()
+	input := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":7,"method":"snapshot/status"}`,
+		`{"jsonrpc":"2.0","id":8,"method":"snapshot/status","params":{}}`,
+		`{"jsonrpc":"2.0","id":9,"method":"snapshot/status","params":{"query":"ignored is still an object"}}`,
+	}, "\n") + "\n"
+	var output bytes.Buffer
+	if err := RunServe(context.Background(), bufio.NewReader(strings.NewReader(input)), &output, serveTestBackend{}); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("responses = %q", output.String())
+	}
+	for _, line := range lines {
+		for _, want := range []string{`"ready":true`, `"source":"live"`, `"snapshot_id":"snap-1"`, `"rebuilds":1`} {
+			if !strings.Contains(line, want) {
+				t.Fatalf("response %q missing %s", line, want)
+			}
+		}
+	}
 }
 
 func TestRunServeStopsAfterResponseWriteFailure(t *testing.T) {

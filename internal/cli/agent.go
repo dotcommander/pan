@@ -15,7 +15,7 @@ import (
 // Stdio feedback can append to an explicitly selected local outcome ledger.
 type AgentCmd struct {
 	Stdio  AgentStdioCmd  `cmd:"" help:"Sequential JSONL protocol (hello, scan, query, context, feedback, report)."`
-	Serve  AgentServeCmd  `cmd:"" help:"JSON-RPC 2.0 NDJSON service over stdio (map, symbol, file, status, overview, report)."`
+	Serve  AgentServeCmd  `cmd:"" help:"JSON-RPC 2.0 NDJSON service over stdio (map, symbol, file, status, snapshot freshness, overview, report)."`
 	Schema AgentSchemaCmd `cmd:"" help:"Machine-readable schema dump for both agent protocols."`
 }
 

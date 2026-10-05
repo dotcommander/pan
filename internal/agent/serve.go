@@ -22,22 +22,23 @@ const ServeJSONRPC = "2.0"
 // Serve method names. Every method derives from one deterministic, local
 // analysis; none contacts a provider or mutates the target repository.
 const (
-	MethodStatus      = "pan/status"
-	MethodOverview    = "pan/overview"
-	MethodReport      = "pan/report"
-	MethodSymbols     = "pan/symbols"
-	MethodMapRender   = "map/render"
-	MethodMapStatus   = "map/status"
-	MethodSymbolFind  = "symbol/find"
-	MethodFileExplain = "file/explain"
-	MethodFileContext = "file/context"
+	MethodStatus         = "pan/status"
+	MethodOverview       = "pan/overview"
+	MethodReport         = "pan/report"
+	MethodSymbols        = "pan/symbols"
+	MethodSnapshotStatus = "snapshot/status"
+	MethodMapRender      = "map/render"
+	MethodMapStatus      = "map/status"
+	MethodSymbolFind     = "symbol/find"
+	MethodFileExplain    = "file/explain"
+	MethodFileContext    = "file/context"
 )
 
 // ServeMethodNames returns the complete agent serve method set in
 // canonical order. It is a function so the protocol owns no mutable
 // package state.
 func ServeMethodNames() []string {
-	return []string{MethodMapRender, MethodMapStatus, MethodSymbolFind, MethodFileExplain, MethodFileContext, MethodStatus, MethodOverview, MethodReport, MethodSymbols}
+	return []string{MethodMapRender, MethodMapStatus, MethodSymbolFind, MethodFileExplain, MethodFileContext, MethodStatus, MethodSnapshotStatus, MethodOverview, MethodReport, MethodSymbols}
 }
 
 // pan/symbols parameter bounds.
@@ -77,6 +78,25 @@ type StatusSummary struct {
 	Limits     []string `json:"limits,omitempty"`
 }
 
+// SnapshotStatus is the bounded snapshot/status result: evidence
+// freshness, coverage, and session reuse for the served repository. Every
+// serve request re-verifies freshness before answering, so VerifiedAt is
+// the moment this status was proven current and Rebuilds counts evidence
+// rebuilds performed by this session.
+type SnapshotStatus struct {
+	Ready        bool     `json:"ready"`
+	Root         string   `json:"root"`
+	Schema       string   `json:"schema"`
+	BuiltAt      string   `json:"built_at"`
+	VerifiedAt   string   `json:"verified_at"`
+	Rebuilds     int      `json:"rebuilds"`
+	Source       string   `json:"source"`
+	SnapshotID   string   `json:"snapshot_id"`
+	Complete     bool     `json:"complete"`
+	Limits       []string `json:"limits,omitempty"`
+	SkippedCount int      `json:"skipped_count,omitempty"`
+}
+
 // SymbolsResult is the bounded pan/symbols result.
 type SymbolsResult struct {
 	Total       int                  `json:"total"`
@@ -89,6 +109,7 @@ type SymbolsResult struct {
 // and safe for repeated calls.
 type ServeBackend interface {
 	AgentStatus(ctx context.Context) (StatusSummary, error)
+	AgentSnapshotStatus(ctx context.Context) (SnapshotStatus, error)
 	AgentOverview(ctx context.Context) (scan.OverviewReport, error)
 	AgentSymbols(ctx context.Context, query string, top int) ([]analyze.Symbol, error)
 	AgentReport(ctx context.Context) (review.Document, error)
@@ -203,6 +224,15 @@ func answer(ctx context.Context, output io.Writer, req serveRequest, backend Ser
 			return writeServeBackendError(output, req, err)
 		}
 		result = summary
+	case MethodSnapshotStatus:
+		if failure := decodePanMapParams(req.Params, &struct{}{}); failure != nil {
+			return writeServeError(output, req.ID, failure.code, failure.message)
+		}
+		snapshot, err := backend.AgentSnapshotStatus(ctx)
+		if err != nil {
+			return writeServeBackendError(output, req, err)
+		}
+		result = snapshot
 	case MethodOverview:
 		overview, err := backend.AgentOverview(ctx)
 		if err != nil {

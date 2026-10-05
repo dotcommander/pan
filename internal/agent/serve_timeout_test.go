@@ -21,6 +21,10 @@ type blockingServeBackend struct {
 	blocked     atomic.Bool
 }
 
+func (b *blockingServeBackend) AgentSnapshotStatus(ctx context.Context) (SnapshotStatus, error) {
+	return SnapshotStatus{}, nil
+}
+
 func (b *blockingServeBackend) AgentStatus(ctx context.Context) (StatusSummary, error) {
 	if b.hit(ctx, b.blockMethod == MethodStatus) {
 		return StatusSummary{}, ctx.Err()

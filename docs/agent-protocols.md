@@ -17,7 +17,7 @@ The result describes a sequential JSONL protocol and a JSON-RPC 2.0 service over
 | Need | Command | Framing | What it does |
 | --- | --- | --- | --- |
 | A sequential review session | `./pan --repo . agent stdio` | One JSON request and one JSON response per line. | Supports `hello`, `scan`, `query`, `context`, `feedback`, and `report`. |
-| A JSON-RPC service | `./pan --repo . agent serve` | One JSON-RPC 2.0 request and response per line. | Serves repository-map, symbol, file-context, status, overview, and report methods. |
+| A JSON-RPC service | `./pan --repo . agent serve` | One JSON-RPC 2.0 request and response per line. | Serves repository-map, symbol, file-context, status, snapshot-freshness, overview, and report methods. |
 | The current contract | `./pan agent schema` | Ordinary command output. | Emits the schema for both interfaces. |
 
 All protocol commands above are source-checked and unexecuted in this documentation update.
@@ -33,6 +33,16 @@ All protocol commands above are source-checked and unexecuted in this documentat
 A successful response carries the same request ID and reports `"ok":true`; the `hello` operation returns the protocol contract. This follows from the sequential JSONL handler, which decodes one request object per line and emits one response per line. Next, send `scan` or `report` with a new ID when the schema identifies the request fields you need.
 
 The protocol is local and does not contact a provider or mutate the target repository. `agent stdio --outcomes PATH` is the explicit exception for local outcome recording: it enables `feedback` writes to the selected ledger.
+
+## Check evidence freshness on the service
+
+`snapshot/status` reports whether the served evidence is ready, when it was built and last verified fresh, how many rebuilds the session performed, and whether analysis coverage was complete. Every serve request re-verifies freshness before answering, so `verified_at` is the moment the status was proven current.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"snapshot/status"}
+```
+
+The response's `source` distinguishes cache-loaded from live-built evidence, `snapshot_id` identifies the evidence revision, and `limits`/`skipped_count` carry the coverage caveats before treating absent results as conclusive.
 
 ## Limits and failures
 

@@ -33,6 +33,8 @@ type AgentServeState struct {
 	stamps      map[string]analyze.FileStamp
 	fingerprint string
 	builtAt     time.Time
+	verifiedAt  time.Time
+	rebuilds    int
 	err         error
 }
 
@@ -47,17 +49,28 @@ func (a *AgentServeState) snapshot(ctx context.Context) (analyze.Snapshot, error
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.ready && a.err == nil && a.sourcesFresh(ctx) {
+		a.verifiedAt = time.Now().UTC()
 		return a.snap, nil
 	}
+	a.rebuilds++
 	a.snap, a.err = a.service.Snapshot(ctx, a.root)
 	if a.err == nil {
 		a.err = a.captureSources(ctx, a.snap)
 	}
 	if a.err == nil {
 		a.builtAt = time.Now().UTC()
+		a.verifiedAt = a.builtAt
 		a.ready = true
 	}
 	return a.snap, a.err
+}
+
+// sessionFacts returns the rebuild counter and evidence timestamps for
+// snapshot/status under the state lock.
+func (a *AgentServeState) sessionFacts() (rebuilds int, builtAt, verifiedAt time.Time) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.rebuilds, a.builtAt, a.verifiedAt
 }
 
 func (a *AgentServeState) rankedSnapshot(ctx context.Context) (analyze.Snapshot, []ranking.RankedFile, error) {
@@ -149,6 +162,38 @@ func (a *AgentServeState) AgentStatus(ctx context.Context) (agent.StatusSummary,
 		Complete:   snap.Status.Complete,
 		Limits:     snap.Status.Limits,
 	}, nil
+}
+
+// AgentSnapshotStatus answers snapshot/status: evidence freshness,
+// coverage, and session reuse for the served repository. Every call
+// re-verifies freshness first, so a successful result is current as of
+// VerifiedAt.
+func (a *AgentServeState) AgentSnapshotStatus(ctx context.Context) (agent.SnapshotStatus, error) {
+	snap, err := a.snapshot(ctx)
+	if err != nil {
+		return agent.SnapshotStatus{}, err
+	}
+	rebuilds, builtAt, verifiedAt := a.sessionFacts()
+	status := agent.SnapshotStatus{
+		Ready:        true,
+		Root:         snap.Root,
+		Schema:       snap.SchemaVersion,
+		Rebuilds:     rebuilds,
+		Complete:     snap.Status.Complete,
+		Limits:       snap.Status.Limits,
+		SkippedCount: snap.Status.SkippedCount,
+	}
+	if !builtAt.IsZero() {
+		status.BuiltAt = builtAt.Format(time.RFC3339)
+	}
+	if !verifiedAt.IsZero() {
+		status.VerifiedAt = verifiedAt.Format(time.RFC3339)
+	}
+	if info := snap.Status.Snapshot; info != nil {
+		status.SnapshotID = info.ID
+		status.Source = info.Source
+	}
+	return status, nil
 }
 
 // AgentOverview answers pan/overview from the session snapshot.
