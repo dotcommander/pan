@@ -8,9 +8,8 @@ Use Pan to obtain bounded source evidence before you decide where to read or rev
 | Configure Pan or use guarded workflows | [Configuration and guardrails](configuration-and-guardrails.md) |
 | Connect a coding agent over standard input/output | [Agent protocols](agent-protocols.md) |
 | Measure retrieval quality against ground truth | [Retrieval benchmarks](retrieval-benchmark.md) |
+| Consume review report JSON | [Review report JSON](review-report-format.md) |
 
 ## Limits before action
 
 Pan reads source; it does not execute the selected repository. Analysis can be incomplete because of configured bounds, excluded paths, generated code, reflection, dynamic dispatch, parsing, or package-loading limits. `clean apply` is dry-run by default, and provider-enabled improvement commands can disclose selected source context to a configured OpenAI-compatible endpoint.
-
-- [Review report JSON versions and model verdicts](review-report-format.md)

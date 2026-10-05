@@ -28,7 +28,7 @@ type BenchRetrievalCmd struct {
 	Mirrors     string   `name:"mirrors" type:"path" required:"" help:"Directory holding local git mirrors named org__name."`
 	Repo        []string `name:"repository" help:"Score only this repository (org/name); repeatable."`
 	Limit       int      `name:"limit" help:"Score at most N instances; 0 scores all."`
-	Work        string   `name:"work" type:"path" help:"Work directory for per-instance checkouts; defaults to pan-bench under the user cache directory."`
+	Work        string   `name:"work" type:"path" help:"Work directory for per-instance checkouts; defaults to pan/bench under the user cache directory."`
 	TopRows     int      `name:"top-rows" default:"50" help:"Maximum per-instance detail rows; 0 lists all."`
 	TokenBudget int      `name:"token-budget" default:"4096" help:"Per-case retrieval token budget."`
 	Policy      string   `name:"policy" default:"structural-lexical/v1" enum:"structural-lexical/v1,structural-reference-graph/v1" help:"Retrieval policy under evaluation."`

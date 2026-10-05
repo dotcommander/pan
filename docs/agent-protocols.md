@@ -10,7 +10,7 @@ Use this guide to discover Pan's machine interfaces before wiring a coding agent
 ./pan agent schema
 ```
 
-The result describes a sequential JSONL protocol and a JSON-RPC 2.0 service over NDJSON. JSONL means one JSON object per line; NDJSON means newline-delimited JSON. The command above is source-checked and unexecuted in this documentation update.
+The result describes a sequential JSONL protocol and a JSON-RPC 2.0 service over NDJSON. JSONL means one JSON object per line; NDJSON means newline-delimited JSON.
 
 ## Choose an interface
 
@@ -51,5 +51,5 @@ One stdio or service request line is limited to 1 MiB. One operation is bounded 
 | Symptom | Cause | Solution | Prevention |
 | --- | --- | --- | --- |
 | A JSONL request receives `invalid_request` or `unsupported_schema`. | The line is malformed or its schema is not `pan.agent/v1`. | Compare the request with `agent schema`. | Treat the schema output as the protocol owner. |
-| A service request returns JSON-RPC `-32601`. | The method is not a supported `pan/*`, `map/*`, `symbol/*`, or `file/*` method. | Select a documented method from the schema. | Do not infer methods from CLI command names. |
+| A service request returns JSON-RPC `-32601`. | The method is not a supported `pan/*`, `map/*`, `symbol/*`, `file/*`, or `snapshot/*` method. | Select a documented method from the schema. | Do not infer methods from CLI command names. |
 | A feedback request cannot write an outcome. | No `--outcomes` path was supplied, or the ledger write failed. | Supply an explicit local outcome path and handle the response. | Keep outcome recording opt-in. |

@@ -3,7 +3,7 @@
 `pan bench retrieval` scores Pan's retrieval against issue-to-file ground truth. It takes two local inputs: a SWE-bench-style JSONL dataset (`instance_id`, `repo`, `base_commit`, `problem_statement`, `patch`) and a directory of local git mirrors named `org__name`. For every instance it checks out `base_commit` with a read-only `git archive` extraction under the work directory, builds a bounded snapshot, runs the retrieval policy on the problem statement, and scores the resulting ranked paths against the gold files named in the patch. A deterministic BM25 baseline over captured source and path tokens is scored the same way.
 
 ```bash
-./pan bench retrieval --dataset dataset.jsonl --mirrors ~/mirrors --repo acme/widget --limit 100
+./pan bench retrieval --dataset dataset.jsonl --mirrors ~/mirrors --repository acme/widget --limit 100
 ```
 
 The result is a `pan.retrieval-bench/v1` envelope. `systems` carries per-system aggregates (recall@1/5/10/20, MRR, NDCG@10) for `pan` and `bm25`; `rows` carries bounded per-instance detail; `skipped` records every instance the run could not score, with reasons such as `mirror not found` or `checkout failed`. Skips are part of the contract: an unscored instance is never folded into an aggregate.
