@@ -2,6 +2,7 @@ package improve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -22,7 +23,7 @@ type CensusOptions struct {
 // inside the copy, and fold the measured profile into the deterministic
 // census. The target repository is never written; census is read-only
 // and never appends a history record.
-func RunCensus(ctx context.Context, opts CensusOptions) (CensusReport, error) {
+func RunCensus(ctx context.Context, opts CensusOptions) (report CensusReport, retErr error) {
 	if opts.CoverProfile != "" {
 		blocks, mode, err := ParseCoverProfile(opts.CoverProfile, ReadModulePath(opts.RepoPath))
 		if err != nil {
@@ -39,7 +40,11 @@ func RunCensus(ctx context.Context, opts CensusOptions) (CensusReport, error) {
 	if err != nil {
 		return CensusReport{}, err
 	}
-	defer removeTree(copyDir)
+	defer func() {
+		if cleanupErr := removeOwnedCopy(copyDir); cleanupErr != nil {
+			retErr = errors.Join(retErr, fmt.Errorf("cleanup census copy %q: %w", copyDir, cleanupErr))
+		}
+	}()
 	result, err := Toolchain{TestTimeout: opts.TestTimeout}.RunTests(ctx, copyDir)
 	if err != nil {
 		return CensusReport{}, fmt.Errorf("census suite: %w", err)

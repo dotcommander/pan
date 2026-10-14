@@ -5,6 +5,9 @@ Use Pan to obtain bounded source evidence before you decide where to read or rev
 | Reader task | Guide |
 | --- | --- |
 | Inspect an unfamiliar repository | [Inspect a repository](inspect-a-repository.md) |
+| Compact an existing Repomix capture | [Context packing](inspect-a-repository.md#compact-a-repomix-capture) |
+| Import ast-grep, jscpd or SCIP evidence | [Tool-report imports](import-tool-reports.md) |
+| Run supplied inputs without producer tools | [Runnable tool-input examples](../examples/tool-inputs/README.md) |
 | Configure Pan or use guarded workflows | [Configuration and guardrails](configuration-and-guardrails.md) |
 | Connect a coding agent over standard input/output | [Agent protocols](agent-protocols.md) |
 | Measure retrieval quality against ground truth | [Retrieval benchmarks](retrieval-benchmark.md) |

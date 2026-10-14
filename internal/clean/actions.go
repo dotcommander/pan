@@ -51,11 +51,12 @@ type CommandGroup struct {
 // CommandsReport is the `clean commands` result: every planned action as
 // copy-paste shell lines, grouped by category. Pan never executes them.
 type CommandsReport struct {
-	Schema string         `json:"schema"`
-	Path   string         `json:"path"`
-	Total  int            `json:"total"`
-	Groups []CommandGroup `json:"groups"`
-	Note   string         `json:"note,omitempty"`
+	Coverage `json:"-"`
+	Schema   string         `json:"schema"`
+	Path     string         `json:"path"`
+	Total    int            `json:"total"`
+	Groups   []CommandGroup `json:"groups"`
+	Note     string         `json:"note,omitempty"`
 }
 
 // actionBuilder accumulates ordered actions while deduplicating directory
@@ -256,7 +257,7 @@ func BuildCommandsReport(root string, actions []Action) CommandsReport {
 
 // shellQuote quotes one shell word.
 func shellQuote(word string) string {
-	if strings.ContainsAny(word, " \t'\"\\$`!#&|;(){}[]<>?*~") {
+	if word == "" || strings.ContainsAny(word, " \t\r\n'\"\\$`!#&|;(){}[]<>?*~") {
 		return "'" + strings.ReplaceAll(word, "'", "'\\''") + "'"
 	}
 	return word

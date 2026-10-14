@@ -35,7 +35,7 @@ func (serveTestBackend) AgentMapStatus(context.Context) (MapStatus, error) {
 	return MapStatus{Root: "/fixture"}, nil
 }
 func (serveTestBackend) AgentSymbolFind(context.Context, string) (any, error) {
-	return []string{"match"}, nil
+	return map[string]any{"matches": []string{"match"}}, nil
 }
 func (serveTestBackend) AgentFileExplain(context.Context, string) (any, error) {
 	return map[string]string{"path": "a.go"}, nil

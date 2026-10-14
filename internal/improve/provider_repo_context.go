@@ -175,6 +175,14 @@ func providerContextFileExists(root, name string) bool {
 }
 
 func providerContextGitOutput(ctx context.Context, args ...string) string {
+	return strings.TrimSpace(providerContextGitRawOutput(ctx, args...))
+}
+
+// providerContextGitRawOutput returns git output with trailing line endings
+// removed. Leading whitespace is preserved: line-oriented git output such as
+// `status --short` encodes staged/unstaged state in leading status columns,
+// and trimming it would rewrite the first line's status code.
+func providerContextGitRawOutput(ctx context.Context, args ...string) string {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	// #nosec G204 -- the executable is fixed and arguments are generated locally.
@@ -184,11 +192,11 @@ func providerContextGitOutput(ctx context.Context, args ...string) string {
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(output.Stdout))
+	return strings.TrimRight(string(output.Stdout), "\r\n")
 }
 
 func providerContextGitLines(ctx context.Context, args ...string) []string {
-	output := providerContextGitOutput(ctx, args...)
+	output := providerContextGitRawOutput(ctx, args...)
 	if output == "" {
 		return nil
 	}

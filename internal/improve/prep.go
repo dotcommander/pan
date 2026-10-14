@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dotcommander/pan/internal/config"
-	"os"
 	"sort"
 	"time"
 )
@@ -299,5 +298,3 @@ func rankPrepTargets(files []FileCoverage, floorPercent float64, maxTargets, tot
 	}
 	return targets
 }
-
-func removeTree(dir string) { _ = os.RemoveAll(dir) }

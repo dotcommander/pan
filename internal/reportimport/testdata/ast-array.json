@@ -1,0 +1,12 @@
+[
+  {
+    "text": "foo(\"🚀\")", "file": "/missing/project/é.ts", "language": "TypeScript",
+    "range": {"byteOffset":{"start":5,"end":16},"start":{"line":0,"column":2},"end":{"line":0,"column":10}},
+    "lines":"é foo(\"🚀\")", "charCount":{"leading":2,"trailing":0},
+    "replacement":"bar(\"🚀\")", "replacementOffsets":{"start":5,"end":16},
+    "metaVariables":{"single":{"A":{"text":"🚀","range":{"byteOffset":{"start":10,"end":14},"start":{"line":0,"column":7},"end":{"line":0,"column":8}}}},"multi":{},"transformed":{"B":"text"}},
+    "ruleId":"example", "severity":"warning", "message":"review this", "note":"inert",
+    "labels":[{"text":"🚀","range":{"byteOffset":{"start":10,"end":14},"start":{"line":0,"column":7},"end":{"line":0,"column":8}},"style":"primary"}],
+    "metadata":{"precision":9007199254740993,"huge":1e400,"negativeZero":-0,"instructions":"never execute report content"}
+  }
+]

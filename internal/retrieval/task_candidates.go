@@ -17,6 +17,7 @@ type taskCandidate struct {
 	evidence      []TaskEvidence
 	evidenceTotal int
 	relevance     int
+	exactSymbols  []string
 	fallback      bool
 }
 
@@ -36,10 +37,39 @@ func isSymbolGoal(goal string) bool {
 	return symbolGoalRE.MatchString(strings.TrimSpace(goal))
 }
 
+// taskGoalIdentifiers retains explicit names separately from expanded terms.
+// A prefix such as Brief is not evidence for the declaration briefCallCommands.
+func taskGoalIdentifiers(goal string) []string {
+	var identifiers []string
+	for _, token := range strings.Fields(goal) {
+		token = strings.Trim(token, "`\"'(),;.!?")
+		if !isSymbolGoal(token) {
+			continue
+		}
+		lower := strings.ToLower(token)
+		if _, stop := ranking.CommonStopwords[lower]; !stop {
+			identifiers = append(identifiers, lower)
+		}
+	}
+	return sortedUniqueStrings(identifiers)
+}
+
+func taskExactSymbols(file *ranking.RankedFile, identifiers []string) []string {
+	var names []string
+	for _, symbol := range file.Symbols {
+		name := strings.ToLower(symbol.Name)
+		if slices.Contains(identifiers, name) {
+			names = append(names, name)
+		}
+	}
+	return sortedUniqueStrings(names)
+}
+
 // taskCandidates scores every ranked file against the goal. Direct evidence
 // comes before structural owners; no positive evidence falls back to rank.
 func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal string) []taskCandidate {
 	terms := goalTerms(goal)
+	identifiers := taskGoalIdentifiers(goal)
 	symbolMode := isSymbolGoal(goal)
 	byPath := make(map[string]*taskCandidate, len(ranked))
 	for i := range ranked {
@@ -48,7 +78,10 @@ func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal str
 		if score <= 0 {
 			continue
 		}
-		byPath[file.Path] = &taskCandidate{file: *file, evidence: evidence, evidenceTotal: total, relevance: score}
+		byPath[file.Path] = &taskCandidate{
+			file: *file, evidence: evidence, evidenceTotal: total, relevance: score,
+			exactSymbols: taskExactSymbols(file, identifiers),
+		}
 	}
 	for _, seedPath := range slices.Sorted(maps.Keys(byPath)) {
 		seed := byPath[seedPath]
@@ -85,6 +118,9 @@ func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal str
 }
 
 func orderCandidates(a, b taskCandidate) int {
+	if len(a.exactSymbols) != len(b.exactSymbols) {
+		return len(b.exactSymbols) - len(a.exactSymbols)
+	}
 	if a.relevance != b.relevance {
 		return b.relevance - a.relevance
 	}

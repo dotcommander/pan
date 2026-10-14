@@ -13,6 +13,7 @@ func displayRepo(repo string) string {
 
 // ReviewCmd groups structured audit packets and reports.
 type ReviewCmd struct {
+	Import  ReviewImportCmd  `cmd:"" help:"Import existing ast-grep, jscpd or SCIP evidence without running tools."`
 	Brief   ReviewBriefCmd   `cmd:"" help:"Bounded audit first-read brief."`
 	Report  ReviewReportCmd  `cmd:"" help:"Full audit report."`
 	Risks   ReviewRisksCmd   `cmd:"" help:"Risk packets."`

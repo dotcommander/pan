@@ -21,7 +21,7 @@ type FlowCmd struct {
 	Entry      EntryCmd          `cmd:"" help:"Entry-point symbols."`
 	Imports    ImportsCmd        `cmd:"" help:"Import dependency edges."`
 	Calls      CallsCmd          `cmd:"" help:"Call edges for one symbol."`
-	Impact     FlowImpactCmd     `cmd:"" help:"Direct call evidence for one symbol."`
+	Impact     FlowImpactCmd     `cmd:"" help:"Direct incoming callers for one symbol."`
 	Blast      FlowBlastCmd      `cmd:"" help:"Pipeline blast radius for files, stages, stores, and symbols."`
 	Storyboard FlowStoryboardCmd `cmd:"" help:"Scan a repository into a lifecycle storyboard."`
 	Init       FlowInitCmd       `cmd:"" help:"Create a starter pipeline spec in the repository."`
@@ -64,7 +64,7 @@ func (c ImportsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.C
 // CallsCmd is `pan flow calls`.
 type CallsCmd struct {
 	Symbol string `arg:"" help:"Symbol selector."`
-	Depth  int    `name:"depth" default:"2" help:"Traversal depth; must be positive."`
+	Depth  int    `name:"depth" default:"2" help:"Reserved traversal bound; currently direct edges only; must be positive."`
 }
 
 // Validate rejects non-positive traversal depths.
@@ -79,7 +79,7 @@ func (c CallsCmd) Validate() error {
 func (c CallsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
 	snap, edges, err := deps.App.Calls(ctx, root.Repo, c.Symbol, c.Depth)
 	if err != nil {
-		return err
+		return emitCallError(kctx, root, deps, c.Symbol, err)
 	}
 	return emit(kctx, root, deps, snap, edges)
 }
@@ -88,7 +88,7 @@ func (c CallsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Con
 // compatibility alias so both accept identical arguments and validation.
 type impactOptions struct {
 	Selector string `arg:"" help:"Symbol selector."`
-	Depth    int    `name:"depth" default:"2" help:"Traversal depth; must be positive."`
+	Depth    int    `name:"depth" default:"2" help:"Reserved traversal bound; currently direct callers only; must be positive."`
 }
 
 func (o impactOptions) Validate() error {
@@ -115,9 +115,9 @@ func (ImpactAliasCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context
 }
 
 func runImpact(kctx *kong.Context, root *Root, deps Deps, ctx context.Context, opts impactOptions) error {
-	snap, edges, err := deps.App.Calls(ctx, root.Repo, opts.Selector, opts.Depth)
+	snap, edges, err := deps.App.Callers(ctx, root.Repo, opts.Selector, opts.Depth)
 	if err != nil {
-		return err
+		return emitCallError(kctx, root, deps, opts.Selector, err)
 	}
 	result := map[string]any{"selector": opts.Selector, "edges": edges}
 	return emit(kctx, root, deps, snap, result)

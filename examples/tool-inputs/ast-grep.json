@@ -1,0 +1,31 @@
+[
+  {
+    "file": "illustrative/emoji.ts",
+    "text": "foo(\"🚀\")",
+    "lines": "foo(\"🚀\")",
+    "language": "TypeScript",
+    "range": {
+      "start": {
+        "line": 0,
+        "column": 0
+      },
+      "end": {
+        "line": 0,
+        "column": 8
+      },
+      "byteOffset": {
+        "start": 0,
+        "end": 11
+      }
+    },
+    "charCount": {
+      "leading": 0,
+      "trailing": 0
+    },
+    "ruleId": "illustrative-call",
+    "metadata": {
+      "fixture": "handwritten",
+      "exactInteger": 9007199254740993
+    }
+  }
+]

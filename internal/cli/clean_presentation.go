@@ -40,7 +40,7 @@ type CompactCleanPlanResult struct {
 // - Preserves all candidates, summary, health score, and notes without recomputing.
 // For evidence:
 // - Returns plan directly, preserving the exact exhaustive result shape.
-func projectCleanPlan(plan clean.Plan, detail detailLevel) any {
+func projectCleanPlan(plan clean.Plan, detail detailLevel) cleanResult {
 	if detail == "" {
 		detail = detailCompact
 	}

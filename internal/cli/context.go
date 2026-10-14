@@ -24,6 +24,7 @@ import (
 type ContextCmd struct {
 	Brief     ContextBriefCmd     `cmd:"" help:"Task-oriented repository summary."`
 	Map       ContextMapCmd       `cmd:"" help:"Ranked, token-budgeted repository map."`
+	Pack      ContextPackCmd      `cmd:"" help:"Compact a captured whole-repository pack."`
 	Task      ContextTaskCmd      `cmd:"" help:"Goal-oriented context packet."`
 	Find      ContextFindCmd      `cmd:"" help:"Symbol search."`
 	Symbol    ContextSymbolCmd    `cmd:"" help:"Symbol detail with source context."`
@@ -548,16 +549,24 @@ func briefFileExists(root, name string) bool {
 }
 
 func briefGitOutput(ctx context.Context, args ...string) string {
+	return strings.TrimSpace(briefGitRawOutput(ctx, args...))
+}
+
+// briefGitRawOutput returns git output with trailing line endings removed.
+// Leading whitespace is preserved: line-oriented git output such as
+// `status --short` encodes staged/unstaged state in leading status columns,
+// and trimming it would rewrite the first line's status code.
+func briefGitRawOutput(ctx context.Context, args ...string) string {
 	// #nosec G204 -- the executable is fixed and every argument is generated locally.
 	output, err := exec.CommandContext(ctx, "git", args...).Output()
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(output))
+	return strings.TrimRight(string(output), "\r\n")
 }
 
 func briefGitLines(ctx context.Context, args ...string) []string {
-	output := briefGitOutput(ctx, args...)
+	output := briefGitRawOutput(ctx, args...)
 	if output == "" {
 		return nil
 	}

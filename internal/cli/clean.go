@@ -57,7 +57,7 @@ func (c CleanPlanCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context
 		return err
 	}
 	projected := projectCleanPlan(plan, c.Detail)
-	return emitResult(kctx, root, deps, plan.Path, projected)
+	return emitCleanResult(kctx, root, deps, plan.Path, projected)
 }
 
 // CleanFindingsCmd is `pan clean findings`.
@@ -72,7 +72,7 @@ func (c CleanFindingsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx con
 	if err != nil {
 		return err
 	}
-	return emitResult(kctx, root, deps, report.Path, report)
+	return emitCleanResult(kctx, root, deps, report.Path, report)
 }
 
 // CleanMissingCmd is `pan clean missing`.
@@ -87,7 +87,7 @@ func (c CleanMissingCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx cont
 	if err != nil {
 		return err
 	}
-	return emitResult(kctx, root, deps, report.Path, report)
+	return emitCleanResult(kctx, root, deps, report.Path, report)
 }
 
 // CleanCommandsCmd is `pan clean commands`.
@@ -102,7 +102,7 @@ func (c CleanCommandsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx con
 	if err != nil {
 		return err
 	}
-	return emitResult(kctx, root, deps, report.Path, report)
+	return emitCleanResult(kctx, root, deps, report.Path, report)
 }
 
 // CleanApplyCmd is `pan clean apply`. Without --confirm it plans and
@@ -125,10 +125,10 @@ func (c CleanApplyCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx contex
 	if err != nil {
 		// A partial failure still emits its envelope so every action
 		// outcome is visible; the exit code carries the failure.
-		if emitErr := emitResult(kctx, root, deps, result.Path, result); emitErr != nil {
+		if emitErr := emitCleanResult(kctx, root, deps, result.Path, result); emitErr != nil {
 			return emitErr
 		}
 		return &ExitError{Code: ExitFailure, Err: err}
 	}
-	return emitResult(kctx, root, deps, result.Path, result)
+	return emitCleanResult(kctx, root, deps, result.Path, result)
 }

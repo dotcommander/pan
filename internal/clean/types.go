@@ -194,6 +194,7 @@ type LabeledFile struct {
 // Plan is the top-level cleanup plan: every candidate bucket, a health
 // score, a per-file disposition inventory, and summary counts.
 type Plan struct {
+	Coverage              `json:"-"`
 	Schema                string         `json:"schema"`
 	Path                  string         `json:"path"`
 	HealthScore           int            `json:"health_score"`
@@ -228,10 +229,11 @@ type MissingItem struct {
 
 // CompletenessReport is the repository-completeness gap report.
 type CompletenessReport struct {
-	Schema  string        `json:"schema"`
-	Path    string        `json:"path"`
-	Missing []MissingItem `json:"missing"`
-	Score   int           `json:"score"` // 0-100, 100 = fully complete
+	Coverage `json:"-"`
+	Schema   string        `json:"schema"`
+	Path     string        `json:"path"`
+	Missing  []MissingItem `json:"missing"`
+	Score    int           `json:"score"` // 0-100, 100 = fully complete
 }
 
 // FindingEntry is one file-level signal inside a findings group.
@@ -254,6 +256,7 @@ type FindingGroup struct {
 // descending then rule name, so the "why" behind a plan is inspectable
 // before anything is applied.
 type FindingsReport struct {
+	Coverage         `json:"-"`
 	Schema           string         `json:"schema"`
 	Path             string         `json:"path"`
 	GitAvailable     bool           `json:"git_available"`

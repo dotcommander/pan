@@ -72,11 +72,11 @@ func answerSymbolFind(ctx context.Context, output io.Writer, req serveRequest, b
 	if failure := decodePanMapParams(req.Params, &p); failure != nil || p.Query == "" {
 		return invalidRequiredParam(output, req, "query")
 	}
-	matches, err := backend.AgentSymbolFind(ctx, p.Query)
+	result, err := backend.AgentSymbolFind(ctx, p.Query)
 	if err != nil {
 		return serverError(output, req, err)
 	}
-	return writeServeResult(output, req.ID, map[string]any{"matches": matches})
+	return writeServeResult(output, req.ID, result)
 }
 func answerFileExplain(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend) error {
 	var p fileExplainParams

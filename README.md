@@ -29,6 +29,12 @@ To check whether analysis coverage is sufficient before relying on a later resul
 ./pan --repo . scan doctor
 ```
 
+## Use existing captures and tool reports
+
+`pan context pack INPUT` compacts a supported Repomix capture while retaining every captured path. `pan --format json review import <ast-grep|jscpd|scip> INPUT` imports existing structural matches, clone reports or native semantic indexes without executing their producers or reading embedded source paths. Both accept `-` for stdin and the global `--artifact` output option.
+
+See [context packing](docs/inspect-a-repository.md#compact-a-repomix-capture), [tool-report imports](docs/import-tool-reports.md), and [self-contained runnable examples](examples/tool-inputs/README.md). Imported-input completeness does not establish repository coverage or source freshness.
+
 ## Configuration and state
 
 Pan stores its user configuration at `pan/config.yaml` under the platform user configuration directory. On a normal command's first run, Pan seeds that file from embedded defaults. `scan doctor` uses a read-only configuration load, so it can report configuration state without creating a missing file.

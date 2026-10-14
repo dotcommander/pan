@@ -34,10 +34,11 @@ func Analyze(ctx context.Context, opts Options) (Analysis, error) {
 	if err != nil {
 		return Analysis{}, err
 	}
-	files, err := Walk(opts)
+	inventory, err := walkWithCoverage(opts)
 	if err != nil {
 		return Analysis{}, err
 	}
+	files := inventory.Files
 
 	info := loadGitInfo(ctx, opts.Root)
 	info.loadHistory(ctx, opts.Root, opts, files)
@@ -47,6 +48,7 @@ func Analyze(ctx context.Context, opts Options) (Analysis, error) {
 	FindDuplicates(files)
 	EmitFindings(files, opts.largeFileBytes())
 	plan := Categorize(files, opts)
+	plan.Coverage = inventory.Coverage
 	plan.Path = opts.Root
 	plan.GitAvailable = info.available
 	if !info.available {
@@ -66,11 +68,12 @@ func Missing(ctx context.Context, opts Options) (CompletenessReport, error) {
 	if err != nil {
 		return CompletenessReport{}, err
 	}
-	files, err := Walk(opts)
+	inventory, err := walkWithCoverage(opts)
 	if err != nil {
 		return CompletenessReport{}, err
 	}
-	report := CheckCompleteness(files, opts.Rules)
+	report := CheckCompleteness(inventory.Files, opts.Rules)
+	report.Coverage = inventory.Coverage
 	report.Schema = MissingSchema
 	report.Path = opts.Root
 	return report, nil
@@ -82,7 +85,7 @@ func Findings(ctx context.Context, opts Options) (FindingsReport, error) {
 	if err != nil {
 		return FindingsReport{}, err
 	}
-	report := FindingsReport{Schema: FindingsSchema, Path: analysis.Plan.Path, GitAvailable: analysis.Plan.GitAvailable}
+	report := FindingsReport{Coverage: analysis.Plan.Coverage, Schema: FindingsSchema, Path: analysis.Plan.Path, GitAvailable: analysis.Plan.GitAvailable}
 
 	type key struct{ rule, file string }
 	seen := map[key]bool{}

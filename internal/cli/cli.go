@@ -156,7 +156,9 @@ func requiresRepositoryBoundary(path []string) bool {
 		return false
 	}
 	return !slices.Equal(path, []string{flowCommand, "render"}) &&
-		!slices.Equal(path, []string{flowCommand, "validate"})
+		!slices.Equal(path, []string{flowCommand, "validate"}) &&
+		!slices.Equal(path, []string{"context", "pack"}) &&
+		!slices.Equal(path, []string{"review", "import"})
 }
 
 // HomeCmd renders the human-first repository dashboard when Pan is invoked

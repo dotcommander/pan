@@ -58,7 +58,9 @@ func (s Service) CleanCommands(ctx context.Context, root string, maxDepth, stale
 	if err != nil {
 		return clean.CommandsReport{}, err
 	}
-	return clean.BuildCommandsReport(analysis.Plan.Path, clean.BuildActions(analysis.Plan, opts)), nil
+	report := clean.BuildCommandsReport(analysis.Plan.Path, clean.BuildActions(analysis.Plan, opts))
+	report.Coverage = analysis.Plan.Coverage
+	return report, nil
 }
 
 // CleanApply applies the current plan. Without confirm it is a pure
@@ -77,5 +79,7 @@ func (s Service) CleanApply(ctx context.Context, root string, maxDepth, staleDay
 	if err != nil {
 		return clean.ApplyResult{}, err
 	}
-	return clean.Apply(ctx, opts, clean.BuildActions(analysis.Plan, opts), confirm)
+	result, err := clean.Apply(ctx, opts, clean.BuildActions(analysis.Plan, opts), confirm)
+	result.Coverage = analysis.Plan.Coverage
+	return result, err
 }

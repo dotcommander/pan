@@ -1,0 +1,12 @@
+{
+  "fileSummary": {
+    "purpose": "Handwritten illustrative capture, not a producer run.",
+    "notes": "Source coverage, freshness and prior compression are unknown."
+  },
+  "directoryStructure": "data.json\nnotes.txt\nempty.txt",
+  "files": {
+    "data.json": "{\n  \"count\": 9007199254740993, \"huge\": 1e400\n}\n",
+    "notes.txt": "Illustrative capture; no source reads.\n",
+    "empty.txt": ""
+  }
+}

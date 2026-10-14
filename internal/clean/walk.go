@@ -1,7 +1,6 @@
 package clean
 
 import (
-	"bufio"
 	"fmt"
 	"io/fs"
 	"os"
@@ -23,6 +22,7 @@ type walker struct {
 	dirs             map[string]bool
 	dirsWithChildren map[string]bool
 	nestedRepos      map[string]bool
+	depthSkipped     map[string]string
 }
 
 // Walk traverses the scan root within the configured depth, recording files,
@@ -32,18 +32,23 @@ type walker struct {
 // into the cleanup archive workspace, and honors the configured exclusion
 // list. The walk is read-only.
 func Walk(opts Options) ([]FileInfo, error) {
+	inventory, err := walkWithCoverage(opts)
+	return inventory.Files, err
+}
+
+func walkWithCoverage(opts Options) (walkInventory, error) {
 	root := opts.Root
 	if resolved, err := filepath.EvalSymlinks(root); err == nil {
 		root = resolved
 	}
 	if _, err := os.Stat(root); err != nil || !isDir(root) {
-		return nil, fmt.Errorf("scan root must be a directory: %s", root)
+		return walkInventory{}, fmt.Errorf("scan root must be a directory: %s", root)
 	}
 	w := newWalker(root, opts)
 	if err := filepath.WalkDir(root, w.visit); err != nil {
-		return nil, err
+		return walkInventory{}, err
 	}
-	return w.finish(), nil
+	return walkInventory{Files: w.finish(), Coverage: w.coverage()}, nil
 }
 
 func newWalker(root string, opts Options) *walker {
@@ -58,6 +63,7 @@ func newWalker(root string, opts Options) *walker {
 		dirs:             make(map[string]bool),
 		dirsWithChildren: make(map[string]bool),
 		nestedRepos:      make(map[string]bool),
+		depthSkipped:     make(map[string]string),
 	}
 }
 
@@ -117,7 +123,11 @@ func (w *walker) skipsEntry(path, relSlash string, d fs.DirEntry) bool {
 	if d.IsDir() && relSlash == w.archiveRel {
 		return true
 	}
-	return pathDepth(path)-w.rootDepth > w.maxDepth
+	if pathDepth(path)-w.rootDepth > w.maxDepth {
+		w.depthSkipped[path] = relSlash
+		return true
+	}
+	return false
 }
 
 // skipEntry maps one skip decision onto walk control flow: directories
@@ -248,62 +258,6 @@ func excluded(rel string, excludes []string) bool {
 		}
 	}
 	return false
-}
-
-// loadIgnorePatterns reads the clean ignore file (default .pancleanignore)
-// from the scan root. Format: one pattern per
-// line; # comments and blank lines are skipped. Missing files mean no
-// suppression.
-func loadIgnorePatterns(root, name string) []string {
-	if name == "" {
-		return nil
-	}
-	f, err := os.Open(filepath.Join(root, name))
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = f.Close() }()
-
-	var patterns []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	return patterns
-}
-
-// markSuppressed flags files matching ignore-file patterns.
-func markSuppressed(files []FileInfo, patterns []string) {
-	if len(patterns) == 0 {
-		return
-	}
-	for i := range files {
-		for _, pattern := range patterns {
-			if matchesIgnorePattern(pattern, files[i].RelPath) {
-				files[i].Suppressed = true
-				break
-			}
-		}
-	}
-}
-
-func matchesIgnorePattern(pattern, relPath string) bool {
-	dirPattern := strings.HasSuffix(pattern, "/")
-	pattern = filepath.Clean(pattern)
-	relPath = filepath.Clean(relPath)
-	if dirPattern {
-		prefix := strings.TrimSuffix(pattern, string(os.PathSeparator))
-		return relPath == prefix || strings.HasPrefix(relPath, prefix+string(os.PathSeparator))
-	}
-	if matched, err := filepath.Match(pattern, relPath); err == nil && matched {
-		return true
-	}
-	matched, err := filepath.Match(pattern, filepath.Base(relPath))
-	return err == nil && matched
 }
 
 // isUnderAny reports whether path is inside any of the named directories.

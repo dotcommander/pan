@@ -2,9 +2,12 @@ package improve
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os/exec"
+
 	"github.com/dotcommander/pan/internal/config"
 	"github.com/dotcommander/pan/internal/ownedprocess"
-	"os/exec"
 )
 
 type outputLimitsKey struct{}
@@ -20,5 +23,10 @@ func improveOutputLimits(ctx context.Context) ownedprocess.Limits {
 }
 
 func captureImproveCommand(ctx context.Context, cmd *exec.Cmd) (ownedprocess.Result, error) {
-	return ownedprocess.Run(ctx, cmd, improveOutputLimits(ctx))
+	limits := improveOutputLimits(ctx)
+	result, err := ownedprocess.Run(ctx, cmd, limits)
+	if errors.Is(err, ownedprocess.ErrOutputLimit) {
+		return result, fmt.Errorf("increase improve.max_stdout_bytes (currently %d bytes): %w", limits.StdoutBytes, err)
+	}
+	return result, err
 }

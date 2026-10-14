@@ -3,6 +3,7 @@ package improve
 import (
 	"context"
 	"encoding/json"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -61,6 +62,33 @@ func TestProviderRepoContextBriefAndAuditAreDistinctFilteredProjections(t *testi
 	}
 	if strings.Contains(briefJSON, "\"read_queue\"") || strings.Contains(auditJSON, "\"ownership\"") {
 		t.Fatalf("brief and audit projections were not distinct\nbrief: %s\naudit: %s", briefJSON, auditJSON)
+	}
+}
+
+func TestProviderContextGitStatePreservesStatusColumns(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, root, "go.mod", fixtureGoMod)
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"add", "go.mod"},
+		{"-c", "user.name=Pan Test", "-c", "user.email=pan@example.invalid", "commit", "-qm", "initial"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, output)
+		}
+	}
+	writeFile(t, root, "go.mod", fixtureGoMod+"\n// dirty\n")
+
+	state := providerContextGitStateFor(context.Background(), root)
+
+	if len(state.Dirty) != 1 {
+		t.Fatalf("dirty entries = %v, want exactly one", state.Dirty)
+	}
+	if state.Dirty[0] != " M go.mod" {
+		t.Fatalf("first dirty entry = %q, want %q with the leading unstaged-status column preserved", state.Dirty[0], " M go.mod")
 	}
 }
 

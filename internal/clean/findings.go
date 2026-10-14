@@ -28,7 +28,8 @@ func EmitFindings(files []FileInfo, largeFileBytes int64) {
 
 // emitInventoryFindings records the walk-derived inventory signals.
 func emitInventoryFindings(f *FileInfo) {
-	if !f.GitStateUnknown && !f.Tracked {
+	// Git indexes files, not directories; directory state is not enriched.
+	if !f.IsDir && !f.GitStateUnknown && !f.Tracked {
 		f.AddFinding(Finding{Source: sourceWalker, Rule: RuleUntracked, Severity: SevInfo, Confidence: 1.0, Message: "not tracked by git"})
 	}
 	if f.IsEmpty {

@@ -8,7 +8,7 @@ func TestProcessDefaultsNormalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.OutgoingGit != Default().OutgoingGit || cfg.CommandHelp != Default().CommandHelp || cfg.Lsp.MaxFrameBytes != 33554432 || cfg.Improve.MaxStdoutBytes != 1048576 {
+	if cfg.OutgoingGit != Default().OutgoingGit || cfg.CommandHelp != Default().CommandHelp || cfg.Lsp.MaxFrameBytes != 33554432 || cfg.Improve.MaxStdoutBytes != 8388608 {
 		t.Fatal("process defaults missing")
 	}
 }

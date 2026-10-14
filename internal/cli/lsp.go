@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/dotcommander/pan/internal/app"
@@ -40,7 +41,7 @@ func (ContextLspStatusCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx co
 // line and an identifier on that line. A numeric third argument retains Pan's
 // legacy 0-based UTF-16 column form.
 type lspPositionArgs struct {
-	File     string `arg:"" type:"path" help:"Source file path."`
+	File     string `arg:"" help:"Source file path."`
 	Line     int    `arg:"" help:"1-based source line (or 0-based with a numeric column)."`
 	Selector string `arg:"" help:"Identifier on the source line, or legacy 0-based UTF-16 column."`
 }
@@ -53,10 +54,7 @@ func (a lspPositionArgs) Validate() error {
 }
 
 func (a lspPositionArgs) options(root, capability string) (app.LspQueryOptions, error) {
-	file := a.File
-	if !filepath.IsAbs(file) {
-		file = filepath.Join(root, file)
-	}
+	file := lspSourcePath(root, a.File)
 	if column, err := strconv.Atoi(a.Selector); err == nil {
 		if column < 0 {
 			return app.LspQueryOptions{}, errors.New("column must not be negative")
@@ -70,6 +68,16 @@ func (a lspPositionArgs) options(root, capability string) (app.LspQueryOptions, 
 	return app.LspQueryOptions{Capability: capability, File: file, Line: line, Column: column}, nil
 }
 
+// lspSourcePath resolves relative files after parsing, against the selected
+// repository rather than the process working directory. Keep Kong's home-path
+// expansion without its eager cwd-relative positional mapper.
+func lspSourcePath(root, file string) string {
+	if filepath.IsAbs(file) || strings.HasPrefix(file, "~/") {
+		return kong.ExpandPath(file)
+	}
+	return filepath.Join(root, file)
+}
+
 // ContextLspRefsCmd is `pan context lsp refs`.
 type ContextLspRefsCmd struct{ lspPositionArgs }
 
@@ -81,7 +89,7 @@ type ContextLspHoverCmd struct{ lspPositionArgs }
 
 // ContextLspSymbolsCmd is `pan context lsp symbols`.
 type ContextLspSymbolsCmd struct {
-	File string `arg:"" type:"path" help:"Source file path."`
+	File string `arg:"" help:"Source file path."`
 }
 
 // runLspQuery executes one capability query and emits its typed result.
@@ -122,5 +130,5 @@ func (c ContextLspHoverCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx c
 
 // Run executes `pan context lsp symbols`.
 func (c ContextLspSymbolsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context.Context) error {
-	return runLspQuery(kctx, root, deps, ctx, app.LspQueryOptions{Capability: lsp.CapabilitySymbols, File: c.File})
+	return runLspQuery(kctx, root, deps, ctx, app.LspQueryOptions{Capability: lsp.CapabilitySymbols, File: lspSourcePath(root.Repo, c.File)})
 }

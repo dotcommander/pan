@@ -34,7 +34,26 @@ Before an absence claim, run this source-checked, unexecuted variation:
 | A review starting point | `./pan --repo . scan risks` | A risk-ranked review queue. |
 | A change's symbol-level shape | `./pan --repo . scan diff [REV]` | Per-symbol added/removed/body/signature/moved overlay over the working tree or a git range. |
 
-These examples are source-checked and unexecuted in this documentation update. `flow calls` requires a positive `--depth`; the default is `2`. `context brief` accepts an approximate byte `--budget` and defaults to the `compact` detail projection. Use `--detail evidence` when a consumer needs the fuller projection, or `--detail paths` for a lightweight path list.
+`flow calls` returns direct incoming and outgoing call edges as a result list. `flow impact` returns only direct incoming callers in `{selector, edges}`; the top-level `impact` alias uses the same caller-only behavior. Both retain positive `--depth` (default `2`) for compatibility, but it is reserved: neither command currently performs multi-hop traversal. With `--format json`, ambiguous selectors produce a `pan/v1` diagnostic envelope on stdout and exit nonzero; diagnostics contain copyable handles. `context brief` accepts an approximate byte `--budget` and defaults to the `compact` detail projection. Use `--detail evidence` when a consumer needs the fuller projection, or `--detail paths` for a lightweight path list.
+
+## Compact a Repomix capture
+
+For supplied inputs and runnable file/stdin/artifact examples without Repomix installed, see [tool-input examples](../examples/tool-inputs/README.md).
+
+`context pack` accepts a captured inventory without analyzing a source directory:
+
+```bash
+repomix --compress --style json --output captured.json
+./pan context pack captured.json > compact.json
+cat captured.json | ./pan context pack - > compact.json
+./pan --artifact compact.json context pack captured.json
+```
+
+XML input requires `repomix --style xml --parsable-style`; default Repomix XML can contain unescaped source and multiple outer sections, and is rejected with a corrective error. Input is limited to 64 MiB, decoded file content to 64 MiB total and 16 MiB per file, 100,000 files, 4,096 bytes per path, 128 nesting levels, and 256 MiB rendered output. Malformed envelopes, duplicate paths/keys, unsafe paths, XML namespaces/directives and unknown outer fields fail before output. Paths inside a capture never trigger filesystem reads or extraction.
+
+The `pan-pack/v1` JSON output keeps every captured path sorted. Each `files` entry has either a `content` string (including empty strings) or an integer `ref` resolving to `shared[ref]`. Exact whole-content sharing is used only when it reduces the complete encoded output. Complete JSON file bodies are compacted lexically; number spelling, key order, duplicate body keys and string escapes remain intact. Other content stays unchanged. `fidelity.json_compacted` names changed bodies; excessively nested bodies stay unchanged and are named in `json_depth_skipped`.
+
+`input.sha256` identifies the exact input bytes. `coverage` guarantees the captured inventory only: original repository coverage and exclusions remain unknown. Compression, missing bodies and source-line identity cannot be recovered from a Repomix capture. `metadata` retains header, instruction, git and summary-note content as inert data (XML metadata is preserved as XML strings); those instructions are never executed. `fidelity.omitted_envelope` records removal of generated formatting guidance and the redundant directory tree. Savings depend on the capture; no file is silently dropped to meet a budget. This format remains separate from source snapshots and call-graph analysis.
 
 ## Interpret incomplete evidence
 

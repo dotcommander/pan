@@ -15,11 +15,17 @@ const taskSelectionWorkCap = 96
 // filling the remainder in normal rank order. Failed candidates do not stop
 // selection or consume the embedded-source cap.
 func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, symbolMode bool) error {
-	terms := goalTerms(report.Goal)
+	identifiers := taskGoalIdentifiers(report.Goal)
+	terms := slices.Clone(identifiers)
+	for _, term := range goalTerms(report.Goal) {
+		if !slices.Contains(terms, term) {
+			terms = append(terms, term)
+		}
+	}
 	supported := make(map[string]bool)
 	for _, candidate := range candidates {
 		for _, term := range terms {
-			if candidateMatchesTerm(candidate, term, symbolMode) {
+			if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
 				supported[term] = true
 			}
 		}
@@ -31,7 +37,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			return nil
 		}
 		attempted[candidate.file.Path] = true
-		matched := candidateTerms(candidate, terms, symbolMode)
+		matched := candidateTerms(candidate, terms, symbolMode, identifiers)
 		nextCovered := make(map[string]bool, len(covered)+len(matched))
 		for term := range covered {
 			nextCovered[term] = true
@@ -56,7 +62,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			if len(attempted) >= taskSelectionWorkCap || len(report.Targets) == taskTargetLimit || covered[term] {
 				break
 			}
-			if candidateMatchesTerm(candidate, term, symbolMode) {
+			if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
 				if err := try(candidate); err != nil {
 					return err
 				}
@@ -83,18 +89,21 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 	return nil
 }
 
-func candidateMatchesTerm(candidate taskCandidate, term string, symbolMode bool) bool {
+func candidateMatchesTerm(candidate taskCandidate, term string, symbolMode bool, identifiers []string) bool {
 	if candidate.fallback {
 		return false
+	}
+	if slices.Contains(identifiers, term) {
+		return slices.Contains(candidate.exactSymbols, term)
 	}
 	_, _, score := fieldEvidence(&candidate.file, []string{term}, symbolMode)
 	return score > 0
 }
 
-func candidateTerms(candidate taskCandidate, terms []string, symbolMode bool) []string {
+func candidateTerms(candidate taskCandidate, terms []string, symbolMode bool, identifiers []string) []string {
 	var matched []string
 	for _, term := range terms {
-		if candidateMatchesTerm(candidate, term, symbolMode) {
+		if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
 			matched = append(matched, term)
 		}
 	}

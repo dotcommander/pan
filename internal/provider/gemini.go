@@ -33,7 +33,7 @@ func geminiPayload(request Request) (map[string]any, error) {
 			payload["toolConfig"] = choice
 		}
 	}
-	geminiOptions(payload, request.ProviderOptions)
+	geminiOptions(payload, request.ProviderOptions, request.Model)
 	return payload, nil
 }
 
@@ -114,11 +114,11 @@ func geminiToolChoice(choice any) map[string]any {
 	return map[string]any{"functionCallingConfig": config}
 }
 
-func geminiOptions(payload map[string]any, options map[string]any) {
+func geminiOptions(payload map[string]any, options map[string]any, requestModel string) {
 	for key, value := range options {
 		if key == thinkingOption {
 			if thinking, ok := value.(map[string]any); ok && thinking["type"] == thinkingDisabled {
-				generation(payload)["thinkingConfig"] = map[string]any{"thinkingBudget": 0, "includeThoughts": false}
+				generation(payload)["thinkingConfig"] = geminiThinkingDisabled(requestModel)
 				continue
 			}
 		}

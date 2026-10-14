@@ -125,8 +125,10 @@ type changeCommit struct {
 // gitChangeLog runs one bounded git log invocation with a fully literal
 // argument vector: the working directory carries the repository root and
 // the walk bound and pretty format are constants, so no dynamic value ever
-// reaches the subprocess. The window itself is filtered in Go from each
-// commit's committer date.
+// reaches the subprocess. The pathspec confines history to root, and relative
+// output keeps every reported path in that same coordinate system, even when
+// root is a subdirectory of a larger worktree. The window is filtered in Go
+// from each commit's committer date.
 func gitChangeLog(ctx context.Context, root string) (string, error) {
 	return readGitBounded(
 		ctx, root, maxGitOutputBytes,
@@ -135,7 +137,9 @@ func gitChangeLog(ctx context.Context, root string) (string, error) {
 		changeLogWalkBound,
 		"--name-only",
 		"--no-renames",
+		"--relative",
 		changeLogFormat,
+		"--", ".",
 	)
 }
 

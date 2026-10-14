@@ -112,10 +112,10 @@ func (a *AgentServeState) AgentMapStatus(ctx context.Context) (agent.MapStatus, 
 	return agent.MapStatus{BuiltAt: built, Root: snap.Root}, nil
 }
 
-// AgentSymbolFind resolves a symbol query against current evidence. A
-// non-empty result keeps the compatibility array shape; a miss returns the
-// explanation report with outcome and guidance so a caller never receives a
-// directionless empty answer.
+// AgentSymbolFind returns the complete symbol/find result against current
+// evidence: the compatibility matches envelope for hits, or the explanation
+// report with outcome and guidance for a miss. The transport must not wrap
+// the report again.
 func (a *AgentServeState) AgentSymbolFind(ctx context.Context, query string) (any, error) {
 	snap, ranked, err := a.rankedSnapshot(ctx)
 	if err != nil {
@@ -124,7 +124,7 @@ func (a *AgentServeState) AgentSymbolFind(ctx context.Context, query string) (an
 	parsed := retrieval.ParseFindQuery(query)
 	matches := retrieval.Find(ranked, parsed.Name, parsed.Kind, parsed.File)
 	if len(matches) > 0 {
-		return matches, nil
+		return map[string]any{"matches": matches}, nil
 	}
 	return retrieval.NewFindReportWithStatus(parsed, matches, snap.Status), nil
 }

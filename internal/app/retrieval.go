@@ -100,7 +100,6 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 	production := productionRanked(ranked)
 	selected := production[:min(20, len(production))]
 	entries := make([]BriefEntry, 0, len(selected))
-	commands := make([]BriefNextCommand, 0, 1)
 	classes := make(map[string]int)
 	for _, rf := range ranked {
 		classes[string(rf.Class)]++
@@ -110,9 +109,6 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 			Class: string(rf.Class), Components: rf.Components, Why: briefWhy(rf.Components), CallerCount: rf.CallerCount,
 			Tested: rf.Tested, IntentHits: rf.IntentHits, Confidence: rf.Confidence,
 			Families: codemap.SymbolFamilies(rf.Symbols)})
-		if len(commands) == 0 && rf.CallerCount >= 2 && len(rf.Symbols) > 0 {
-			commands = append(commands, BriefNextCommand{Args: []string{"flow", callsEdgeKind, rf.Symbols[0].Name, "--depth", "2"}, Reason: "trace callers of a highly connected symbol"})
-		}
 	}
 	cfg := s.deps.Config.Normalized()
 	coverage := BriefCoverage{
@@ -130,7 +126,7 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 		Entries:      entries,
 		Map:          codemap.Build(selected, codemap.Options{Mode: codemap.ModeEnriched, Tokens: budget, Root: snap.Root, Captured: snap.Captured, Edges: snap.Edges}),
 		Coverage:     coverage,
-		NextCommands: commands,
+		NextCommands: briefCallCommands(snap, selected),
 		Budget:       BriefBudget{Unit: "bytes", Requested: budget, Used: len(encoded), Scope: "instructions and top_files"},
 	}, nil
 }

@@ -1,0 +1,48 @@
+{
+  "statistics": {
+    "total": {
+      "lines": 20,
+      "duplicatedLines": 4
+    }
+  },
+  "duplicates": [
+    {
+      "format": "typescript",
+      "fragment": "alpha()\nbeta()",
+      "kind": "similar",
+      "lines": 2,
+      "tokens": 6,
+      "isNew": false,
+      "firstFile": {
+        "name": "illustrative/first.ts",
+        "start": 1,
+        "end": 2,
+        "startLoc": {
+          "line": 1,
+          "column": 0,
+          "position": 0
+        },
+        "endLoc": {
+          "line": 2,
+          "column": 6,
+          "position": 14
+        }
+      },
+      "secondFile": {
+        "name": "illustrative/second.ts",
+        "start": 5,
+        "end": 6,
+        "startLoc": {
+          "line": 5,
+          "column": 0,
+          "position": 40
+        },
+        "endLoc": {
+          "line": 6,
+          "column": 6,
+          "position": 54
+        }
+      }
+    }
+  ]
+}

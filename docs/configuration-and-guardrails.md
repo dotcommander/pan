@@ -16,6 +16,15 @@ Pan stores its user configuration at `pan/config.yaml` under the platform user c
 
 The effective configuration controls bounded analysis, including file, byte, node, instruction, timeout, and output limits; it also controls `clean`, `improve`, and language-server settings. Improvement run history uses `improve.state_dir`, or `pan/improve` under the platform user configuration directory when that setting is empty.
 
+The improvement baseline executes `go test -json` in an isolated workspace. Its JSON event stream can be much larger than ordinary test output. `improve.max_stdout_bytes` defaults to 8 MiB; capture remains bounded and exceeding it terminates the owned process tree. The failure names the setting and effective byte limit. An explicitly configured smaller value remains authoritative. To allow a larger suite, set this in the user configuration:
+
+```yaml
+improve:
+  max_stdout_bytes: 16777216
+```
+
+This adjusts capture capacity, not mutation authority or test eligibility.
+
 ## Choose the safe workflow
 
 | Goal | Command | State change |
@@ -33,6 +42,10 @@ These commands are source-checked and unexecuted in this documentation update.
 `clean apply --confirm` changes the selected repository. Before it does so, Pan creates a `tar.gz` backup of every touched existing path and writes a JSON manifest. The default archive directory is `.work/archive` in that repository. Read `clean plan` before adding `--confirm`.
 
 `clean` commands that report plans, findings, missing items, or copyable commands are read-only. The apply command is dry-run by default, so a missing `--confirm` is not an error condition.
+
+When the cleanup walk omits eligible paths beyond `--max-depth`, every cleanup JSON envelope reports `analysis.complete: false`, the `max_depth` limit, and skipped paths. Health scores and missing-item reports then describe only inspected content; they cannot establish that omitted paths are clean or absent. Deliberate exclusions and nested repositories do not make the selected scope incomplete. Compact and evidence plan modes carry the same walk coverage.
+
+`clean.protected_names` excludes matching file basenames from relocation, archiving, deletion, renaming, and untracking. The default is `["SKILL.md"]`, preserving skill discovery at both root and nested locations, whether tracked or untracked. Missing or empty lists inherit the embedded default, including in older configuration files. A nonempty custom list replaces the default; include `SKILL.md` when adding other protected names. It does not protect an enclosing directory from a separate cleanup action.
 
 ## Provider disclosure
 

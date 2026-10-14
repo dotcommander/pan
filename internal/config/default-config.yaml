@@ -11,7 +11,7 @@ exclude:
   - node_modules
   - .pan-cache
 improve:
-  max_stdout_bytes: 1048576
+  max_stdout_bytes: 8388608
   max_stderr_bytes: 4096
   coverage_floor: 0.70
   test_timeout: 5m
@@ -62,6 +62,7 @@ clean:
   max_history_commits: 500
   archive_dir: ".work/archive"
   ignore_file: ".pancleanignore"
+  protected_names: ["SKILL.md"]
   delete_names: [".DS_Store", "Thumbs.db", "desktop.ini"]
   delete_extensions: [".tmp", ".log", ".swp"]
   delete_directories: ["node_modules", "__pycache__", ".pytest_cache", ".mypy_cache"]

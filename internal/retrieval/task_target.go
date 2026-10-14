@@ -17,6 +17,14 @@ func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candida
 	var truncations []analyze.Truncation
 	symbols := slices.Clone(file.Symbols)
 	slices.SortStableFunc(symbols, func(a, b analyze.Symbol) int {
+		aNamed := slices.Contains(candidate.exactSymbols, strings.ToLower(a.Name))
+		bNamed := slices.Contains(candidate.exactSymbols, strings.ToLower(b.Name))
+		if aNamed != bNamed {
+			if aNamed {
+				return -1
+			}
+			return 1
+		}
 		if a.Exported != b.Exported {
 			if a.Exported {
 				return -1
