@@ -39,6 +39,7 @@ type options struct {
 	version string
 	publish bool
 	resume  bool
+	adopt   bool
 	help    bool
 }
 
@@ -64,6 +65,7 @@ type releaseWorkflow struct {
 	tag       string
 	publish   bool
 	resume    bool
+	adopt     bool
 	statePath string
 	state     releaseState
 }
@@ -83,6 +85,8 @@ func parseOptions(args []string) (options, error) {
 			opts.publish = true
 		case "--resume":
 			opts.resume = true
+		case "--adopt":
+			opts.adopt = true
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return options{}, fmt.Errorf("unknown option %q", arg)
@@ -107,6 +111,9 @@ func parseOptions(args []string) (options, error) {
 	if opts.resume && !opts.publish {
 		return options{}, errors.New("--resume requires --publish")
 	}
+	if opts.adopt && !opts.publish {
+		return options{}, errors.New("--adopt requires --publish")
+	}
 	return opts, nil
 }
 
@@ -125,6 +132,7 @@ func newReleaseWorkflow(ctx context.Context, proc *process, root string, opts op
 		tag:       "v" + opts.version,
 		publish:   opts.publish,
 		resume:    opts.resume,
+		adopt:     opts.adopt,
 		statePath: filepath.Join(gitDir, "pan-release", "v"+opts.version+".json"),
 	}, nil
 }
@@ -137,23 +145,7 @@ func (w *releaseWorkflow) run(ctx context.Context) error {
 		return err
 	}
 
-	phases := []releasePhase{
-		{"source-preflight", w.sourcePreflight},
-		{"source-prepare", w.sourcePrepare},
-		{"source-verify", w.sourceVerify},
-		{"source-commit", w.sourceCommit},
-		{"source-tag", w.sourceTag},
-		{"source-publish", w.sourcePublish},
-		{"github-release", w.githubRelease},
-		{"archive-verify", w.archiveVerify},
-		{"tap-preflight", w.tapPreflight},
-		{"tap-prepare", w.tapPrepare},
-		{"tap-verify", w.tapVerify},
-		{"tap-commit", w.tapCommit},
-		{"tap-publish", w.tapPublish},
-		{"final-readback", w.finalReadback},
-	}
-	for _, phase := range phases {
+	for _, phase := range w.phases() {
 		if _, complete := w.state.Completed[phase.name]; complete {
 			fmt.Fprintf(w.proc.stdout, "skip %-18s (receipt present)\n", phase.name)
 			continue
@@ -171,6 +163,41 @@ func (w *releaseWorkflow) run(ctx context.Context) error {
 	fmt.Fprintf(w.proc.stdout, "released %s at %s (archive sha256 %s, tap %s)\n",
 		w.tag, shortOID(w.state.ReleaseCommit), w.state.ArchiveSHA256, shortOID(w.state.TapCommit))
 	return nil
+}
+
+// phases lists the ordered release phases. Adopt runs replace the source
+// and GitHub phases with validators over already-published state while
+// keeping the same phase names so --resume receipts skip uniformly.
+func (w *releaseWorkflow) phases() []releasePhase {
+	sourcePhases := []releasePhase{
+		{"source-preflight", w.sourcePreflight},
+		{"source-prepare", w.sourcePrepare},
+		{"source-verify", w.sourceVerify},
+		{"source-commit", w.sourceCommit},
+		{"source-tag", w.sourceTag},
+		{"source-publish", w.sourcePublish},
+		{"github-release", w.githubRelease},
+	}
+	if w.adopt {
+		sourcePhases = []releasePhase{
+			{"source-preflight", w.adoptSourcePreflight},
+			{"source-prepare", w.adoptSourcePrepare},
+			{"source-verify", w.sourceVerify},
+			{"source-commit", w.adoptSourceCommit},
+			{"source-tag", w.adoptSourceTag},
+			{"source-publish", w.adoptSourcePublish},
+			{"github-release", w.verifyGitHubRelease},
+		}
+	}
+	return append(sourcePhases,
+		releasePhase{"archive-verify", w.archiveVerify},
+		releasePhase{"tap-preflight", w.tapPreflight},
+		releasePhase{"tap-prepare", w.tapPrepare},
+		releasePhase{"tap-verify", w.tapVerify},
+		releasePhase{"tap-commit", w.tapCommit},
+		releasePhase{"tap-publish", w.tapPublish},
+		releasePhase{"final-readback", w.finalReadback},
+	)
 }
 
 func (w *releaseWorkflow) dryRun(ctx context.Context) error {

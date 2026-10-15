@@ -47,16 +47,22 @@ func runCLI(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, `Usage: just release VERSION [--publish] [--resume]
+	fmt.Fprintln(w, `Usage: just release VERSION [--publish] [--resume] [--adopt]
 
 Validates and prepares a Pan release. The default is a read-only dry run.
 Source and Homebrew tap worktrees must already be reviewed and clean.
 
   --publish  Execute commit, tag, GitHub release, and Homebrew publication.
   --resume   Resume an interrupted --publish run from its durable receipt.
+  --adopt    Adopt a release whose commit, tag, push, and GitHub release
+             were already published outside this tool: validate them, then
+             continue with archive verification and the Homebrew tap
+             phases. Requires --publish; combine with --resume to resume
+             an interrupted adopt run.
 
 Examples:
   just release 0.1.0
   just release 0.1.0 --publish
-  just release 0.1.0 --publish --resume`)
+  just release 0.1.0 --publish --resume
+  just release 0.1.0 --publish --adopt`)
 }

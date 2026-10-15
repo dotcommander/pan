@@ -9,13 +9,9 @@ import (
 	"strings"
 )
 
-func (w *releaseWorkflow) inspectSource(ctx context.Context, fetch bool) (string, error) {
-	if err := requireTools("git", "gh", "brew", "just"); err != nil {
-		return "", err
-	}
-	if err := w.requireCleanRepository(ctx, w.root); err != nil {
-		return "", err
-	}
+// requireSourceIdentity verifies the worktree branch and origin remote
+// match the canonical Pan source repository, returning the remote URL.
+func (w *releaseWorkflow) requireSourceIdentity(ctx context.Context) (string, error) {
 	branch, err := w.proc.capture(ctx, w.root, nil, "git", "branch", "--show-current")
 	if err != nil {
 		return "", err
@@ -23,7 +19,9 @@ func (w *releaseWorkflow) inspectSource(ctx context.Context, fetch bool) (string
 	if branch != "main" {
 		return "", fmt.Errorf("source branch is %q, want main", branch)
 	}
-	remote, err := w.proc.capture(ctx, w.root, nil, "git", "remote", "get-url", "origin")
+	// Read the configured remote rather than the transport-rewritten
+	// URL: identity checks must not depend on url.insteadOf rewrites.
+	remote, err := w.proc.capture(ctx, w.root, nil, "git", "config", "--get", "remote.origin.url")
 	if err != nil {
 		return "", err
 	}
@@ -33,6 +31,19 @@ func (w *releaseWorkflow) inspectSource(ctx context.Context, fetch bool) (string
 	}
 	if repository != sourceRepository {
 		return "", fmt.Errorf("origin is %s, want %s", repository, sourceRepository)
+	}
+	return remote, nil
+}
+
+func (w *releaseWorkflow) inspectSource(ctx context.Context, fetch bool) (string, error) {
+	if err := requireTools("git", "gh", "brew", "just"); err != nil {
+		return "", err
+	}
+	if err := w.requireCleanRepository(ctx, w.root); err != nil {
+		return "", err
+	}
+	if _, err := w.requireSourceIdentity(ctx); err != nil {
+		return "", err
 	}
 	versionBytes, err := os.ReadFile(filepath.Join(w.root, "internal", "cli", "cli.go"))
 	if err != nil {
@@ -127,6 +138,15 @@ func (w *releaseWorkflow) sourceVerify(ctx context.Context) error {
 		return errors.Join(qaErr, cleanErr)
 	}
 	if w.state.PreviousVersion == w.version {
+		return nil
+	}
+	// A clean tree carries no preparation to inspect; this also covers
+	// adopted releases whose version commit was already published.
+	clean, err := w.repositoryClean(ctx, w.root)
+	if err != nil {
+		return err
+	}
+	if clean {
 		return nil
 	}
 	if err := w.expectReleasePreparationPaths(ctx); err != nil {
