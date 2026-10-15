@@ -149,6 +149,9 @@ func TestLoadValidatedDetectsSameSizeSameMTimeContentChange(t *testing.T) {
 	if err == nil || !status.Stale || status.Reason != "content_changed" {
 		t.Fatalf("LoadValidated status=%#v err=%v, want stale content_changed", status, err)
 	}
+	if inspected := Inspect(context.Background(), root, cacheDir, cfg); !inspected.Stale || inspected.Reason != reasonContentChanged {
+		t.Fatalf("Inspect status=%#v, want stale content_changed", inspected)
+	}
 }
 
 func TestInspectRejectsAnalyzerRevisionMismatch(t *testing.T) {

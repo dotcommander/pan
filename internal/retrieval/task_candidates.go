@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/dotcommander/pan/internal/analyze"
 	"github.com/dotcommander/pan/internal/ranking"
@@ -18,6 +19,7 @@ type taskCandidate struct {
 	evidenceTotal int
 	relevance     int
 	exactSymbols  []string
+	terms         []string
 	fallback      bool
 }
 
@@ -38,12 +40,20 @@ func isSymbolGoal(goal string) bool {
 }
 
 // taskGoalIdentifiers retains explicit names separately from expanded terms.
-// A prefix such as Brief is not evidence for the declaration briefCallCommands.
+// In phrases, sentence capitalization alone is not explicit naming evidence.
+// Bare symbols and quoted, qualified or compound identifiers retain priority.
 func taskGoalIdentifiers(goal string) []string {
 	var identifiers []string
+	bare := isSymbolGoal(goal)
 	for _, token := range strings.Fields(goal) {
-		token = strings.Trim(token, "`\"'(),;.!?")
+		quoted := strings.ContainsAny(token, "`\"'")
+		token = strings.Trim(token, "`\"'(),;.!?:")
 		if !isSymbolGoal(token) {
+			continue
+		}
+		_, tail := utf8.DecodeRuneInString(token)
+		compound := strings.ContainsAny(token, "_:.\\>-") || strings.ContainsFunc(token[tail:], unicode.IsUpper)
+		if !bare && !quoted && !compound {
 			continue
 		}
 		lower := strings.ToLower(token)
@@ -80,7 +90,7 @@ func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal str
 		}
 		byPath[file.Path] = &taskCandidate{
 			file: *file, evidence: evidence, evidenceTotal: total, relevance: score,
-			exactSymbols: taskExactSymbols(file, identifiers),
+			exactSymbols: taskExactSymbols(file, identifiers), terms: terms,
 		}
 	}
 	for _, seedPath := range slices.Sorted(maps.Keys(byPath)) {

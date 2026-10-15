@@ -54,6 +54,12 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 		}
 		return nil
 	}
+	// Give the strongest owner first refusal before a weak introductory term.
+	if len(candidates) > 0 {
+		if err := try(candidates[0]); err != nil {
+			return err
+		}
+	}
 	for _, term := range terms {
 		if !supported[term] || covered[term] || len(attempted) >= taskSelectionWorkCap || len(report.Targets) == taskTargetLimit {
 			continue
@@ -174,7 +180,8 @@ func finalizeTaskReport(report *TaskReport) error {
 	report.VerifyCommands = taskVerifyCommands(report.Targets)
 	report.FollowUpCommands = nil
 	if len(report.Truncations) > 0 {
-		report.FollowUpCommands = []string{fmt.Sprintf("pan context map --intent %q for the full ranked map", report.Goal)}
+		intent := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "$", `\$`, "`", "\\`").Replace(report.Goal)
+		report.FollowUpCommands = []string{`pan context map --intent "` + intent + `"`}
 	}
 	return setTaskUsedTokens(report)
 }

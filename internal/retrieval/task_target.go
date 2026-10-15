@@ -16,6 +16,10 @@ func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candida
 	file := candidate.file
 	var truncations []analyze.Truncation
 	symbols := slices.Clone(file.Symbols)
+	scores := make(map[analyze.Symbol]int, len(symbols))
+	for _, symbol := range symbols {
+		_, _, scores[symbol] = fieldEvidence(&ranking.RankedFile{Symbols: []analyze.Symbol{symbol}}, candidate.terms, false)
+	}
 	slices.SortStableFunc(symbols, func(a, b analyze.Symbol) int {
 		aNamed := slices.Contains(candidate.exactSymbols, strings.ToLower(a.Name))
 		bNamed := slices.Contains(candidate.exactSymbols, strings.ToLower(b.Name))
@@ -24,6 +28,9 @@ func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candida
 				return -1
 			}
 			return 1
+		}
+		if scores[a] != scores[b] {
+			return scores[b] - scores[a]
 		}
 		if a.Exported != b.Exported {
 			if a.Exported {

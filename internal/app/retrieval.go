@@ -97,7 +97,7 @@ func (s Service) Brief(ctx context.Context, root, intent string, budget int) (Br
 	if err != nil {
 		return BriefResult{}, err
 	}
-	production := productionRanked(ranked)
+	production := retrieval.OrderForGoal(snap, productionRanked(ranked), intent)
 	selected := production[:min(20, len(production))]
 	entries := make([]BriefEntry, 0, len(selected))
 	classes := make(map[string]int)

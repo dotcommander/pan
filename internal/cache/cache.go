@@ -2,10 +2,10 @@
 // root and validates their freshness from file identity stamps and SHA-256
 // content manifests. The store lives outside the target repository (the user
 // cache directory by default) so analysis commands stay read-only; only the
-// explicit cache lifecycle commands write it. Quick inspection checks file
-// metadata stamps (size and mtime) across the eligible tree, while full
-// validation verifies every captured content hash in the manifest and guards
-// against mutations during capture.
+// explicit cache lifecycle commands write it. Both Inspect and LoadValidated
+// check file metadata stamps and every captured SHA-256 content hash. They
+// also reject metadata changes observed across capture; these checks do not
+// reserve quiescence or guarantee an atomic repository snapshot.
 package cache
 
 import (

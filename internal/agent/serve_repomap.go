@@ -69,7 +69,10 @@ func answerMapStatus(ctx context.Context, output io.Writer, req serveRequest, ba
 }
 func answerSymbolFind(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend) error {
 	var p symbolFindParams
-	if failure := decodePanMapParams(req.Params, &p); failure != nil || p.Query == "" {
+	if failure := decodePanMapParams(req.Params, &p); failure != nil {
+		return writeServeError(output, req.ID, failure.code, failure.message)
+	}
+	if p.Query == "" {
 		return invalidRequiredParam(output, req, "query")
 	}
 	result, err := backend.AgentSymbolFind(ctx, p.Query)
@@ -80,7 +83,10 @@ func answerSymbolFind(ctx context.Context, output io.Writer, req serveRequest, b
 }
 func answerFileExplain(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend) error {
 	var p fileExplainParams
-	if failure := decodePanMapParams(req.Params, &p); failure != nil || p.Path == "" {
+	if failure := decodePanMapParams(req.Params, &p); failure != nil {
+		return writeServeError(output, req.ID, failure.code, failure.message)
+	}
+	if p.Path == "" {
 		return invalidRequiredParam(output, req, "path")
 	}
 	result, err := backend.AgentFileExplain(ctx, p.Path)
@@ -91,7 +97,10 @@ func answerFileExplain(ctx context.Context, output io.Writer, req serveRequest, 
 }
 func answerFileContext(ctx context.Context, output io.Writer, req serveRequest, backend ServeBackend) error {
 	var p fileContextParams
-	if failure := decodePanMapParams(req.Params, &p); failure != nil || p.Query == "" {
+	if failure := decodePanMapParams(req.Params, &p); failure != nil {
+		return writeServeError(output, req.ID, failure.code, failure.message)
+	}
+	if p.Query == "" {
 		return invalidRequiredParam(output, req, "query")
 	}
 	result, err := backend.AgentFileContext(ctx, p.Query, p.Kind, p.File, p.MaxSourceLines)
