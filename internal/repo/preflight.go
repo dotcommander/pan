@@ -166,7 +166,7 @@ func preflightDirectories(root, target string) ([]string, error) {
 	}
 	targetPath := target
 	if !filepath.IsAbs(targetPath) {
-		targetPath = filepath.Join(root, targetPath)
+		targetPath = filepath.Join(rootAbs, targetPath)
 	}
 	info, statErr := os.Stat(targetPath)
 	targetDir := filepath.Dir(targetPath)

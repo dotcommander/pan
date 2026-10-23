@@ -201,15 +201,7 @@ func (s Service) ReviewBriefWithOptions(ctx context.Context, root string, option
 	}
 	// Workspace artifacts remain visible through the hygiene packet, but must
 	// not consume source-analysis bounds or displace repository-owned code.
-	cfg := s.deps.Config.Normalized()
-	ignored, ignoredErr := scan.IgnoredPaths(ctx, root)
-	// .work is Pan's conventional artifact root. Excluding the directory as one
-	// boundary avoids emitting a skipped row for every ignored descendant.
-	ignored = append(ignored, ".work")
-	if ignoredErr != nil {
-		ignored = []string{".work"}
-	}
-	cfg.Exclude = config.NormalizeExcludes(append(cfg.Exclude, ignored...))
+	cfg := s.sourceAnalysisConfig(ctx, root)
 	snap, err := s.buildSnapshot(ctx, root, cfg)
 	if err != nil {
 		return analyze.Snapshot{}, nil, err
@@ -249,4 +241,19 @@ func (s Service) ReviewBriefWithOptions(ctx context.Context, root string, option
 		result["refactor_signatures"] = refactors
 	}
 	return snap, result, nil
+}
+
+// sourceAnalysisConfig keeps workspace artifacts outside source-analysis bounds.
+// Git's ignored inventory preserves tracked files and legitimate untracked source.
+func (s Service) sourceAnalysisConfig(ctx context.Context, root string) config.Config {
+	cfg := s.deps.Config.Normalized()
+	ignored, err := scan.IgnoredPaths(ctx, root)
+	if err != nil {
+		ignored = nil
+	}
+	// .work is Pan's conventional artifact root, including outside Git repos.
+	// Excluding the directory avoids one skipped row per artifact descendant.
+	ignored = append(ignored, ".work")
+	cfg.Exclude = config.NormalizeExcludes(append(cfg.Exclude, ignored...))
+	return cfg
 }

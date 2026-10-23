@@ -47,6 +47,16 @@ Pan stores its user configuration at `pan/config.yaml` under the platform user c
 
 `config init` reports an existing file as skipped unless you add `--force`. Improvement run history uses the configured `improve.state_dir`; when unset, it resolves to `pan/improve` under the same platform user configuration directory. These commands are source-checked, not executed in this documentation update.
 
+### Invocation-only capture exclusions
+
+Use repeatable `--exclude-path` flags to skip files or directories before capture and parsing, without editing user configuration:
+
+```bash
+./pan --repo /path/to/repo --exclude-path apps --exclude-path native/fts5_cjk/vendor context brief "context compression"
+```
+
+Paths are literal and repository-relative, not globs or recursive basename patterns. They extend the configured exclusions, participate in cache identity, and appear in analysis skip receipts. Avoid excluding tests unless you inspect the relevant tests separately. Existing `review report --exclude` globs only filter report rows after capture; they do not reduce capture work.
+
 ## What Pan does not do
 
 Pan analyzes source; it does not execute the target repository. Bounds, exclusions, generated code, reflection, dynamic dispatch, parsing, and package-loading limits can leave evidence incomplete. An absent item in an incomplete report is not proof that the item does not exist.

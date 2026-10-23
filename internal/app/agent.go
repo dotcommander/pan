@@ -105,9 +105,10 @@ func (a *AgentServeState) AgentMapStatus(ctx context.Context) (agent.MapStatus, 
 	if err != nil {
 		return agent.MapStatus{}, err
 	}
+	_, builtAt, _ := a.sessionFacts()
 	built := ""
-	if !a.builtAt.IsZero() {
-		built = a.builtAt.Format(time.RFC3339)
+	if !builtAt.IsZero() {
+		built = builtAt.Format(time.RFC3339)
 	}
 	return agent.MapStatus{BuiltAt: built, Root: snap.Root}, nil
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // IsolateLinkedWorkTree records ownership before Git creates the detached tree.
@@ -25,9 +27,13 @@ func IsolateLinkedWorkTree(ctx context.Context, repo, baseline string) (string, 
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 		defer cancel()
 		if err := gitRun(cleanupCtx, repo, "worktree", "remove", "--force", dir); err != nil {
-			return retainedWorktreeError(dir, err)
+			registered, listErr := isWorktreeRegistered(cleanupCtx, repo, dir)
+			if listErr != nil || registered {
+				return retainedWorktreeError(dir, err)
+			}
+			_ = os.RemoveAll(dir)
 		}
-		if err := os.Remove(ownershipPath(dir)); err != nil {
+		if err := os.Remove(ownershipPath(dir)); err != nil && !os.IsNotExist(err) {
 			return retainedWorktreeError(dir, err)
 		}
 		return nil
@@ -39,4 +45,24 @@ func IsolateLinkedWorkTree(ctx context.Context, repo, baseline string) (string, 
 		return "", nil, errors.Join(fmt.Errorf("create linked worktree: %w", err), cleanupErr)
 	}
 	return dir, cleanup, nil
+}
+
+func isWorktreeRegistered(ctx context.Context, repo, dir string) (bool, error) {
+	out, err := gitOutput(ctx, repo, "worktree", "list", "--porcelain", "-z")
+	if err != nil {
+		return false, err
+	}
+	cleanDir := filepath.Clean(dir)
+	records := strings.Split(out, "\x00")
+	for _, rec := range records {
+		for _, line := range strings.Split(rec, "\n") {
+			if strings.HasPrefix(line, "worktree ") {
+				wtPath := strings.TrimPrefix(line, "worktree ")
+				if filepath.Clean(wtPath) == cleanDir {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
 }

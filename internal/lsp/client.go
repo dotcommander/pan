@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -45,6 +46,7 @@ type Client struct {
 	done          chan struct{} // closed when readLoop exits
 
 	initDone atomic.Bool
+	graceful atomic.Bool
 
 	shutdownOnce sync.Once
 	shutdownErr  error
@@ -221,30 +223,80 @@ func (c *Client) DocumentSymbols(ctx context.Context, file string) ([]DocumentSy
 	if err != nil {
 		return nil, fmt.Errorf("lsp: documentSymbol: %w", err)
 	}
-	if len(raw) == 0 || string(raw) == jsonNull {
+	return decodeDocumentSymbols(raw)
+}
+
+type lspSymbolWire struct {
+	Name           string          `json:"name"`
+	Detail         string          `json:"detail,omitempty"`
+	Kind           SymbolKind      `json:"kind"`
+	Location       *Location       `json:"location,omitempty"`
+	Range          *Range          `json:"range,omitempty"`
+	SelectionRange *Range          `json:"selectionRange,omitempty"`
+	Children       []lspSymbolWire `json:"children,omitempty"`
+}
+
+func decodeDocumentSymbols(raw json.RawMessage) ([]DocumentSymbol, error) {
+	if len(bytes.TrimSpace(raw)) == 0 || string(bytes.TrimSpace(raw)) == jsonNull {
 		return nil, nil
 	}
-	if isSymbolInformationArray(raw) {
-		var infos []SymbolInformation
-		if err := json.Unmarshal(raw, &infos); err != nil {
-			return nil, fmt.Errorf("lsp: decode symbol information: %w", err)
-		}
-		symbols := make([]DocumentSymbol, 0, len(infos))
-		for _, info := range infos {
-			symbols = append(symbols, DocumentSymbol{
-				Name:           info.Name,
-				Kind:           info.Kind,
-				Range:          info.Location.Range,
-				SelectionRange: info.Location.Range,
-			})
-		}
-		return symbols, nil
+	var wire []lspSymbolWire
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, fmt.Errorf("lsp: decode document symbols wire: %w", err)
 	}
-	var symbols []DocumentSymbol
-	if err := json.Unmarshal(raw, &symbols); err != nil {
-		return nil, fmt.Errorf("lsp: decode document symbols: %w", err)
+	if len(wire) == 0 {
+		return nil, nil
 	}
-	return symbols, nil
+	if wire[0].Range != nil && wire[0].SelectionRange != nil {
+		return normalizeHierarchicalSymbols(wire)
+	}
+	if wire[0].Location != nil {
+		return normalizeFlatSymbols(wire)
+	}
+	return nil, fmt.Errorf("lsp: decode document symbols: unrecognized symbol shape")
+}
+
+func normalizeHierarchicalSymbols(wire []lspSymbolWire) ([]DocumentSymbol, error) {
+	out := make([]DocumentSymbol, 0, len(wire))
+	for _, w := range wire {
+		if w.Range == nil || w.SelectionRange == nil {
+			return nil, fmt.Errorf("lsp: invalid hierarchical symbol: missing range or selectionRange")
+		}
+		var children []DocumentSymbol
+		if len(w.Children) > 0 {
+			var err error
+			children, err = normalizeHierarchicalSymbols(w.Children)
+			if err != nil {
+				return nil, err
+			}
+		}
+		out = append(out, DocumentSymbol{
+			Name:           w.Name,
+			Detail:         w.Detail,
+			Kind:           w.Kind,
+			Range:          *w.Range,
+			SelectionRange: *w.SelectionRange,
+			Children:       children,
+		})
+	}
+	return out, nil
+}
+
+func normalizeFlatSymbols(wire []lspSymbolWire) ([]DocumentSymbol, error) {
+	out := make([]DocumentSymbol, 0, len(wire))
+	for _, w := range wire {
+		if w.Location == nil {
+			return nil, fmt.Errorf("lsp: invalid flat symbol: missing location")
+		}
+		out = append(out, DocumentSymbol{
+			Name:           w.Name,
+			Detail:         w.Detail,
+			Kind:           w.Kind,
+			Range:          w.Location.Range,
+			SelectionRange: w.Location.Range,
+		})
+	}
+	return out, nil
 }
 
 // DidOpen publishes one document's current content so the server can
@@ -277,8 +329,14 @@ func (c *Client) closeSession(ctx context.Context) error {
 		if err := c.call(qctx, "shutdown", nil, nil); err != nil && !errors.Is(err, ErrServerDied) && firstErr == nil {
 			firstErr = err
 		}
+		c.graceful.Store(true)
 		if err := c.notify(qctx, "exit", nil); err != nil && !errors.Is(err, ErrServerDied) && firstErr == nil {
 			firstErr = err
+		}
+		if c.waiter != nil {
+			if err := c.waiter(qctx); err != nil && firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	c.closeTransport()
@@ -286,7 +344,7 @@ func (c *Client) closeSession(ctx context.Context) error {
 	if c.watchDone != nil {
 		<-c.watchDone
 	}
-	if c.waiter != nil {
+	if c.waiter != nil && !c.initDone.Load() {
 		if err := c.waiter(ctx); err != nil && firstErr == nil {
 			firstErr = err
 		}

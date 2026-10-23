@@ -13,7 +13,7 @@ const SchemaVersion = "pan/v1"
 // AnalyzerRevision changes when compiled evidence semantics change without a
 // public envelope schema change. Cache entries must match this value before
 // their stored snapshot can be reused.
-const AnalyzerRevision = "resolved-calls-and-references/v3"
+const AnalyzerRevision = "resolved-calls-and-references/v4"
 
 const (
 	LanguageGo        = "go"

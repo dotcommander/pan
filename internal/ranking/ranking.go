@@ -199,14 +199,24 @@ func applyReferenceGraphScores(ranked []RankedFile, snap analyze.Snapshot) Graph
 	}
 	weights, pairs, outgoing := referenceGraphWeights(counts, ambiguity, len(ranked))
 	scores, iterations := iterateReferenceGraph(pairs, weights, outgoing, len(ranked))
-	maxScore := 0.0
-	for _, score := range scores {
-		maxScore = max(maxScore, score)
+	hasIncoming := make([]bool, len(ranked))
+	for _, p := range pairs {
+		hasIncoming[p.to] = true
 	}
+	maxScore := 0.0
 	for i, score := range scores {
-		bonus := int(math.Round(referenceGraphMaxBonus * score / maxScore))
-		if bonus > 0 {
-			addComponent(&ranked[i], ComponentReferenceGraph, bonus)
+		if hasIncoming[i] {
+			maxScore = max(maxScore, score)
+		}
+	}
+	if maxScore > 0 {
+		for i, score := range scores {
+			if hasIncoming[i] {
+				bonus := int(math.Round(referenceGraphMaxBonus * score / maxScore))
+				if bonus > 0 {
+					addComponent(&ranked[i], ComponentReferenceGraph, bonus)
+				}
+			}
 		}
 	}
 	return GraphStats{Nodes: len(ranked), Edges: len(counts), Iterations: iterations}

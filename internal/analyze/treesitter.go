@@ -48,6 +48,12 @@ var treeSitterLanguages = map[string]func() *tree_sitter.Language{
 }
 
 func parseTreeSitterBytes(source []byte, relative, language string) (parsedSource, error) {
+	analysis := treeSitterAnalysis{}
+	defer analysis.close()
+	return analysis.parse(source, relative, language)
+}
+
+func (a *treeSitterAnalysis) parse(source []byte, relative, language string) (parsedSource, error) {
 	grammar := treeSitterLanguage(language)
 	if grammar == nil {
 		return parsedSource{}, nil
@@ -62,8 +68,8 @@ func parseTreeSitterBytes(source []byte, relative, language string) (parsedSourc
 		return parsedSource{}, fmt.Errorf("parse %s source", language)
 	}
 	defer tree.Close()
-	parsed := extractTreeSitter(tree.RootNode(), source, relative)
-	references, queryErr := queryReferences(tree.RootNode(), source, language)
+	parsed := extractTreeSitter(tree.RootNode(), source, relative, language)
+	references, queryErr := a.queryReferences(tree.RootNode(), source, language)
 	if queryErr != nil {
 		return parsedSource{}, queryErr
 	}
@@ -87,8 +93,8 @@ func SupportsTreeSitter(language string) bool {
 	return ok
 }
 
-func extractTreeSitter(root *tree_sitter.Node, source []byte, relative string) parsedSource {
-	extractor := treeSitterExtractor{source: source, relative: relative, symbols: map[string]struct{}{}, imports: map[string]struct{}{}}
+func extractTreeSitter(root *tree_sitter.Node, source []byte, relative, language string) parsedSource {
+	extractor := treeSitterExtractor{source: source, relative: relative, language: language, symbols: map[string]struct{}{}, imports: map[string]struct{}{}}
 	var walk func(*tree_sitter.Node)
 	walk = func(node *tree_sitter.Node) {
 		if node == nil {
@@ -110,6 +116,7 @@ type treeSitterExtractor struct {
 	parsedSource
 	source           []byte
 	relative         string
+	language         string
 	symbols, imports map[string]struct{}
 }
 
@@ -119,8 +126,14 @@ func (e *treeSitterExtractor) add(node *tree_sitter.Node) {
 }
 
 func (e *treeSitterExtractor) addSymbol(node *tree_sitter.Node) {
-	kind, name := treeSitterSymbolKind(node.Kind()), treeSitterName(node, e.source)
-	if kind == "" || name == "" {
+	kind := treeSitterSymbolKind(node.Kind())
+	if kind == "" {
+		return
+	}
+	// Resolve names only for declarations; searching every expression's
+	// descendants repeats subtree walks without producing any symbols.
+	name := treeSitterName(node, e.source)
+	if name == "" {
 		return
 	}
 	position, end := node.StartPosition(), node.EndPosition()
@@ -129,7 +142,75 @@ func (e *treeSitterExtractor) addSymbol(node *tree_sitter.Node) {
 		return
 	}
 	e.symbols[key] = struct{}{}
-	e.Symbols = append(e.Symbols, Symbol{Name: name, Kind: kind, Exported: true, EndLine: int(end.Row) + 1, Location: Location{Path: e.relative, Line: int(position.Row) + 1}})
+	exported := e.isExported(node, name)
+	e.Symbols = append(e.Symbols, Symbol{Name: name, Kind: kind, Exported: exported, EndLine: int(end.Row) + 1, Location: Location{Path: e.relative, Line: int(position.Row) + 1}})
+}
+
+func (e *treeSitterExtractor) isExported(node *tree_sitter.Node, name string) bool {
+	if isInsideFunction(node) {
+		return false
+	}
+	switch e.language {
+	case LanguageJavascript, LanguageTypescript, LanguageTsx, LanguageJsx:
+		parent := node.Parent()
+		if parent != nil && (parent.Kind() == "export_statement" || parent.Kind() == "export_default_declaration") {
+			return true
+		}
+		for i := uint(0); i < node.ChildCount(); i++ {
+			c := node.Child(i)
+			if c != nil && (c.Kind() == "export" || c.Kind() == "export_statement") {
+				return true
+			}
+		}
+		return false
+	case LanguagePython:
+		return !strings.HasPrefix(name, "_")
+	case LanguageRust:
+		for i := uint(0); i < node.ChildCount(); i++ {
+			c := node.Child(i)
+			if c != nil && c.Kind() == "visibility_modifier" {
+				vis := string(e.source[c.StartByte():c.EndByte()])
+				return vis == "pub"
+			}
+		}
+		return false
+	case LanguageJava:
+		for i := uint(0); i < node.ChildCount(); i++ {
+			c := node.Child(i)
+			if c != nil && c.Kind() == "modifiers" {
+				text := string(e.source[c.StartByte():c.EndByte()])
+				return strings.Contains(text, "public")
+			}
+		}
+		return false
+	case LanguageC, LanguageCpp:
+		text := string(e.source[node.StartByte():node.EndByte()])
+		if strings.HasPrefix(text, "static ") || strings.Contains(text, " static ") {
+			return false
+		}
+		return !strings.HasPrefix(name, "_")
+	case LanguagePhp:
+		text := string(e.source[node.StartByte():node.EndByte()])
+		if strings.Contains(text, "private ") || strings.Contains(text, "protected ") {
+			return false
+		}
+		return !strings.HasPrefix(name, "_")
+	case LanguageRuby:
+		return !strings.HasPrefix(name, "_")
+	default:
+		return !strings.HasPrefix(name, "_")
+	}
+}
+
+func isInsideFunction(node *tree_sitter.Node) bool {
+	for p := node.Parent(); p != nil; p = p.Parent() {
+		kind := p.Kind()
+		if kind == "statement_block" || kind == "block" || kind == "function_body" ||
+			kind == "compound_statement" {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *treeSitterExtractor) addImport(node *tree_sitter.Node) {

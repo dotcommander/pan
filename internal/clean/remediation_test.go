@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -121,5 +122,58 @@ func TestExistingTargetsPropagatesNonAbsence(t *testing.T) {
 	writeTestFile(t, root, "file", "data")
 	if _, err := existingTargets(root, []string{"file/child"}); err == nil {
 		t.Fatal("non-directory stat failure ignored")
+	}
+}
+
+func TestCleanProcessHelper(t *testing.T) {
+	mode := os.Getenv("PAN_CLEAN_HELPER")
+	if mode == "" {
+		return
+	}
+	switch mode {
+	case "success":
+		os.Stdout.WriteString("git version 2.40.0\n")
+		os.Exit(0)
+	case "overflow":
+		buf := make([]byte, maxGitOutputBytes+1024)
+		os.Stdout.Write(buf)
+		os.Exit(0)
+	case "hang":
+		<-time.After(10 * time.Minute)
+		os.Exit(0)
+	}
+}
+
+func cleanHelperCmd(mode string) *exec.Cmd {
+	cmd := exec.Command(os.Args[0], "-test.run=^TestCleanProcessHelper$")
+	cmd.Env = append(os.Environ(), "PAN_CLEAN_HELPER="+mode)
+	return cmd
+}
+
+func TestGitRunExecutionAndCancellation(t *testing.T) {
+	t.Parallel()
+	ctxSuccess := context.WithValue(context.Background(), gitCommandFactoryKey{}, func(dir string, args ...string) *exec.Cmd {
+		return cleanHelperCmd("success")
+	})
+	out, err := gitRun(ctxSuccess, t.TempDir(), "version")
+	if err != nil || !strings.Contains(out, "git version") {
+		t.Fatalf("gitRun success: out=%q, err=%v", out, err)
+	}
+
+	ctxOverflow := context.WithValue(context.Background(), gitCommandFactoryKey{}, func(dir string, args ...string) *exec.Cmd {
+		return cleanHelperCmd("overflow")
+	})
+	_, err = gitRun(ctxOverflow, t.TempDir(), "ls-files")
+	if err == nil || !strings.Contains(err.Error(), "output exceeded") {
+		t.Fatalf("expected output exceeded error, got: %v", err)
+	}
+
+	ctxHang := context.WithValue(context.Background(), gitCommandFactoryKey{}, func(dir string, args ...string) *exec.Cmd {
+		return cleanHelperCmd("hang")
+	})
+	canceledCtx, cancel := context.WithCancel(ctxHang)
+	cancel()
+	if _, err := gitRun(canceledCtx, t.TempDir(), "version"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }

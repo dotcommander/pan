@@ -228,7 +228,11 @@ func readHeaderLine(reader io.Reader, limit int) (string, int, error) {
 // to their pending caller. It closes done exactly once on exit.
 func (c *Client) readLoop() {
 	defer close(c.done)
-	defer c.closeTransport()
+	defer func() {
+		if !c.graceful.Load() {
+			c.closeTransport()
+		}
+	}()
 	for {
 		body, err := readAnswerWithOptions(c.reader, c.options)
 		if err != nil {

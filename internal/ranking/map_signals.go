@@ -147,7 +147,14 @@ func edgeCallers(ranked []RankedFile, edges []analyze.Edge, targets map[string][
 func applyCallerBonuses(ranked []RankedFile, callers []map[string]struct{}) {
 	for i := range ranked {
 		if count := len(callers[i]); count > 0 {
-			addComponent(&ranked[i], ComponentCallers, min(20, count*2))
+			existing := ranked[i].Components[ComponentCallers]
+			desired := max(existing, min(20, count*2))
+			if delta := desired - existing; delta > 0 {
+				addComponent(&ranked[i], ComponentCallers, delta)
+			}
+			if count > ranked[i].CallerCount {
+				ranked[i].CallerCount = count
+			}
 		}
 	}
 }

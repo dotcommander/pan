@@ -65,6 +65,7 @@ func Build(ctx context.Context, root string, cfg config.Config) (Snapshot, error
 		return Snapshot{}, err
 	}
 	b := &builder{ctx: ctx, cfg: cfg.Normalized(), complete: true}
+	defer b.treeSitter.close()
 	b.snap = Snapshot{Root: root, Captured: make(map[string][]byte)}
 	if walkErr := filepath.WalkDir(root, b.visit); walkErr != nil {
 		return Snapshot{}, fmt.Errorf("walk repository: %w", walkErr)
@@ -109,6 +110,7 @@ func changedStamps(a, b map[string]FileStamp) bool {
 // builder accumulates one analysis pass. It is confined to Build and its
 // methods; only the finalized Snapshot escapes.
 type builder struct {
+	treeSitter  treeSitterAnalysis
 	ctx         context.Context
 	cfg         config.Config
 	snap        Snapshot
@@ -227,7 +229,7 @@ func (b *builder) parseSource(file File, contents []byte) {
 		b.parseGoBytes(contents, file.Path)
 		return
 	}
-	parsed, err := parseTreeSitterBytes(contents, file.Path, file.Language)
+	parsed, err := b.treeSitter.parse(contents, file.Path, file.Language)
 	b.admitParsedSource(file, parsed, err)
 }
 

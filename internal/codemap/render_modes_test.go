@@ -37,8 +37,12 @@ func TestBuildFormatsCarryDistinctContent(t *testing.T) {
 
 func TestBuildCallEvidenceRespectsTestsAndExplain(t *testing.T) {
 	t.Parallel()
-	ranked := []ranking.RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true}}, Components: map[string]int{"symbols": 4}}}
-	edges := []analyze.Edge{{From: "Use", To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "use.go", Line: 4}}, {From: "Test", To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "a_test.go", Line: 5}}}
+	symLoc := analyze.Location{Path: "a.go", Line: 10}
+	ranked := []ranking.RankedFile{{Path: "a.go", ImportedBy: 2, Symbols: []analyze.Symbol{{Name: "Alpha", Exported: true, Location: symLoc}}, Components: map[string]int{"symbols": 4}}}
+	edges := []analyze.Edge{
+		{From: "Use", To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "use.go", Line: 4}, Target: &symLoc},
+		{From: "Test", To: "Alpha", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "a_test.go", Line: 5}, Target: &symLoc},
+	}
 	plain := Build(ranked, Options{Mode: ModeVerbose, Calls: true, CallsThreshold: 2, Edges: edges, ExplainScores: true})
 	if len(plain.CallEvidence) != 1 || strings.Contains(plain.Text, "a_test.go") || !strings.Contains(plain.Text, "[score 0: symbols=4]") {
 		t.Fatalf("unexpected filtered call result: %#v %q", plain.CallEvidence, plain.Text)
@@ -46,6 +50,27 @@ func TestBuildCallEvidenceRespectsTestsAndExplain(t *testing.T) {
 	withTests := Build(ranked, Options{Mode: ModeVerbose, Calls: true, CallsThreshold: 2, CallsIncludeTests: true, Edges: edges})
 	if len(withTests.CallEvidence) != 2 {
 		t.Fatalf("calls include tests = %#v", withTests.CallEvidence)
+	}
+}
+
+func TestBuildCallEvidenceRequiresDeclarationIdentity(t *testing.T) {
+	t.Parallel()
+	locA := analyze.Location{Path: "a.go", Line: 10}
+	locB := analyze.Location{Path: "b.go", Line: 20}
+	ranked := []ranking.RankedFile{
+		{Path: "a.go", ImportedBy: 3, Symbols: []analyze.Symbol{{Name: "Run", Exported: true, Location: locA}}},
+		{Path: "b.go", ImportedBy: 3, Symbols: []analyze.Symbol{{Name: "Run", Exported: true, Location: locB}}},
+	}
+	// Edge specifically targets a.go:10
+	edges := []analyze.Edge{
+		{From: "Caller", To: "Run", Kind: "calls", Confidence: analyze.ConfidenceConfirmed, Location: analyze.Location{Path: "caller.go", Line: 5}, Target: &locA},
+	}
+	result := Build(ranked, Options{Mode: ModeVerbose, Calls: true, CallsThreshold: 2, Edges: edges})
+	if len(result.CallEvidence) != 1 {
+		t.Fatalf("expected exactly 1 call evidence record, got %d: %#v", len(result.CallEvidence), result.CallEvidence)
+	}
+	if result.CallEvidence[0].File != "a.go" {
+		t.Fatalf("expected call evidence on a.go, got %s", result.CallEvidence[0].File)
 	}
 }
 

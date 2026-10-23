@@ -22,6 +22,11 @@ type CallEvidence struct {
 
 const callEdgeKind = "calls"
 
+type callCandidate struct {
+	file   ranking.RankedFile
+	symbol analyze.Symbol
+}
+
 func collectCallEvidence(ranked []ranking.RankedFile, opts Options) []CallEvidence {
 	if !opts.Calls {
 		return nil
@@ -32,8 +37,11 @@ func collectCallEvidence(ranked []ranking.RankedFile, opts Options) []CallEviden
 		if !callEdgeAllowed(edge.Kind, edge.Confidence, edge.Location.Path, opts.CallsIncludeTests) {
 			continue
 		}
-		for _, file := range targets[edge.To] {
-			out = append(out, CallEvidence{File: file.Path, Symbol: edge.To, Caller: edge.From, CallerFile: edge.Location.Path, Line: edge.Location.Line, Confidence: edge.Confidence})
+		for _, candidate := range targets[edge.To] {
+			if !edge.CallsSymbol(candidate.symbol) {
+				continue
+			}
+			out = append(out, CallEvidence{File: candidate.file.Path, Symbol: edge.To, Caller: edge.From, CallerFile: edge.Location.Path, Line: edge.Location.Line, Confidence: edge.Confidence})
 		}
 	}
 	slices.SortFunc(out, func(a, b CallEvidence) int {
@@ -54,18 +62,18 @@ func collectCallEvidence(ranked []ranking.RankedFile, opts Options) []CallEviden
 	return out
 }
 
-func callTargets(ranked []ranking.RankedFile, threshold int) map[string][]ranking.RankedFile {
+func callTargets(ranked []ranking.RankedFile, threshold int) map[string][]callCandidate {
 	if threshold == 0 {
 		threshold = 2
 	}
-	targets := make(map[string][]ranking.RankedFile)
+	targets := make(map[string][]callCandidate)
 	for _, file := range ranked {
 		if file.ImportedBy < threshold {
 			continue
 		}
 		for _, symbol := range file.Symbols {
 			if symbol.Exported {
-				targets[symbol.Name] = append(targets[symbol.Name], file)
+				targets[symbol.Name] = append(targets[symbol.Name], callCandidate{file: file, symbol: symbol})
 			}
 		}
 	}

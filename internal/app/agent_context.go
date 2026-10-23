@@ -108,6 +108,7 @@ func agentSourcesFingerprint(sources map[string]agentSource) string {
 }
 
 // AgentContext builds a bounded packet from captured, non-secret source evidence.
+// Published maps and their values are immutable once published under a.mu.
 func (a *AgentServeState) AgentContext(ctx context.Context, doc review.Document, rows []review.ReadItem, budget int) (agent.ContextPacket, error) {
 	if doc.ReportID == "" || budget < 1 {
 		return agent.ContextPacket{}, agent.ErrContextBudgetTooSmall
@@ -115,14 +116,18 @@ func (a *AgentServeState) AgentContext(ctx context.Context, doc review.Document,
 	if budget > agent.MaxRequestBytes {
 		return agent.ContextPacket{}, agent.ErrContextBudgetTooLarge
 	}
-	packet := agent.ContextPacket{Schema: agent.ContextSchema, ReportID: doc.ReportID, BudgetBytes: budget, Fingerprint: a.fingerprint, Targets: []agent.ContextTarget{}, Omissions: []string{}}
+	a.mu.Lock()
+	sources, redacted, fingerprint := a.sources, a.redacted, a.fingerprint
+	a.mu.Unlock()
+
+	packet := agent.ContextPacket{Schema: agent.ContextSchema, ReportID: doc.ReportID, BudgetBytes: budget, Fingerprint: fingerprint, Targets: []agent.ContextTarget{}, Omissions: []string{}}
 	for _, row := range rows {
 		if err := ctx.Err(); err != nil {
 			return agent.ContextPacket{}, err
 		}
-		source, ok := a.sources[row.Path]
+		source, ok := sources[row.Path]
 		if !ok {
-			if a.redacted[row.Path] {
+			if redacted[row.Path] {
 				packet.Omissions = append(packet.Omissions, row.Path+": redacted secret source")
 				continue
 			}

@@ -220,10 +220,11 @@ type mapInputResult struct {
 }
 
 func (s Service) mapInputs(ctx context.Context, root string, opts codemap.Options) (mapInputResult, error) {
-	snap, ranked, err := s.ranked(ctx, root, ranking.Options{Intent: opts.Intent, Consumed: opts.Consumed, IncludeTests: opts.IncludeTests})
+	snap, err := s.buildSnapshot(ctx, root, s.sourceAnalysisConfig(ctx, root))
 	if err != nil {
 		return mapInputResult{}, err
 	}
+	ranked := ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{Intent: opts.Intent, Consumed: opts.Consumed, IncludeTests: opts.IncludeTests})
 	opts.Root, opts.Edges, opts.Captured = snap.Root, snap.Edges, snap.Captured
 	if opts.SymbolRefs {
 		if err := ranking.ApplySymbolReferenceBonus(snap, ranked); err != nil {

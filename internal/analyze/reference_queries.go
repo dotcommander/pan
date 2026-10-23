@@ -17,7 +17,24 @@ var pythonReferenceQuery string
 //go:embed queries/typescript-references.scm
 var typescriptReferenceQuery string
 
-func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]sourceReference, error) {
+// treeSitterAnalysis owns compiled queries for one sequential analysis pass.
+// Queries are immutable during execution; cursors remain local to each file.
+// Keeping ownership here avoids recompilation per file and global native state.
+type treeSitterAnalysis struct {
+	queries map[string]*tree_sitter.Query
+}
+
+func (a *treeSitterAnalysis) close() {
+	for _, query := range a.queries {
+		query.Close()
+	}
+	clear(a.queries)
+}
+
+func (a *treeSitterAnalysis) referenceQuery(language string) (*tree_sitter.Query, error) {
+	if query := a.queries[language]; query != nil {
+		return query, nil
+	}
 	querySource := ""
 	switch language {
 	case LanguagePython:
@@ -32,7 +49,18 @@ func queryReferences(root *tree_sitter.Node, source []byte, language string) ([]
 	if queryErr != nil {
 		return nil, fmt.Errorf("compile %s reference query: %w", language, queryErr)
 	}
-	defer query.Close()
+	if a.queries == nil {
+		a.queries = make(map[string]*tree_sitter.Query)
+	}
+	a.queries[language] = query
+	return query, nil
+}
+
+func (a *treeSitterAnalysis) queryReferences(root *tree_sitter.Node, source []byte, language string) ([]sourceReference, error) {
+	query, err := a.referenceQuery(language)
+	if err != nil || query == nil {
+		return nil, err
+	}
 	cursor := tree_sitter.NewQueryCursor()
 	defer cursor.Close()
 	captures := cursor.Captures(query, root, source)

@@ -154,6 +154,9 @@ func RunServeWithTimeout(ctx context.Context, input *bufio.Reader, output io.Wri
 		timeout = ServeRequestTimeout
 	}
 	for {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		line, oversized, err := readRecord(input)
 		if err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("read agent serve request: %w", err)
@@ -195,6 +198,9 @@ func answerServeRecord(ctx context.Context, output io.Writer, line []byte, eof b
 	}
 	if err := answer(ctx, output, req, backend, timeout); err != nil {
 		return true, err
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return true, ctxErr
 	}
 	return eof, nil
 }

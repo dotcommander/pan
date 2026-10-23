@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"encoding/json"
 	"net/url"
 	"path/filepath"
 	"runtime"
@@ -39,16 +38,4 @@ func URIToPath(uri string) string {
 		path = filepath.FromSlash(strings.TrimPrefix(path, "/"))
 	}
 	return path
-}
-
-// isSymbolInformationArray reports whether one raw documentSymbol response
-// uses the flat SymbolInformation shape (entries carry "location") instead
-// of the hierarchical DocumentSymbol shape (entries carry
-// "selectionRange"). Go's JSON decoder accepts either shape into either
-// type, so the raw bytes are probed before decoding.
-func isSymbolInformationArray(raw json.RawMessage) bool {
-	if len(raw) == 0 || raw[0] != '[' {
-		return false
-	}
-	return strings.Contains(string(raw), `"location"`)
 }

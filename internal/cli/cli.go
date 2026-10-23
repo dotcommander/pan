@@ -31,7 +31,7 @@ const (
 )
 
 // binaryVersion is the human-readable pan binary version.
-const binaryVersion = "v0.7.0"
+const binaryVersion = "v0.8.0"
 
 const (
 	formatJSON     = "json"
@@ -54,6 +54,7 @@ type Root struct {
 	Format         string           `name:"format" default:"text" enum:"text,json" help:"Output format for command results; maps the source audit JSON selector."`
 	Artifact       string           `name:"artifact" type:"path" help:"Write command output atomically to this file instead of stdout."`
 	SnapshotSource string           `name:"snapshot-source" enum:"auto,live" default:"auto" help:"Snapshot source policy."`
+	ExcludePaths   []string         `name:"exclude-path" sep:"none" help:"Skip a repo-relative path during capture; repeat for multiple paths."`
 
 	Context  ContextCmd  `cmd:"" help:"Task-oriented code retrieval and maps."`
 	Flow     FlowCmd     `cmd:"" help:"Execution, dependency, route, and pipeline evidence."`
@@ -117,6 +118,9 @@ func Run(ctx context.Context, args []string, deps Deps) error {
 	if err != nil {
 		return err
 	}
+	if err := validateExclusionPaths(root.ExcludePaths); err != nil {
+		return err
+	}
 	if root.Artifact == "-" {
 		return fmt.Errorf("artifact must name a file; stdout is unsupported")
 	}
@@ -129,14 +133,19 @@ func Run(ctx context.Context, args []string, deps Deps) error {
 	if slices.Equal(commandPath(kctx), []string{scanCommand, doctorCommand}) && deps.LoadReadOnlyConfig != nil {
 		loader = deps.LoadReadOnlyConfig
 	}
-	if loader != nil && !metadataCommand(commandPath(kctx)) {
+	if loader != nil && requiresConfigLoader(commandPath(kctx)) {
 		cfg, err := loader()
 		if err != nil {
 			return &ExitError{Code: ExitConfig, Err: err}
 		}
 		deps.App = app.New(app.Deps{Config: cfg, SnapshotSource: root.SnapshotSource})
 	}
-	runCtx, cancel := commandContext(ctx, commandPath(kctx), deps.App.EffectiveConfig().Config.CommandTimeout)
+	deps.App = deps.App.WithExclusions(root.ExcludePaths)
+	timeout := 10 * time.Minute
+	if appTimeout := deps.App.EffectiveConfig().Config.CommandTimeout; appTimeout > 0 {
+		timeout = appTimeout
+	}
+	runCtx, cancel := commandContext(ctx, commandPath(kctx), timeout)
 	defer cancel()
 	kctx.BindTo(runCtx, (*context.Context)(nil))
 	if root.Artifact == "" {
@@ -151,8 +160,33 @@ func Run(ctx context.Context, args []string, deps Deps) error {
 	return writeContextArtifact(root.Artifact, artifact.Bytes())
 }
 
+func requiresConfigLoader(path []string) bool {
+	if metadataCommand(path) {
+		return false
+	}
+	if len(path) == 1 && path[0] == "commands" {
+		return false
+	}
+	if slices.Equal(path, []string{"agent", "schema"}) {
+		return false
+	}
+	if slices.Equal(path, []string{"config", "init"}) || slices.Equal(path, []string{"config", "validate"}) {
+		return false
+	}
+	return true
+}
+
 func requiresRepositoryBoundary(path []string) bool {
 	if metadataCommand(path) {
+		return false
+	}
+	if len(path) == 1 && path[0] == "commands" {
+		return false
+	}
+	if slices.Equal(path, []string{"agent", "schema"}) {
+		return false
+	}
+	if slices.Equal(path, []string{"config", "init"}) || slices.Equal(path, []string{"config", "validate"}) {
 		return false
 	}
 	return !slices.Equal(path, []string{flowCommand, "render"}) &&
@@ -183,21 +217,6 @@ func (CommandsCmd) Run(kctx *kong.Context, deps Deps) error {
 
 func metadataCommand(path []string) bool {
 	return len(path) == 1 && (path[0] == versionCommand || path[0] == homeCommand)
-}
-
-// commandContext keeps streaming commands alive until their caller cancels
-// them. Other commands retain the configured execution deadline.
-func commandContext(parent context.Context, path []string, timeout time.Duration) (context.Context, context.CancelFunc) {
-	if isLongLivedCommand(path) {
-		return parent, func() {}
-	}
-	return context.WithTimeout(parent, timeout)
-}
-
-func isLongLivedCommand(path []string) bool {
-	return slices.Equal(path, []string{flowCommand, serveCmd}) ||
-		slices.Equal(path, []string{"agent", serveCmd}) ||
-		slices.Equal(path, []string{"agent", "stdio"})
 }
 
 // ExitError is an error carrying an explicit process exit code.

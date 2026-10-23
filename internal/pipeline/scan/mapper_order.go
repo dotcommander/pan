@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"cmp"
 	"go/ast"
 	"path/filepath"
 	"slices"
@@ -94,7 +95,12 @@ func collectChipCallees(body *ast.BlockStmt, callerName string, chipSet map[stri
 // (chips not called by any other chip), with disconnected chips appended.
 // Ties keep the original stage order.
 func topoOrderChips(chipSet map[string]int, callees map[string]map[string]bool, calledBy map[string]bool) []string {
-	byIndex := func(a, b string) int { return chipSet[a] - chipSet[b] }
+	byIndex := func(a, b string) int {
+		if n := cmp.Compare(chipSet[a], chipSet[b]); n != 0 {
+			return n
+		}
+		return strings.Compare(a, b)
+	}
 
 	// Start with roots (chips not called by any other chip in this phase),
 	// sorted by their original index for stability.
@@ -131,12 +137,15 @@ func topoOrderChips(chipSet map[string]int, callees map[string]map[string]bool, 
 		}
 	}
 
-	// Add any chips not reached by the call graph (disconnected).
+	// Add any chips not reached by the call graph (disconnected or cyclic).
+	var remainder []string
 	for label := range chipSet {
 		if !visited[label] {
-			sorted = append(sorted, label)
+			remainder = append(remainder, label)
 		}
 	}
+	slices.SortFunc(remainder, byIndex)
+	sorted = append(sorted, remainder...)
 	return sorted
 }
 

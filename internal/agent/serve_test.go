@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -177,5 +178,39 @@ func TestMalformedServeIDsAreNotEchoed(t *testing.T) {
 				t.Fatalf("id=%s failure=%v echoed=%s", id, failure, serveFailureID(req))
 			}
 		})
+	}
+}
+
+type cancelingServeBackend struct {
+	serveTestBackend
+	cancel context.CancelFunc
+}
+
+func (c *cancelingServeBackend) AgentStatus(ctx context.Context) (StatusSummary, error) {
+	if c.cancel != nil {
+		c.cancel()
+	}
+	return StatusSummary{}, context.Canceled
+}
+
+func TestRunServeTerminatesOnContextCancellationDuringRequest(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	backend := &cancelingServeBackend{cancel: cancel}
+	input := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":"req1","method":"pan/status"}`,
+		`{"jsonrpc":"2.0","id":"req2","method":"pan/status"}`,
+	}, "\n") + "\n"
+	var out bytes.Buffer
+	err := RunServe(ctx, bufio.NewReader(strings.NewReader(input)), &out, backend)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected exactly 1 response line before termination, got %d: %v", len(lines), lines)
+	}
+	if !strings.Contains(lines[0], `"req1"`) || !strings.Contains(lines[0], `"code":-32000`) {
+		t.Fatalf("unexpected response line: %s", lines[0])
 	}
 }

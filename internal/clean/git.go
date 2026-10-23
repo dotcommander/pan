@@ -1,15 +1,16 @@
 package clean
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dotcommander/pan/internal/ownedprocess"
 )
 
 // maxGitOutputBytes bounds every git plumbing read, mirroring the scan
@@ -178,64 +179,39 @@ func (g gitInfo) mark(files []FileInfo, opts Options) {
 	}
 }
 
+type gitCommandFactoryKey struct{}
+
 // gitRun executes one git plumbing command in dir with bounded output.
 // stdout is capped at maxGitOutputBytes; stderr is capped at 4 KiB.
 func gitRun(ctx context.Context, dir string, args ...string) (string, error) {
 	// The command name is a constant and every argument arrives through
 	// cmd.Args: git runs as one direct argv process in dir, never through
 	// a shell.
-	cmd := exec.CommandContext(ctx, cmdGit)
-	cmd.Dir = dir
-	cmd.Args = append(cmd.Args, args...)
-	stdout, err := cmd.StdoutPipe()
+	cmd := exec.Command(cmdGit, args...)
+	if factory, ok := ctx.Value(gitCommandFactoryKey{}).(func(dir string, args ...string) *exec.Cmd); ok {
+		cmd = factory(dir, args...)
+	} else {
+		cmd.Dir = dir
+	}
+	result, err := ownedprocess.Run(ctx, cmd, ownedprocess.Limits{
+		StdoutBytes: maxGitOutputBytes,
+		StderrBytes: 4 << 10,
+	})
 	if err != nil {
-		return "", fmt.Errorf("git stdout: %w", err)
-	}
-	stderr := &limitBuffer{max: 4 << 10}
-	cmd.Stderr = stderr
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("start git: %w", err)
-	}
-	out, readErr := io.ReadAll(io.LimitReader(stdout, maxGitOutputBytes+1))
-	waitErr := cmd.Wait()
-	if readErr != nil {
-		return "", fmt.Errorf("read git output: %w", readErr)
-	}
-	if len(out) > maxGitOutputBytes {
-		return "", fmt.Errorf("git %s output exceeded %d bytes", args[0], maxGitOutputBytes)
-	}
-	if waitErr != nil {
+		if errors.Is(err, ownedprocess.ErrOutputLimit) {
+			return "", fmt.Errorf("git %s output exceeded %d bytes: %w", args[0], maxGitOutputBytes, err)
+		}
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
-		reason := strings.TrimSpace(stderr.String())
+		reason := strings.TrimSpace(string(result.Stderr))
 		if reason == "" {
-			return "", fmt.Errorf("git %s: %w", args[0], waitErr)
+			return "", fmt.Errorf("git %s: %w", args[0], err)
 		}
-		return "", fmt.Errorf("git %s: %w: %s", args[0], waitErr, reason)
+		return "", fmt.Errorf("git %s: %w: %s", args[0], err, reason)
 	}
-	return string(out), nil
+	return string(result.Stdout), nil
 }
-
-// limitBuffer keeps at most max bytes, discarding the rest.
-type limitBuffer struct {
-	buf bytes.Buffer
-	max int
-}
-
-func (l *limitBuffer) Write(p []byte) (int, error) {
-	room := l.max - l.buf.Len()
-	if room > 0 {
-		if len(p) <= room {
-			l.buf.Write(p)
-		} else {
-			l.buf.Write(p[:room])
-		}
-	}
-	return len(p), nil
-}
-
-func (l *limitBuffer) String() string { return l.buf.String() }
 
 func splitNUL(out string) []string {
 	if out == "" {
