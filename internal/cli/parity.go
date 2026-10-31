@@ -85,13 +85,14 @@ func (c InventoryCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx context
 
 // ReviewBriefCmd is `pan review brief`.
 type ReviewBriefCmd struct {
-	Limit              int    `name:"limit" default:"25" help:"Maximum files to emit; 0 lists all bounded results."`
-	Top                int    `name:"top" help:"Compatibility alias for --limit."`
-	TopFiles           int    `name:"top-files" help:"Alias for --limit."`
-	Language           string `name:"language" help:"Restrict evidence to one supported language ID."`
-	Intent             string `name:"intent" short:"i" help:"Rerank admitted files for this audit intent."`
-	HistoryWindow      int    `name:"history-window" help:"Include bounded Git history from this many commits; 0 omits it."`
-	RefactorSignatures bool   `name:"refactor-signatures" help:"Include exact duplicate Go function-body signatures."`
+	IncludePath        []string `name:"include-path" help:"Admit an exact repository-relative file (repeatable)."`
+	Limit              int      `name:"limit" default:"25" help:"Maximum files to emit; 0 lists all bounded results."`
+	Top                int      `name:"top" help:"Compatibility alias for --limit."`
+	TopFiles           int      `name:"top-files" help:"Alias for --limit."`
+	Language           string   `name:"language" help:"Restrict evidence to one supported language ID."`
+	Intent             string   `name:"intent" short:"i" help:"Rerank admitted files for this audit intent."`
+	HistoryWindow      int      `name:"history-window" help:"Include bounded Git history from this many commits; 0 omits it."`
+	RefactorSignatures bool     `name:"refactor-signatures" help:"Include exact duplicate Go function-body signatures."`
 }
 
 // Validate rejects negative --top values.
@@ -165,7 +166,9 @@ func (c ReviewEffectsCmd) Run(kctx *kong.Context, root *Root, deps Deps, ctx con
 }
 
 func (c ReviewBriefCmd) options() app.AuditOptions {
-	return auditOptions(auditSelector{c.Limit, c.Top, c.TopFiles, c.Language, c.Intent}, c.HistoryWindow, c.RefactorSignatures)
+	options := auditOptions(auditSelector{c.Limit, c.Top, c.TopFiles, c.Language, c.Intent}, c.HistoryWindow, c.RefactorSignatures)
+	options.IncludePaths = c.IncludePath
+	return options
 }
 
 func (c ReviewRisksCmd) options() app.AuditOptions {

@@ -417,3 +417,56 @@ func contains(values []string, want string) bool {
 	}
 	return false
 }
+
+func TestExactIncludePathsPreserveExclusionBoundaries(t *testing.T) {
+	t.Parallel()
+	root := writeTree(t, map[string]string{
+		"source.go":               "package source\n",
+		".work/selected/file.go":  "package selected\n",
+		".work/selected/other.go": "package other\n",
+		".work/noise/file.go":     "package noise\n",
+	})
+	cfg := boundedConfig()
+	cfg.Exclude = []string{".work"}
+	cfg.IncludePaths = []string{".work/selected/file.go"}
+	snap, err := analyze.Build(context.Background(), root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamps, err := analyze.Stamps(context.Background(), root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := analyze.Manifest(context.Background(), root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, paths := range []map[string]bool{
+		func() map[string]bool {
+			out := map[string]bool{}
+			for _, f := range snap.Files {
+				out[f.Path] = true
+			}
+			return out
+		}(),
+		func() map[string]bool {
+			out := map[string]bool{}
+			for p := range stamps {
+				out[p] = true
+			}
+			return out
+		}(),
+		func() map[string]bool {
+			out := map[string]bool{}
+			for p := range manifest {
+				out[p] = true
+			}
+			return out
+		}(),
+	} {
+		want := map[string]bool{"source.go": true, ".work/selected/file.go": true}
+		if !reflect.DeepEqual(paths, want) {
+			t.Fatalf("admitted paths = %v", paths)
+		}
+	}
+}

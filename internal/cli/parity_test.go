@@ -145,3 +145,27 @@ func writeAuditFixture(t *testing.T, root, name, body string) {
 		t.Fatal(err)
 	}
 }
+
+func TestReviewBriefRepeatableIncludePath(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".work"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	writeAuditFixture(t, root, ".work/one.go", "package scratch\nfunc One() {}\n")
+	writeAuditFixture(t, root, ".work/two.go", "package scratch\nfunc Two() {}\n")
+	writeAuditFixture(t, root, ".work/other.go", "package scratch\nfunc Other() {}\n")
+	var out bytes.Buffer
+	err := cli.Run(context.Background(), []string{"--repo", root, "--format", "json", "review", "brief", "--include-path", ".work/one.go", "--include-path", ".work/two.go"}, newTestDeps(&out))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{".work/one.go", ".work/two.go", "explicit-include"} {
+		if !strings.Contains(out.String(), path) {
+			t.Fatalf("missing %q: %s", path, out.String())
+		}
+	}
+	if strings.Contains(out.String(), `"path": ".work/other.go"`) {
+		t.Fatalf("unselected scratch surfaced: %s", out.String())
+	}
+}

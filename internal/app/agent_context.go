@@ -25,10 +25,6 @@ type agentSource struct {
 }
 
 func (a *AgentServeState) captureSources(ctx context.Context, snap analyze.Snapshot) error {
-	stamps, err := analyze.Stamps(ctx, a.root, a.service.deps.Config)
-	if err != nil {
-		return err
-	}
 	sources := make(map[string]agentSource, len(snap.Files))
 	redacted := make(map[string]bool)
 	hashes := make(map[string]string, len(snap.Files))
@@ -36,32 +32,35 @@ func (a *AgentServeState) captureSources(ctx context.Context, snap analyze.Snaps
 		if contextErr := ctx.Err(); contextErr != nil {
 			return contextErr
 		}
-		path, pathErr := agentSourcePath(a.root, file.Path)
-		if pathErr != nil {
+		if _, pathErr := agentSourcePath(a.root, file.Path); pathErr != nil {
 			return pathErr
 		}
-		contents, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return fmt.Errorf("capture %s: %w", file.Path, readErr)
+		contents, ok := snap.Captured[file.Path]
+		if !ok {
+			return fmt.Errorf("capture %s: source unavailable", file.Path)
 		}
 		if int64(len(contents)) != file.Size {
 			return fmt.Errorf("capture %s: size changed", file.Path)
 		}
-		hashes[file.Path] = agentContentFingerprint(contents)
+		fingerprint := agentContentFingerprint(contents)
+		hashes[file.Path] = fingerprint
 		if agentSecretSource(file.Path, contents) {
 			redacted[file.Path] = true
 			continue
 		}
-		sources[file.Path] = agentSource{Path: file.Path, Content: string(contents), Fingerprint: agentContentFingerprint(contents)}
+		sources[file.Path] = agentSource{Path: file.Path, Content: string(contents), Fingerprint: fingerprint}
 	}
+	// Live builds and validated cache loads both bracket their source reads
+	// with stamp walks. Carry that receipt forward and reject intervening
+	// metadata changes without reading admitted source a second time.
 	verifiedStamps, err := analyze.Stamps(ctx, a.root, a.service.deps.Config)
 	if err != nil {
 		return err
 	}
-	if !agentSameStamps(stamps, verifiedStamps) {
+	if !agentSameStamps(snap.CapturedStamps, verifiedStamps) {
 		return errors.New("source changed during session capture")
 	}
-	a.sources, a.redacted, a.hashes, a.stamps, a.fingerprint = sources, redacted, hashes, stamps, agentSourcesFingerprint(sources)
+	a.sources, a.redacted, a.hashes, a.stamps, a.fingerprint = sources, redacted, hashes, verifiedStamps, agentSourcesFingerprint(sources)
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -96,6 +97,7 @@ type AuditOptions struct {
 	Limit              int
 	Language           string
 	Intent             string
+	IncludePaths       []string
 	IncludeClasses     []string
 	HistoryWindow      int
 	RefactorSignatures bool
@@ -202,25 +204,34 @@ func (s Service) ReviewBriefWithOptions(ctx context.Context, root string, option
 	// Workspace artifacts remain visible through the hygiene packet, but must
 	// not consume source-analysis bounds or displace repository-owned code.
 	cfg := s.sourceAnalysisConfig(ctx, root)
+	includes, err := normalizeIncludePaths(root, options.IncludePaths)
+	if err != nil {
+		return analyze.Snapshot{}, nil, err
+	}
+	cfg.IncludePaths = includes
 	snap, err := s.buildSnapshot(ctx, root, cfg)
 	if err != nil {
 		return analyze.Snapshot{}, nil, err
 	}
 	filtered := filterAuditSnapshot(snap, options)
 	hygiene := scan.Hygiene(ctx, snap.Root, snap)
-	risks, err := scan.Risk(ctx, filtered, options.Limit)
+	sources, err := scan.ReviewSources(ctx, filtered, scan.ReviewSourceOptions{Limit: options.Limit, Language: options.Language})
 	if err != nil {
 		return analyze.Snapshot{}, nil, err
 	}
-	surface, err := scan.Surface(ctx, filtered, options.Limit)
-	if err != nil {
-		return analyze.Snapshot{}, nil, err
+	intentPaths := []string{}
+	for _, file := range ranking.Rank(filtered, repo.ModulePath(snap.Root), ranking.Options{Intent: options.Intent}) {
+		if file.IntentHits > 0 {
+			intentPaths = append(intentPaths, file.Path)
+		}
 	}
-	effects, err := scan.EffectsWithOptions(ctx, filtered, scan.EffectsOptions{Limit: options.Limit, Language: options.Language})
-	if err != nil {
-		return analyze.Snapshot{}, nil, err
+	admittedIncludes := []string{}
+	for _, file := range filtered.Files {
+		if slices.Contains(includes, file.Path) {
+			admittedIncludes = append(admittedIncludes, file.Path)
+		}
 	}
-	report := review.Compose(review.Packets{Overview: scan.Overview(filtered), Risks: risks, Surface: surface, Effects: effects, Changes: scan.Changes(ctx, snap.Root, defaultReviewChangeDays, options.Limit, time.Time{}), Paths: review.ReportPaths(snap.Root, filtered.Files)}, options.Limit)
+	report := review.Compose(review.Packets{IncludePaths: admittedIncludes, IntentPaths: intentPaths, Overview: scan.Overview(filtered), Risks: sources.Risks, Surface: sources.Surface, Effects: sources.Effects, Changes: scan.Changes(ctx, snap.Root, defaultReviewChangeDays, options.Limit, time.Time{}), Paths: review.ReportPaths(snap.Root, filtered.Files)}, options.Limit)
 	briefHygiene := reviewBriefHygiene{Counts: hygiene.Counts, UntrackedCode: hygiene.UntrackedCode, Note: hygiene.Note}
 	if hygiene.Counts.IgnoredSource > 0 {
 		briefHygiene.Details = []string{"pan", "scan", "hygiene", "--repo", "."}
@@ -256,4 +267,36 @@ func (s Service) sourceAnalysisConfig(ctx context.Context, root string) config.C
 	ignored = append(ignored, ".work")
 	cfg.Exclude = config.NormalizeExcludes(append(cfg.Exclude, ignored...))
 	return cfg
+}
+
+// normalizeIncludePaths rejects aliases through symlinks and repository escapes.
+func normalizeIncludePaths(root string, paths []string) ([]string, error) {
+	out := make([]string, 0, len(paths))
+	for _, selected := range paths {
+		if selected == "" || filepath.IsAbs(selected) || !filepath.IsLocal(selected) {
+			return nil, fmt.Errorf("include path must be repository-relative: %q", selected)
+		}
+		clean := filepath.Clean(selected)
+		current := root
+		for _, part := range strings.Split(clean, string(filepath.Separator)) {
+			current = filepath.Join(current, part)
+			info, err := os.Lstat(current)
+			if err != nil {
+				return nil, fmt.Errorf("include path %q: %w", selected, err)
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				return nil, fmt.Errorf("include path contains symlink: %q", selected)
+			}
+		}
+		info, err := os.Lstat(current)
+		if err != nil {
+			return nil, fmt.Errorf("include path %q: %w", selected, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("include path must be a regular file: %q", selected)
+		}
+		out = append(out, filepath.ToSlash(clean))
+	}
+	slices.Sort(out)
+	return slices.Compact(out), nil
 }

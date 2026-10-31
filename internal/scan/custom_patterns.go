@@ -55,6 +55,19 @@ type compiledPattern struct {
 	re *regexp2.Regexp
 }
 
+type preparedCustomTerm struct {
+	PathTerm
+	matcher pathTermMatcher
+}
+
+func prepareCustomTerms(terms []PathTerm) []preparedCustomTerm {
+	prepared := make([]preparedCustomTerm, len(terms))
+	for i, term := range terms {
+		prepared[i] = preparedCustomTerm{PathTerm: term, matcher: preparePathTerm(strings.ToLower(term.Term))}
+	}
+	return prepared
+}
+
 // LoadCustomPatterns validates a Pan-compatible patterns JSON document.
 func LoadCustomPatterns(data []byte) (CustomPatterns, error) {
 	var patterns CustomPatterns
@@ -124,7 +137,7 @@ func RiskWithCustomPatterns(ctx context.Context, snap analyze.Snapshot, top int,
 	if err != nil {
 		return RiskReport{}, err
 	}
-	if err := applyCustomPatterns(ctx, snap, patterns.PathTerms, compiled, &report); err != nil {
+	if err := applyCustomPatterns(ctx, snap, prepareCustomTerms(patterns.PathTerms), compiled, &report); err != nil {
 		return RiskReport{}, err
 	}
 	return finalizeCustomRisk(report, top), nil
@@ -143,7 +156,7 @@ func compileCustomPatterns(patterns CustomPatterns) ([]compiledPattern, error) {
 	return compiled, nil
 }
 
-func applyCustomPatterns(ctx context.Context, snap analyze.Snapshot, terms []PathTerm, patterns []compiledPattern, report *RiskReport) error {
+func applyCustomPatterns(ctx context.Context, snap analyze.Snapshot, terms []preparedCustomTerm, patterns []compiledPattern, report *RiskReport) error {
 	byPath := make(map[string]int, len(report.Files))
 	for i := range report.Files {
 		byPath[report.Files[i].Path] = i
@@ -196,7 +209,7 @@ func compareCustomRisk(left, right FileRisk) int {
 }
 
 type customRiskRules struct {
-	terms    []PathTerm
+	terms    []preparedCustomTerm
 	patterns []compiledPattern
 }
 
@@ -211,6 +224,10 @@ func selectorApplies(rel string, include, exclude []string) bool {
 }
 
 func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules, risk *FileRisk) error {
+	return addCustomRiskWithLines(ctx, root, rel, rules, risk, nil)
+}
+
+func addCustomRiskWithLines(ctx context.Context, root, rel string, rules customRiskRules, risk *FileRisk, source *sourceLineView) error {
 	// Preserve the historical custom-catalog reason ordering for callers that
 	// display the built-in marker once per source occurrence; structured
 	// score_components remain deduplicated by the built-in scorer.
@@ -221,7 +238,7 @@ func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules,
 		if !selectorApplies(rel, term.IncludeGlobs, term.ExcludeGlobs) {
 			continue
 		}
-		if pathTermMatches(strings.ToLower(rel), strings.ToLower(term.Term)) {
+		if term.matcher.matches(strings.ToLower(rel)) {
 			risk.Score += term.Weight
 			risk.Lanes = appendUnique(risk.Lanes, laneBestPractices)
 			risk.Reasons = append(risk.Reasons, "custom:path:"+term.Term)
@@ -232,12 +249,15 @@ func addCustomRisk(ctx context.Context, root, rel string, rules customRiskRules,
 		risk.Reasons = capReasons(risk.Reasons)
 		return nil
 	}
-	lines, _, err := readLines(ctx, filepath.Join(root, filepathFromSlash(rel)))
-	if err != nil {
-		return fmt.Errorf("read custom pattern source %s: %w", rel, err)
+	if source == nil {
+		lines, truncated, err := readLines(ctx, filepath.Join(root, filepathFromSlash(rel)))
+		if err != nil {
+			return fmt.Errorf("read custom pattern source %s: %w", rel, err)
+		}
+		source = &sourceLineView{lines: lines, truncated: truncated}
 	}
-	text := make([]string, len(lines))
-	for i, line := range lines {
+	text := make([]string, len(source.lines))
+	for i, line := range source.lines {
 		text[i] = line.text
 	}
 	for _, pattern := range rules.patterns {

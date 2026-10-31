@@ -14,7 +14,7 @@ const taskSelectionWorkCap = 96
 // packTaskTargets tries feasible direct evidence for distinct terms before
 // filling the remainder in normal rank order. Failed candidates do not stop
 // selection or consume the embedded-source cap.
-func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, symbolMode bool) error {
+func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, relationships taskRelationships) error {
 	identifiers := taskGoalIdentifiers(report.Goal)
 	terms := slices.Clone(identifiers)
 	for _, term := range goalTerms(report.Goal) {
@@ -25,7 +25,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 	supported := make(map[string]bool)
 	for _, candidate := range candidates {
 		for _, term := range terms {
-			if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
+			if candidateMatchesTerm(candidate, term, identifiers) {
 				supported[term] = true
 			}
 		}
@@ -37,7 +37,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			return nil
 		}
 		attempted[candidate.file.Path] = true
-		matched := candidateTerms(candidate, terms, symbolMode, identifiers)
+		matched := candidateTerms(candidate, terms, identifiers)
 		nextCovered := make(map[string]bool, len(covered)+len(matched))
 		for term := range covered {
 			nextCovered[term] = true
@@ -45,7 +45,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 		for _, term := range matched {
 			nextCovered[term] = true
 		}
-		accepted, err := tryTaskTarget(report, candidate, snap, ranked, consumed, len(candidates), len(supported), len(nextCovered))
+		accepted, err := tryTaskTarget(report, candidate, snap, ranked, consumed, len(candidates), len(supported), len(nextCovered), relationships)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 			if len(attempted) >= taskSelectionWorkCap || len(report.Targets) == taskTargetLimit || covered[term] {
 				break
 			}
-			if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
+			if candidateMatchesTerm(candidate, term, identifiers) {
 				if err := try(candidate); err != nil {
 					return err
 				}
@@ -95,21 +95,20 @@ func packTaskTargets(report *TaskReport, candidates []taskCandidate, snap analyz
 	return nil
 }
 
-func candidateMatchesTerm(candidate taskCandidate, term string, symbolMode bool, identifiers []string) bool {
+func candidateMatchesTerm(candidate taskCandidate, term string, identifiers []string) bool {
 	if candidate.fallback {
 		return false
 	}
 	if slices.Contains(identifiers, term) {
 		return slices.Contains(candidate.exactSymbols, term)
 	}
-	_, _, score := fieldEvidence(&candidate.file, []string{term}, symbolMode)
-	return score > 0
+	return slices.Contains(candidate.matchedTerms, term)
 }
 
-func candidateTerms(candidate taskCandidate, terms []string, symbolMode bool, identifiers []string) []string {
+func candidateTerms(candidate taskCandidate, terms []string, identifiers []string) []string {
 	var matched []string
 	for _, term := range terms {
-		if candidateMatchesTerm(candidate, term, symbolMode, identifiers) {
+		if candidateMatchesTerm(candidate, term, identifiers) {
 			matched = append(matched, term)
 		}
 	}
@@ -119,8 +118,8 @@ func candidateTerms(candidate taskCandidate, terms []string, symbolMode bool, id
 // tryTaskTarget charges the complete packet, reserving the final aggregate
 // disclosures before accepting a target. A source-free complete target is the
 // only smaller representation tried; fields within a target stay whole.
-func tryTaskTarget(report *TaskReport, candidate taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, total, supported, covered int) (bool, error) {
-	target, truncations := buildTaskTarget(snap, ranked, candidate, consumed)
+func tryTaskTarget(report *TaskReport, candidate taskCandidate, snap analyze.Snapshot, ranked []ranking.RankedFile, consumed []string, total, supported, covered int, relationships taskRelationships) (bool, error) {
+	target, truncations := buildTaskTarget(snap, ranked, candidate, consumed, relationships)
 	sources := 0
 	for _, prior := range report.Targets {
 		if len(prior.Source) > 0 {

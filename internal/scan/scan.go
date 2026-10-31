@@ -98,13 +98,37 @@ func kebabName(value string) string {
 	return b.String()
 }
 
-// pathTermMatches reports whether a lowercase slash path contains term.
-// Terms containing punctuation match by substring; bare words match on
-// word boundaries so "auth" does not match "author".
-func pathTermMatches(path, term string) bool {
-	if strings.ContainsAny(term, "./-") {
-		return strings.Contains(path, term)
+func prepareRiskPathTerms(terms []riskPathTerm) []riskPathTerm {
+	for i := range terms {
+		terms[i].matcher = preparePathTerm(terms[i].Term)
 	}
-	re := regexp.MustCompile(`(^|[^a-z0-9])` + regexp.QuoteMeta(term) + `([^a-z0-9]|$)`)
-	return re.MatchString(path)
+	return terms
+}
+
+// pathTermMatcher preserves the historical ASCII word boundaries for bare
+// terms; terms containing ./- use substring matching instead.
+type pathTermMatcher struct {
+	term string
+	re   *regexp.Regexp
+}
+
+func preparePathTerm(term string) pathTermMatcher {
+	matcher := pathTermMatcher{term: term}
+	if !strings.ContainsAny(term, "./-") {
+		matcher.re = regexp.MustCompile(`(^|[^a-z0-9])` + regexp.QuoteMeta(term) + `([^a-z0-9]|$)`)
+	}
+	return matcher
+}
+
+func (matcher pathTermMatcher) matches(path string) bool {
+	if matcher.re == nil {
+		return strings.Contains(path, matcher.term)
+	}
+	return matcher.re.MatchString(path)
+}
+
+// pathTermMatches is the one-off matching form; risk tables and custom
+// catalogs prepare their matchers once before iterating files.
+func pathTermMatches(path, term string) bool {
+	return preparePathTerm(term).matches(path)
 }

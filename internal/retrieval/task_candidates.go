@@ -19,6 +19,7 @@ type taskCandidate struct {
 	evidenceTotal int
 	relevance     int
 	exactSymbols  []string
+	matchedTerms  []string
 	terms         []string
 	fallback      bool
 }
@@ -78,28 +79,32 @@ func taskExactSymbols(file *ranking.RankedFile, identifiers []string) []string {
 // taskCandidates scores every ranked file against the goal. Direct evidence
 // comes before structural owners; no positive evidence falls back to rank.
 func taskCandidates(ranked []ranking.RankedFile, snap analyze.Snapshot, goal string) []taskCandidate {
+	return taskCandidatesWithRelationships(ranked, goal, newTaskRelationships(snap, ranked))
+}
+
+func taskCandidatesWithRelationships(ranked []ranking.RankedFile, goal string, relationships taskRelationships) []taskCandidate {
 	terms := goalTerms(goal)
 	identifiers := taskGoalIdentifiers(goal)
 	symbolMode := isSymbolGoal(goal)
 	byPath := make(map[string]*taskCandidate, len(ranked))
 	for i := range ranked {
 		file := &ranked[i]
-		evidence, total, score := fieldEvidence(file, terms, symbolMode)
+		evidence, total, score, matched := fieldEvidenceWithMatches(file, terms, symbolMode)
 		if score <= 0 {
 			continue
 		}
 		byPath[file.Path] = &taskCandidate{
 			file: *file, evidence: evidence, evidenceTotal: total, relevance: score,
-			exactSymbols: taskExactSymbols(file, identifiers), terms: terms,
+			exactSymbols: taskExactSymbols(file, identifiers), matchedTerms: matched, terms: terms,
 		}
 	}
 	for _, seedPath := range slices.Sorted(maps.Keys(byPath)) {
 		seed := byPath[seedPath]
-		for _, importer := range impactImporters(seed.file, ranked) {
-			addStructuralOwner(byPath, ranked, structuralOwner{target: importer, field: "importer-owner", seed: seedPath, credit: 6})
+		for _, importer := range relationships.importersOf(seed.file) {
+			addStructuralOwner(byPath, relationships.byPath, structuralOwner{target: importer, field: "importer-owner", seed: seedPath, credit: 6})
 		}
-		for _, callerFile := range lexicalCallerFiles(snap, seed.file) {
-			addStructuralOwner(byPath, ranked, structuralOwner{target: callerFile, field: "caller-owner", seed: seedPath, credit: 4})
+		for _, callerFile := range relationships.callersOf(seed.file) {
+			addStructuralOwner(byPath, relationships.byPath, structuralOwner{target: callerFile, field: "caller-owner", seed: seedPath, credit: 4})
 		}
 	}
 	var candidates []taskCandidate
@@ -147,23 +152,19 @@ type structuralOwner struct {
 	credit int
 }
 
-func addStructuralOwner(byPath map[string]*taskCandidate, ranked []ranking.RankedFile, owner structuralOwner) {
+func addStructuralOwner(byPath map[string]*taskCandidate, rankedByPath map[string]ranking.RankedFile, owner structuralOwner) {
 	if _, exists := byPath[owner.target]; exists {
 		return
 	}
 	if isTestFile(owner.target) {
 		return
 	}
-	for i := range ranked {
-		if ranked[i].Path != owner.target {
-			continue
-		}
+	if file, ok := rankedByPath[owner.target]; ok {
 		byPath[owner.target] = &taskCandidate{
-			file:      ranked[i],
+			file:      file,
 			evidence:  []TaskEvidence{{Field: owner.field, Value: owner.seed}},
 			relevance: owner.credit,
 		}
-		return
 	}
 }
 
@@ -180,8 +181,15 @@ type evidenceField struct {
 // path evidence, leaning toward definers over files whose path merely
 // echoes the term.
 func fieldEvidence(file *ranking.RankedFile, terms []string, symbolMode bool) (evidence []TaskEvidence, total, score int) {
+	evidence, total, score, _ = fieldEvidenceWithMatches(file, terms, symbolMode)
+	return evidence, total, score
+}
+
+// fieldEvidenceWithMatches also retains the scoring pass's matched goal terms
+// for packing. This slice is request-local and does not change emitted evidence.
+func fieldEvidenceWithMatches(file *ranking.RankedFile, terms []string, symbolMode bool) (evidence []TaskEvidence, total, score int, matched []string) {
 	if len(terms) == 0 {
-		return nil, 0, 0
+		return nil, 0, 0, nil
 	}
 	pathWeight, symbolWeight, signatureWeight := 8, 8, 4
 	if symbolMode {
@@ -200,13 +208,15 @@ func fieldEvidence(file *ranking.RankedFile, terms []string, symbolMode bool) (e
 		)
 	}
 	seen := make(map[string]struct{})
+	hits := make([]bool, len(terms))
 	for _, value := range values {
 		parts := evidenceParts(value.field, value.value)
-		for _, term := range terms {
-			matched, exact := ranking.MatchPart(parts, term)
-			if !matched {
+		for i, term := range terms {
+			matches, exact := ranking.MatchPart(parts, term)
+			if !matches {
 				continue
 			}
+			hits[i] = true
 			total++
 			key := value.field + "\x00" + value.value
 			if _, dup := seen[key]; !dup {
@@ -222,7 +232,12 @@ func fieldEvidence(file *ranking.RankedFile, terms []string, symbolMode bool) (e
 			}
 		}
 	}
-	return evidence, total, score
+	for i, term := range terms {
+		if hits[i] {
+			matched = append(matched, term)
+		}
+	}
+	return evidence, total, score, matched
 }
 
 // evidenceParts returns the term-matching vocabulary of one evidence field.

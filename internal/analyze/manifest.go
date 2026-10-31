@@ -26,7 +26,7 @@ func Manifest(ctx context.Context, root string, cfg config.Config) (map[string]s
 		return nil, err
 	}
 	defer func() { _ = scope.Close() }()
-	visitor := manifestVisitor{ctx: ctx, scope: scope, root: root, excludes: config.NormalizeExcludes(cfg.Exclude), out: map[string]string{}}
+	visitor := manifestVisitor{ctx: ctx, scope: scope, root: root, excludes: config.NormalizeExcludes(cfg.Exclude), includes: cfg.IncludePaths, out: map[string]string{}}
 	if err := filepath.WalkDir(root, visitor.visit); err != nil {
 		return nil, err
 	}
@@ -39,6 +39,7 @@ type manifestVisitor struct {
 	scope    *os.Root
 	root     string
 	excludes []string
+	includes []string
 	out      map[string]string
 }
 
@@ -57,17 +58,16 @@ func (v manifestVisitor) visit(p string, d fs.DirEntry, walkErr error) error {
 	if rel == "." {
 		return nil
 	}
+	if excludedEntry(rel, d.IsDir(), v.excludes, v.includes) {
+		if d.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	}
 	if d.IsDir() {
-		return v.visitDir(rel)
+		return nil
 	}
 	return v.visitFile(rel, d)
-}
-
-func (v manifestVisitor) visitDir(rel string) error {
-	if excluded(rel, v.excludes) {
-		return filepath.SkipDir
-	}
-	return nil
 }
 
 func (v manifestVisitor) visitFile(rel string, d fs.DirEntry) error {

@@ -3,6 +3,7 @@ package analyze
 import (
 	"go/ast"
 	"go/types"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -12,10 +13,11 @@ import (
 // addSemanticGoCalls uses Go type information to resolve the target of each
 // call. Syntax parsing still supplies symbols if a module cannot be loaded.
 func (b *builder) addSemanticGoCalls() {
-	if !hasGoFiles(b.snap.Files) {
+	patterns := semanticGoPatterns(b.snap.Files)
+	if len(patterns) == 0 {
 		return
 	}
-	loaded, err := packages.Load(&packages.Config{Context: b.ctx, Dir: b.snap.Root, Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedCompiledGoFiles | packages.NeedName}, "./...")
+	loaded, err := packages.Load(&packages.Config{Context: b.ctx, Dir: b.snap.Root, Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo | packages.NeedCompiledGoFiles | packages.NeedName}, patterns...)
 	if err != nil {
 		b.diag(Diagnostic{Level: diagnosticWarning, Message: "semantic Go analysis: " + err.Error()})
 		return
@@ -62,13 +64,32 @@ func (b *builder) addSemanticGoCalls() {
 	}
 }
 
-func hasGoFiles(files []File) bool {
+// semanticGoPatterns selects only captured Go package directories. Imports are
+// still loaded for type information, but are not explicit analysis targets.
+func semanticGoPatterns(files []File) []string {
+	directories := make(map[string]struct{})
 	for _, file := range files {
-		if file.Language == LanguageGo {
-			return true
+		if file.Language != LanguageGo || !filepath.IsLocal(filepath.FromSlash(file.Path)) {
+			continue
+		}
+		dir := filepath.ToSlash(filepath.Dir(filepath.FromSlash(file.Path)))
+		// go list treats any "..." in a pattern as a wildcard. Leave such
+		// directories to lexical evidence rather than widening the load.
+		if strings.Contains(dir, "...") {
+			continue
+		}
+		if dir == "." {
+			directories["."] = struct{}{}
+		} else {
+			directories["./"+dir] = struct{}{}
 		}
 	}
-	return false
+	patterns := make([]string, 0, len(directories))
+	for dir := range directories {
+		patterns = append(patterns, dir)
+	}
+	slices.Sort(patterns)
+	return patterns
 }
 
 func (b *builder) addPackageCalls(pkg *packages.Package, file *ast.File, targets map[types.Object]Location, resolved map[Location]Edge, conflicted map[Location]bool) {

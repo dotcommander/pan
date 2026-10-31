@@ -360,21 +360,13 @@ func (s Service) collectReviewReport(ctx context.Context, root string, options R
 	if err != nil {
 		return reviewReportInputs{}, err
 	}
-	risks, err := scan.RiskWithCustomPatterns(ctx, snap, 0, patterns)
-	if err != nil {
-		return reviewReportInputs{}, err
-	}
-	surface, err := scan.Surface(ctx, snap, 0)
-	if err != nil {
-		return reviewReportInputs{}, err
-	}
-	effects, err := scan.Effects(ctx, snap, 0)
+	sources, err := scan.ReviewSources(ctx, snap, scan.ReviewSourceOptions{Patterns: patterns})
 	if err != nil {
 		return reviewReportInputs{}, err
 	}
 	hygiene := scan.Hygiene(ctx, snap.Root, snap)
 	changes := scan.Changes(ctx, snap.Root, options.Days, 0, time.Time{})
-	report := review.Compose(review.Packets{Overview: scan.Overview(snap), Risks: risks, Surface: surface, Effects: effects, Hygiene: hygiene, Changes: changes, Paths: review.ReportPaths(snap.Root, snap.Files)}, 0)
+	report := review.Compose(review.Packets{Overview: scan.Overview(snap), Risks: sources.Risks, Surface: sources.Surface, Effects: sources.Effects, Hygiene: hygiene, Changes: changes, Paths: review.ReportPaths(snap.Root, snap.Files)}, 0)
 	return reviewReportInputs{snapshot: snap, report: report, options: options}, nil
 }
 

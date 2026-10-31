@@ -12,7 +12,7 @@ import (
 
 // buildTaskTarget assembles one target's bounded evidence and relationships.
 // Every applied cap appends a truncation record.
-func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candidate taskCandidate, consumed []string) (TaskTarget, []analyze.Truncation) {
+func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candidate taskCandidate, consumed []string, relationships taskRelationships) (TaskTarget, []analyze.Truncation) {
 	file := candidate.file
 	var truncations []analyze.Truncation
 	symbols := slices.Clone(file.Symbols)
@@ -44,7 +44,7 @@ func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candida
 		truncations = append(truncations, analyze.Truncation{Field: "targets[" + file.Path + "].symbols", Shown: taskSymbolCap, Total: len(symbols), Reason: "symbol cap"})
 		symbols = symbols[:taskSymbolCap]
 	}
-	importers := impactImporters(file, ranked)
+	importers := relationships.importersOf(file)
 	tests := impactTests(file.Path, ranked)
 	var relations []TaskRelationship
 	for _, importer := range importers {
@@ -53,7 +53,7 @@ func buildTaskTarget(snap analyze.Snapshot, ranked []ranking.RankedFile, candida
 	for _, test := range tests {
 		relations = append(relations, TaskRelationship{Kind: "test", Path: test, Provenance: analyze.ConfidenceHeuristic})
 	}
-	for _, caller := range lexicalCallerFiles(snap, file) {
+	for _, caller := range relationships.callersOf(file) {
 		relations = append(relations, TaskRelationship{Kind: "caller", Path: caller, Provenance: analyze.ConfidenceLexical})
 	}
 	slices.SortStableFunc(relations, func(a, b TaskRelationship) int {

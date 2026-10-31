@@ -92,23 +92,15 @@ func (r *providerReader) repoContextBrief(ctx context.Context, snap analyze.Snap
 // provider's filtered snapshot remains the only source for scan evidence.
 func (r *providerReader) repoContextAudit(ctx context.Context, snap analyze.Snapshot, args map[string]any) (any, error) {
 	limit := boundedProviderInt(args, "limit", 12, 1, 40)
-	risks, err := scan.Risk(ctx, snap, limit)
-	if err != nil {
-		return nil, err
-	}
-	surface, err := scan.Surface(ctx, snap, limit)
-	if err != nil {
-		return nil, err
-	}
-	effects, err := scan.EffectsWithOptions(ctx, snap, scan.EffectsOptions{Limit: limit})
+	sources, err := scan.ReviewSources(ctx, snap, scan.ReviewSourceOptions{Limit: limit})
 	if err != nil {
 		return nil, err
 	}
 	report := review.Compose(review.Packets{
 		Overview: scan.Overview(snap),
-		Risks:    risks,
-		Surface:  surface,
-		Effects:  effects,
+		Risks:    sources.Risks,
+		Surface:  sources.Surface,
+		Effects:  sources.Effects,
 		Hygiene:  scan.Hygiene(ctx, snap.Root, snap),
 		Changes:  scan.Changes(ctx, snap.Root, providerReviewChangeDays, limit, time.Time{}),
 		Paths:    review.ReportPaths(snap.Root, snap.Files),

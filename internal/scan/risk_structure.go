@@ -12,6 +12,7 @@ import (
 
 // structuralRiskSignals carries graph and declaration evidence for one snapshot.
 type structuralRiskSignals struct {
+	module     string
 	importedBy map[string]int
 	dependsOn  map[string]int
 	symbols    map[string]int
@@ -23,6 +24,7 @@ type structuralRiskSignals struct {
 func structuralSignals(snap analyze.Snapshot) structuralRiskSignals {
 	importPath := moduleImportPath(snap.Root)
 	result := structuralRiskSignals{
+		module:     importPath,
 		importedBy: map[string]int{}, dependsOn: map[string]int{},
 		symbols: map[string]int{}, signatures: map[string]int{},
 	}
@@ -61,7 +63,10 @@ func structuralSignals(snap analyze.Snapshot) structuralRiskSignals {
 // packageImportPath reconstructs a file's Go import path from the module
 // path declared in go.mod; empty when the module path is unknown.
 func packageImportPath(root, rel string) string {
-	module := moduleImportPath(root)
+	return packageImportPathForModule(moduleImportPath(root), rel)
+}
+
+func packageImportPathForModule(module, rel string) string {
 	if module == "" {
 		return ""
 	}

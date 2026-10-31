@@ -100,6 +100,7 @@ func Fingerprint(cfg config.Config) string {
 		MaxNodes        int      `json:"max_nodes"`
 		MaxInstructions int      `json:"max_instructions"`
 		Exclude         []string `json:"exclude"`
+		IncludePaths    []string `json:"include_paths,omitempty"`
 	}{
 		MaxFiles:        normalized.MaxFiles,
 		MaxFileBytes:    normalized.MaxFileBytes,
@@ -107,6 +108,7 @@ func Fingerprint(cfg config.Config) string {
 		MaxNodes:        normalized.MaxNodes,
 		MaxInstructions: normalized.MaxInstructions,
 		Exclude:         normalized.Exclude,
+		IncludePaths:    normalized.IncludePaths,
 	})
 	if err != nil {
 		return ""
@@ -206,7 +208,7 @@ func LoadValidated(ctx context.Context, root, dir string, cfg config.Config) (an
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
 	}
 	status.Usable = true
-	contents, after, reason := verifiedManifestContents(ctx, root, cfg, entry)
+	contents, after, reason := verifyManifest(ctx, root, cfg, entry, true)
 	if reason != "" {
 		status.Stale, status.Reason = true, reason
 		return analyze.Snapshot{}, status, fmt.Errorf("cache unavailable: %s", status.Reason)
@@ -253,33 +255,6 @@ func entryIdentityReason(entry Entry, cfg config.Config) string {
 	return ""
 }
 
-func verifiedManifestContents(ctx context.Context, root string, cfg config.Config, entry Entry) (map[string][]byte, map[string]analyze.FileStamp, string) {
-	before, err := analyze.Stamps(ctx, root, cfg)
-	if err != nil {
-		return nil, nil, "stamp_failed"
-	}
-	if stale, reason := stampsStale(entry.Stamps, before); stale {
-		return nil, nil, reason
-	}
-	contents := make(map[string][]byte, len(entry.Manifest))
-	for path, want := range entry.Manifest {
-		data, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
-		if readErr != nil {
-			return nil, nil, "content_unavailable"
-		}
-		sum := sha256.Sum256(data)
-		if hex.EncodeToString(sum[:]) != want {
-			return nil, nil, reasonContentChanged
-		}
-		contents[path] = data
-	}
-	after, err := analyze.Stamps(ctx, root, cfg)
-	if err != nil || analyzeStampsChanged(before, after) {
-		return nil, nil, "repository_changed_during_capture"
-	}
-	return contents, after, ""
-}
-
 func analyzeStampsChanged(a, b map[string]analyze.FileStamp) bool {
 	stale, _ := stampsStale(a, b)
 	return stale
@@ -313,7 +288,7 @@ func Inspect(ctx context.Context, root, dir string, cfg config.Config) Status {
 		return status
 	}
 	status.Usable = true
-	if _, _, reason := verifiedManifestContents(ctx, root, cfg, entry); reason != "" {
+	if _, _, reason := verifyManifest(ctx, root, cfg, entry, false); reason != "" {
 		status.Stale, status.Reason = true, reason
 		return status
 	}

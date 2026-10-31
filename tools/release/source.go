@@ -137,6 +137,9 @@ func (w *releaseWorkflow) sourceVerify(ctx context.Context) error {
 	if qaErr != nil || cleanErr != nil {
 		return errors.Join(qaErr, cleanErr)
 	}
+	if err := w.installSource(ctx); err != nil {
+		return err
+	}
 	if w.state.PreviousVersion == w.version {
 		return nil
 	}

@@ -46,6 +46,8 @@ type Report struct {
 type readCandidate struct {
 	path     string
 	priority int
+	selected bool
+	intent   bool
 	churn    int
 	why      []string
 }
@@ -54,13 +56,15 @@ type readCandidate struct {
 // packet is already derived by the scan package, so composition is a pure
 // function of these values.
 type Packets struct {
-	Overview scan.OverviewReport
-	Risks    scan.RiskReport
-	Surface  scan.SurfaceReport
-	Effects  scan.EffectsReport
-	Hygiene  scan.HygieneReport
-	Changes  scan.ChangesReport
-	Paths    []string
+	Overview     scan.OverviewReport
+	Risks        scan.RiskReport
+	Surface      scan.SurfaceReport
+	Effects      scan.EffectsReport
+	Hygiene      scan.HygieneReport
+	Changes      scan.ChangesReport
+	Paths        []string
+	IncludePaths []string
+	IntentPaths  []string
 }
 
 // Compose merges the packets into one report and derives the read queue:
@@ -68,6 +72,24 @@ type Packets struct {
 // by path with all reasons preserved. top > 0 caps the queue.
 func Compose(packets Packets, top int) Report {
 	candidates := collectReadCandidates(packets.Risks, packets.Hygiene, packets.Changes, packets.Paths)
+	for _, selection := range []struct {
+		paths  []string
+		reason string
+	}{{packets.IncludePaths, "explicit-include"}, {packets.IntentPaths, "intent-match"}} {
+		for _, path := range selection.paths {
+			entry := candidates[path]
+			if entry == nil {
+				entry = &readCandidate{path: path}
+				candidates[path] = entry
+			}
+			entry.why = appendUnique(entry.why, selection.reason)
+			if selection.reason == "explicit-include" {
+				entry.selected = true
+			} else {
+				entry.intent = true
+			}
+		}
+	}
 	return Report{
 		Overview:  packets.Overview,
 		Risks:     packets.Risks,
@@ -188,6 +210,18 @@ func buildReadQueue(candidates map[string]*readCandidate, top int) []ReadItem {
 // compareReadCandidates orders by priority, then churn, then path so the
 // queue is deterministic.
 func compareReadCandidates(a, b readCandidate) int {
+	if a.selected != b.selected {
+		if a.selected {
+			return -1
+		}
+		return 1
+	}
+	if a.intent != b.intent {
+		if a.intent {
+			return -1
+		}
+		return 1
+	}
 	if a.priority != b.priority {
 		return b.priority - a.priority
 	}

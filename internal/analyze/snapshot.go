@@ -145,7 +145,7 @@ func (b *builder) visit(path string, d fs.DirEntry, walkErr error) error {
 	if rel == "." {
 		return nil
 	}
-	if excluded(slashRel, b.cfg.Exclude) {
+	if excludedEntry(slashRel, d.IsDir(), b.cfg.Exclude, b.cfg.IncludePaths) {
 		return b.visitExcluded(slashRel, d)
 	}
 	_, admitted, walkAction := b.admitEntry(slashRel, d)
@@ -672,6 +672,20 @@ func callName(expr ast.Expr) string {
 		return n.Sel.Name
 	}
 	return ""
+}
+
+// excludedEntry opens only selected files and their traversal ancestors.
+// Other descendants remain excluded even while an ancestor is traversed.
+func excludedEntry(path string, directory bool, names, includes []string) bool {
+	if !excluded(path, names) {
+		return false
+	}
+	for _, selected := range includes {
+		if path == selected || directory && strings.HasPrefix(selected, path+"/") {
+			return false
+		}
+	}
+	return true
 }
 
 func excluded(path string, names []string) bool {

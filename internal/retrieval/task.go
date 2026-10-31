@@ -129,8 +129,9 @@ func Task(snap analyze.Snapshot, ranked []ranking.RankedFile, goal string, opts 
 		Selection: TaskSelection{PolicyID: opts.PolicyID, Strategy: "goal-term-coverage/v2", Limit: taskTargetLimit},
 		Rules:     snap.Instructions,
 	}
-	candidates := taskCandidates(ranked, snap, goal)
-	if err := packTaskTargets(&report, candidates, snap, ranked, consumed, isSymbolGoal(goal)); err != nil {
+	relationships := newTaskRelationships(snap, ranked)
+	candidates := taskCandidatesWithRelationships(ranked, goal, relationships)
+	if err := packTaskTargets(&report, candidates, snap, ranked, consumed, relationships); err != nil {
 		return TaskReport{}, err
 	}
 	if err := finalizeTaskReport(&report); err != nil {
@@ -177,37 +178,7 @@ func setTaskUsedTokens(report *TaskReport) error {
 // lexicalCallerFiles lists files calling a target's uniquely named symbol,
 // or one of its exact typed declarations. Colliding lexical names are omitted.
 func lexicalCallerFiles(snap analyze.Snapshot, target ranking.RankedFile) []string {
-	byName := make(map[string][]analyze.Symbol)
-	for _, symbol := range target.Symbols {
-		byName[symbol.Name] = append(byName[symbol.Name], symbol)
-	}
-	occurrences := make(map[string]int)
-	for _, symbol := range snap.Symbols {
-		occurrences[symbol.Name]++
-	}
-	seen := make(map[string]struct{})
-	var out []string
-	for _, edge := range snap.Edges {
-		if edge.Kind != edgeKindCalls || edge.Location.Path == target.Path {
-			continue
-		}
-		for _, symbol := range byName[edge.To] {
-			if edge.Target != nil {
-				if edge.Confidence != analyze.ConfidenceConfirmed || !edge.CallsSymbol(symbol) {
-					continue
-				}
-			} else if edge.Confidence != analyze.ConfidenceLexical || occurrences[edge.To] > 1 {
-				continue
-			}
-			if _, dup := seen[edge.Location.Path]; !dup {
-				seen[edge.Location.Path] = struct{}{}
-				out = append(out, edge.Location.Path)
-			}
-			break
-		}
-	}
-	slices.Sort(out)
-	return out
+	return newTaskRelationships(snap, nil).callersOf(target)
 }
 
 // NormalizeConsumed canonicalizes consumed paths against root: relative

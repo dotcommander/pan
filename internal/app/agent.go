@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +29,7 @@ type AgentServeState struct {
 	mu          sync.Mutex
 	ready       bool
 	snap        analyze.Snapshot
+	ranked      []ranking.RankedFile
 	sources     map[string]agentSource
 	redacted    map[string]bool
 	hashes      map[string]string
@@ -48,11 +51,18 @@ func (s Service) AgentServe(root string) *AgentServeState {
 func (a *AgentServeState) snapshot(ctx context.Context) (analyze.Snapshot, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.snapshotLocked(ctx)
+}
+
+// snapshotLocked requires a.mu; ranking and source state share one generation.
+func (a *AgentServeState) snapshotLocked(ctx context.Context) (analyze.Snapshot, error) {
 	if a.ready && a.err == nil && a.sourcesFresh(ctx) {
 		a.verifiedAt = time.Now().UTC()
 		return a.snap, nil
 	}
 	a.rebuilds++
+	a.ready = false
+	a.ranked = nil
 	a.snap, a.err = a.service.Snapshot(ctx, a.root)
 	if a.err == nil {
 		a.err = a.captureSources(ctx, a.snap)
@@ -74,11 +84,29 @@ func (a *AgentServeState) sessionFacts() (rebuilds int, builtAt, verifiedAt time
 }
 
 func (a *AgentServeState) rankedSnapshot(ctx context.Context) (analyze.Snapshot, []ranking.RankedFile, error) {
-	snap, err := a.snapshot(ctx)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	snap, err := a.snapshotLocked(ctx)
 	if err != nil {
 		return analyze.Snapshot{}, nil, err
 	}
-	return snap, ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{}), nil
+	if a.ranked == nil {
+		a.ranked = ranking.Rank(snap, repo.ModulePath(snap.Root), ranking.Options{})
+	}
+	// Map rendering filters and assigns detail levels in place. Do not expose
+	// cached slice, maps or nested slices to any request's mutable consumer.
+	return snap, cloneAgentRanking(a.ranked), nil
+}
+
+func cloneAgentRanking(ranked []ranking.RankedFile) []ranking.RankedFile {
+	out := slices.Clone(ranked)
+	for i := range out {
+		out[i].Symbols = slices.Clone(out[i].Symbols)
+		out[i].Imports = slices.Clone(out[i].Imports)
+		out[i].InternalImports = slices.Clone(out[i].InternalImports)
+		out[i].Components = maps.Clone(out[i].Components)
+	}
+	return out
 }
 
 // AgentMapRender renders the current repository map in the requested format.

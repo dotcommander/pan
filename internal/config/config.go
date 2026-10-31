@@ -27,20 +27,22 @@ var defaults []byte
 // values mean "use the embedded default" so a partially populated user
 // config file stays valid; Normalized fills them in.
 type Config struct {
-	ReviewModelPrompt string           `yaml:"review_model_prompt" json:"review_model_prompt"`
-	MaxFiles          int              `yaml:"max_files" json:"max_files"`
-	MaxFileBytes      int64            `yaml:"max_file_bytes" json:"max_file_bytes"`
-	MaxTotalBytes     int64            `yaml:"max_total_bytes" json:"max_total_bytes"`
-	MaxNodes          int              `yaml:"max_nodes" json:"max_nodes"`
-	MaxInstructions   int              `yaml:"max_instructions" json:"max_instructions"`
-	CommandTimeout    time.Duration    `yaml:"command_timeout" json:"command_timeout"`
-	OutputBudget      int              `yaml:"output_budget" json:"output_budget"`
-	Exclude           []string         `yaml:"exclude" json:"exclude"`
-	Improve           ImproveRules     `yaml:"improve" json:"improve"`
-	Lsp               LspRules         `yaml:"lsp" json:"lsp"`
-	CommandHelp       CommandHelpRules `yaml:"command_help" json:"command_help"`
-	OutgoingGit       OutgoingGitRules `yaml:"outgoing_git" json:"outgoing_git"`
-	Clean             CleanRules       `yaml:"clean" json:"clean"`
+	ReviewModelPrompt string        `yaml:"review_model_prompt" json:"review_model_prompt"`
+	MaxFiles          int           `yaml:"max_files" json:"max_files"`
+	MaxFileBytes      int64         `yaml:"max_file_bytes" json:"max_file_bytes"`
+	MaxTotalBytes     int64         `yaml:"max_total_bytes" json:"max_total_bytes"`
+	MaxNodes          int           `yaml:"max_nodes" json:"max_nodes"`
+	MaxInstructions   int           `yaml:"max_instructions" json:"max_instructions"`
+	CommandTimeout    time.Duration `yaml:"command_timeout" json:"command_timeout"`
+	OutputBudget      int           `yaml:"output_budget" json:"output_budget"`
+	Exclude           []string      `yaml:"exclude" json:"exclude"`
+	// IncludePaths is an exact-file, request-local exclusion override.
+	IncludePaths []string         `yaml:"-" json:"-"`
+	Improve      ImproveRules     `yaml:"improve" json:"improve"`
+	Lsp          LspRules         `yaml:"lsp" json:"lsp"`
+	CommandHelp  CommandHelpRules `yaml:"command_help" json:"command_help"`
+	OutgoingGit  OutgoingGitRules `yaml:"outgoing_git" json:"outgoing_git"`
+	Clean        CleanRules       `yaml:"clean" json:"clean"`
 
 	// cleanExplicit records clean keys present in the Pan config source. It is
 	// intentionally not serialized: it only resolves compatibility precedence
@@ -363,6 +365,9 @@ func (c Config) Normalized() Config {
 		c.Exclude = slices.Clone(d.Exclude)
 	}
 	c.Exclude = NormalizeExcludes(c.Exclude)
+	c.IncludePaths = slices.Clone(c.IncludePaths)
+	slices.Sort(c.IncludePaths)
+	c.IncludePaths = slices.Compact(c.IncludePaths)
 	c.Improve = c.Improve.Normalized()
 	c.Lsp = c.Lsp.Normalized()
 	c.Clean = c.Clean.Normalized()

@@ -36,7 +36,7 @@ func Stamps(ctx context.Context, root string, cfg config.Config) (map[string]Fil
 	}
 	exclude := config.NormalizeExcludes(cfg.Exclude)
 	stamps := make(map[string]FileStamp)
-	walker := &stampWalker{root: root, exclude: exclude, stamps: stamps}
+	walker := &stampWalker{root: root, exclude: exclude, includes: cfg.IncludePaths, stamps: stamps}
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		return walker.visit(ctx, path, d, walkErr)
 	})
@@ -48,9 +48,10 @@ func Stamps(ctx context.Context, root string, cfg config.Config) (map[string]Fil
 
 // stampWalker accumulates identity stamps for one bounded walk.
 type stampWalker struct {
-	root    string
-	exclude []string
-	stamps  map[string]FileStamp
+	root     string
+	exclude  []string
+	includes []string
+	stamps   map[string]FileStamp
 }
 
 // visit is the filepath.WalkDir callback: it records the identity stamp of
@@ -71,10 +72,13 @@ func (w *stampWalker) visit(ctx context.Context, path string, d fs.DirEntry, wal
 		return nil
 	}
 	slashRel := filepath.ToSlash(rel)
-	if d.IsDir() {
-		if excluded(slashRel, w.exclude) {
+	if excludedEntry(slashRel, d.IsDir(), w.exclude, w.includes) {
+		if d.IsDir() {
 			return filepath.SkipDir
 		}
+		return nil
+	}
+	if d.IsDir() {
 		return nil
 	}
 	if d.Type()&fs.ModeSymlink != 0 || !d.Type().IsRegular() {
